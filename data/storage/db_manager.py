@@ -284,14 +284,14 @@ class DatabaseManager:
     async def set_state(self, key: str, value: str) -> bool:
         """bot_state 테이블에 key-value 저장 (upsert)"""
         try:
-            await self.db.execute(
+            await self._conn.execute(
                 """INSERT INTO bot_state (key, value, updated_at)
                    VALUES (?, ?, datetime('now','localtime'))
                    ON CONFLICT(key) DO UPDATE SET value=excluded.value,
                    updated_at=excluded.updated_at""",
                 (key, value)
             )
-            await self.db.commit()
+            await self._conn.commit()
             return True
         except Exception as e:
             logger.error(f"set_state 오류 [{key}]: {e}")
@@ -300,7 +300,7 @@ class DatabaseManager:
     async def get_state(self, key: str) -> str | None:
         """bot_state 테이블에서 key 조회"""
         try:
-            async with self.db.execute(
+            async with self._conn.execute(
                 "SELECT value FROM bot_state WHERE key = ?", (key,)
             ) as cur:
                 row = await cur.fetchone()
@@ -312,8 +312,8 @@ class DatabaseManager:
     async def delete_state(self, key: str) -> bool:
         """bot_state 테이블에서 key 삭제"""
         try:
-            await self.db.execute("DELETE FROM bot_state WHERE key = ?", (key,))
-            await self.db.commit()
+            await self._conn.execute("DELETE FROM bot_state WHERE key = ?", (key,))
+            await self._conn.commit()
             return True
         except Exception as e:
             logger.error(f"delete_state 오류 [{key}]: {e}")
