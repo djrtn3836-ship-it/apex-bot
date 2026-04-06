@@ -2524,7 +2524,7 @@ class TradingEngine:
                         market       = mkt,
                         entry_price  = _price,
                         initial_stop = _price * 0.97,
-                        atr          = None,
+                        atr          = 0.0,
                     )
                     if self.position_mgr_v2 is not None:
                         try:
