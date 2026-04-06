@@ -1,0 +1,175 @@
+"""
+APEX BOT - 설정 관리 모듈
+환경변수 + YAML 설정 통합 관리
+
+수정 이력:
+  v1.1 - mode 기본값 "live" → "paper" (실수 실거래 방지)
+       - 실거래 시 환경변수 APEX_LIVE_CONFIRM=yes 이중잠금 추가
+"""
+import os
+from pathlib import Path
+from dataclasses import dataclass, field
+from typing import List, Optional
+from dotenv import load_dotenv
+
+load_dotenv()
+
+BASE_DIR = Path(__file__).parent.parent
+
+
+@dataclass
+class APIConfig:
+    """업비트 API 설정"""
+    access_key: str = field(default_factory=lambda: os.getenv("UPBIT_ACCESS_KEY", ""))
+    secret_key: str = field(default_factory=lambda: os.getenv("UPBIT_SECRET_KEY", ""))
+    base_url: str = "https://api.upbit.com/v1"
+    ws_url: str = "wss://api.upbit.com/websocket/v1"
+    rest_limit_per_sec: int = 10
+    ws_max_connections: int = 5
+    order_limit_per_sec: int = 8
+
+
+@dataclass
+class TradingConfig:
+    """트레이딩 설정"""
+    target_markets: List[str] = field(default_factory=lambda: [
+        "KRW-BTC", "KRW-ETH", "KRW-XRP", "KRW-SOL", "KRW-ADA",
+        "KRW-DOGE", "KRW-AVAX", "KRW-DOT", "KRW-LINK", "KRW-ATOM"
+    ])
+    primary_timeframe: str = "60"
+    signal_timeframe: str = "5"
+    trend_timeframe: str = "1440"
+    available_timeframes: List[str] = field(default_factory=lambda: [
+        "1", "5", "15", "60", "240", "1440"
+    ])
+    order_type: str = "limit"
+    min_order_amount: int = 5000
+    fee_rate: float = 0.0005
+    slippage_rate: float = 0.001
+    max_positions: int = 10
+    max_position_ratio: float = 0.20
+
+
+@dataclass
+class RiskConfig:
+    """리스크 관리 설정"""
+    max_risk_per_trade: float = 0.02
+    kelly_fraction: float = 0.5
+    min_position_size: float = 5000
+    atr_stop_multiplier: float = 1.5
+    atr_target_multiplier: float = 3.0
+    trailing_stop_activation: float = 0.03
+    trailing_stop_distance: float = 0.015
+    daily_loss_limit: float = 0.05
+    total_drawdown_limit: float = 0.10
+    monthly_loss_limit: float = 0.15
+    consecutive_loss_limit: int = 5
+    buy_signal_threshold: float = 1.50  # 복원: ML+전략1개 동의 필요
+    sell_signal_threshold: float = -1.2  # 완화: -4.5→-1.2
+
+
+@dataclass
+class MLConfig:
+    """ML 모델 설정"""
+    use_gpu: bool = True
+    device: str = "cuda"
+    mixed_precision: bool = True
+    sequence_length: int = 60
+    prediction_horizon: int = 5
+    feature_count: int = 120
+    hidden_size: int = 256
+    num_layers: int = 4
+    dropout: float = 0.2
+    attention_heads: int = 8
+    batch_size: int = 512
+    learning_rate: float = 0.001
+    epochs: int = 200
+    early_stopping_patience: int = 20
+    train_ratio: float = 0.7
+    val_ratio: float = 0.15
+    test_ratio: float = 0.15
+    model_save_dir: Path = BASE_DIR / "models" / "saved"
+    retrain_interval_hours: int = 24
+
+
+@dataclass
+class MonitoringConfig:
+    """모니터링 설정"""
+    dashboard_host: str = "0.0.0.0"
+    dashboard_port: int = 8888
+    telegram_token: str = field(
+        default_factory=lambda: os.getenv("TELEGRAM_TOKEN", "")
+    )
+    telegram_chat_id: str = field(
+        default_factory=lambda: os.getenv("TELEGRAM_CHAT_ID", "")
+    )
+    log_level: str = "INFO"
+    log_dir: Path = BASE_DIR / "logs"
+    alert_on_trade: bool = True
+    alert_on_error: bool = True
+    alert_on_drawdown: bool = True
+
+
+@dataclass
+class DatabaseConfig:
+    """데이터베이스 설정"""
+    db_path: Path = BASE_DIR / "database" / "apex_bot.db"
+    cache_max_candles: int = 2000
+    cache_max_ticks: int = 10000
+
+
+@dataclass
+class Settings:
+    """통합 설정"""
+    api: APIConfig = field(default_factory=APIConfig)
+    trading: TradingConfig = field(default_factory=TradingConfig)
+    risk: RiskConfig = field(default_factory=RiskConfig)
+    ml: MLConfig = field(default_factory=MLConfig)
+    monitoring: MonitoringConfig = field(default_factory=MonitoringConfig)
+    database: DatabaseConfig = field(default_factory=DatabaseConfig)
+
+    # ✅ FIX: 기본값 "live" → "paper" (실수 실거래 방지)
+    mode: str = "paper"
+    debug: bool = False
+
+    def __post_init__(self):
+        # 환경변수로 모드 오버라이드 (main.py에서 설정)
+        env_mode = os.getenv("TRADING_MODE", "").lower()
+        if env_mode in ("live", "paper", "backtest"):
+            self.mode = env_mode
+
+    def validate(self):
+        """설정 유효성 검증"""
+        if self.mode == "live":
+            # ✅ FIX: 실거래 시 환경변수 이중잠금
+            confirm = os.getenv("APEX_LIVE_CONFIRM", "").lower()
+            if confirm != "yes":
+                raise RuntimeError(
+                    "\n" + "=" * 55 + "\n"
+                    "  ⚠️  실거래 모드 이중 확인 필요\n"
+                    "  환경변수를 설정하세요:\n"
+                    "  APEX_LIVE_CONFIRM=yes\n"
+                    "  (실거래 의도가 맞다면 .env에 추가)\n"
+                    + "=" * 55
+                )
+            assert self.api.access_key, "❌ UPBIT_ACCESS_KEY 미설정"
+            assert self.api.secret_key, "❌ UPBIT_SECRET_KEY 미설정"
+
+        assert 0 < self.risk.max_risk_per_trade <= 0.05, (
+            "❌ max_risk_per_trade는 0~5% 사이"
+        )
+        assert self.trading.max_positions >= 1, (
+            "❌ max_positions는 1 이상"
+        )
+        return self
+
+
+# ── 싱글톤 ────────────────────────────────────────────────────
+_settings: Optional[Settings] = None
+
+
+def get_settings() -> Settings:
+    global _settings
+    if _settings is None:
+        _settings = Settings().validate()
+    return _settings

@@ -1,0 +1,11 @@
+﻿.env
+__pycache__/
+*.pyc
+*.pyo
+database/
+models/saved/
+logs/
+reports/
+*.bak
+*.bak_*
+*.bak2

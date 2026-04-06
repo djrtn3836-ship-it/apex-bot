@@ -1,0 +1,14 @@
+{
+  "_comment": "코인봇 포트 설정 — 키움봇 포트(5555~5599) 사용 금지",
+  "dashboard_port": 8888,
+  "dashboard_port_fallback": [8889, 8890, 8891, 8892],
+  "zmq_ports": {
+    "push":    5600,
+    "pull":    5601,
+    "pub":     5602,
+    "account": 5603,
+    "ensemble":5604
+  },
+  "forbidden_ports": [5555, 5556, 5557, 5558, 5599],
+  "port_range_allowed": "5600-5699, 8888-8899"
+}

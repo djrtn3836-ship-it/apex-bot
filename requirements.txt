@@ -1,0 +1,123 @@
+# ============================================================
+#  APEX BOT v2.0.0 - 전체 의존성 패키지
+#  Python 3.12 / Windows 10/11 / RTX 50xx
+# ============================================================
+#
+# [설치 방법]
+#   install_windows.bat 실행 (권장 - GPU 자동 감지 + 전체 설치)
+#   또는 수동:  pip install -r requirements.txt
+#
+# [PyTorch GPU 설치 - RTX 5060 (Blackwell, CUDA 12.8)]
+#   pip install --pre torch torchvision torchaudio \
+#     --index-url https://download.pytorch.org/whl/nightly/cu128
+#
+# [PyTorch GPU 설치 - RTX 40xx/30xx (CUDA 12.4)]
+#   pip install torch torchvision torchaudio \
+#     --index-url https://download.pytorch.org/whl/cu124
+#
+# [PyTorch CPU 전용]
+#   pip install torch torchvision torchaudio
+# ============================================================
+
+# ── 비동기 네트워킹 ────────────────────────────────────────────
+asyncio-throttle>=1.0.2
+aiohttp>=3.9.5
+aiofiles>=23.2.1
+websockets>=12.0
+httpx>=0.27.0
+requests>=2.32.3
+tenacity>=8.3.0
+
+# ── 업비트 API ─────────────────────────────────────────────────
+pyupbit>=0.2.33
+python-jose[cryptography]>=3.3.0
+PyJWT>=2.8.0
+
+# ── 데이터 처리 ────────────────────────────────────────────────
+pandas>=2.2.2
+numpy>=1.26.4
+polars>=0.20.31
+pyarrow>=16.1.0
+scipy>=1.13.1
+
+# ── 기술 지표 ──────────────────────────────────────────────────
+pandas-ta>=0.4.67b0
+ta>=0.11.0
+# TA-Lib: 선택사항 (수동 설치 필요)
+# https://github.com/cgohlke/talib-build/releases
+
+# ── 데이터베이스 ───────────────────────────────────────────────
+sqlalchemy>=2.0.30
+aiosqlite>=0.20.0
+alembic>=1.13.1
+
+# ── 캐싱 ──────────────────────────────────────────────────────
+redis>=5.0.4
+cachetools>=5.3.3
+
+# ── 머신러닝 (기존 ML 앙상블) ─────────────────────────────────
+scikit-learn>=1.5.0
+xgboost>=2.0.3
+lightgbm>=4.3.0
+
+# ── 파라미터 최적화 (Walk-Forward) ────────────────────────────
+optuna>=3.6.1
+
+# ── NLP / 감성 분석 ────────────────────────────────────────────
+nltk>=3.8.1                    # VADER 감성 분석 (규칙 기반, 경량)
+transformers>=4.41.2           # FinBERT (선택적 GPU 감성 분석)
+# tokenizers>=0.19.1           # transformers 의존성 자동 설치
+
+# ── 강화학습 (PPO 에이전트) ────────────────────────────────────
+gymnasium>=0.29.1              # RL 환경 (gym 후계자)
+stable-baselines3>=2.3.2       # PPO 구현체
+# shimmy>=1.0.0                # gymnasium 호환 레이어 (자동 설치)
+
+# ── 웹 대시보드 ────────────────────────────────────────────────
+fastapi>=0.111.0
+uvicorn[standard]>=0.30.1
+jinja2>=3.1.4
+python-multipart>=0.0.9
+
+# ── 모니터링 / 알림 ────────────────────────────────────────────
+python-telegram-bot>=21.3
+loguru>=0.7.2
+prometheus-client>=0.20.0
+
+# ── 스케줄러 ──────────────────────────────────────────────────
+apscheduler>=3.10.4
+
+# ── 설정 / 유틸리티 ───────────────────────────────────────────
+python-dotenv>=1.0.1
+pydantic>=2.7.3
+pydantic-settings>=2.3.3
+PyYAML>=6.0.1
+colorama>=0.4.6
+rich>=13.7.1
+tqdm>=4.66.4
+python-dateutil>=2.9.0
+pytz>=2024.1
+psutil>=5.9.8
+
+# ── 시각화 ────────────────────────────────────────────────────
+plotly>=5.22.0
+matplotlib>=3.9.0
+seaborn>=0.13.2
+
+# ── 개발 / 테스트 ─────────────────────────────────────────────
+pytest>=8.2.2
+pytest-asyncio>=0.23.7
+pytest-cov>=5.0.0
+black>=24.4.2
+flake8>=7.0.0
+
+# ── XML 파싱 (뉴스 RSS) ────────────────────────────────────────
+lxml>=5.2.2
+
+# ── 뉴스 트렌드 (선택) ─────────────────────────────────────────
+# pytrends>=4.9.2              # Google Trends 연동 (선택사항)
+
+# ============================================================
+# ⚠️  PyTorch는 위 리스트에서 제외 (GPU 버전에 따라 설치 방법 상이)
+#    → install_windows.bat 사용 권장 (자동 감지 + 올바른 버전 설치)
+# ============================================================

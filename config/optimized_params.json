@@ -1,0 +1,109 @@
+{
+  "updated_at": "2026-03-28T18:25:52.700411",
+  "in_sample_days": 90,
+  "out_sample_days": 30,
+  "strategies": {
+    "MACD_Cross": {
+      "params": {
+        "fast": 12,
+        "slow": 26,
+        "signal": 9
+      },
+      "weight_boost": 0.0,
+      "oos_sharpe": -7.726,
+      "oos_win_rate": 50.0,
+      "oos_pnl_pct": -0.13,
+      "is_active": false,
+      "updated_at": "2026-03-28T18:25:50.737448"
+    },
+    "RSI_Divergence": {
+      "params": {
+        "rsi_period": 14,
+        "oversold": 35,
+        "overbought": 65
+      },
+      "weight_boost": 0.0,
+      "oos_sharpe": 0.0,
+      "oos_win_rate": 50.0,
+      "oos_pnl_pct": 0.0,
+      "is_active": false,
+      "updated_at": "2026-03-28T18:25:50.791837"
+    },
+    "Supertrend": {
+      "params": {
+        "atr_period": 10,
+        "multiplier": 3.0,
+        "min_adx": 25
+      },
+      "weight_boost": 0.0,
+      "oos_sharpe": 0.0,
+      "oos_win_rate": 50.0,
+      "oos_pnl_pct": 0.0,
+      "is_active": false,
+      "updated_at": "2026-03-28T18:25:51.065508"
+    },
+    "Bollinger_Squeeze": {
+      "params": {
+        "bb_period": 20,
+        "bb_std": 2.0,
+        "kc_mult": 1.5
+      },
+      "weight_boost": 0.0,
+      "oos_sharpe": 0.0,
+      "oos_win_rate": 50.0,
+      "oos_pnl_pct": 0.0,
+      "is_active": false,
+      "updated_at": "2026-03-28T18:25:51.105792"
+    },
+    "VWAP_Reversion": {
+      "params": {
+        "vwap_dev_buy": -0.015,
+        "vwap_dev_sell": 0.015,
+        "rsi_oversold": 35
+      },
+      "weight_boost": 0.0,
+      "oos_sharpe": -1.487,
+      "oos_win_rate": 46.0,
+      "oos_pnl_pct": -0.06,
+      "is_active": false,
+      "updated_at": "2026-03-28T18:25:51.418824"
+    },
+    "VolBreakout": {
+      "params": {
+        "k": 0.5,
+        "volume_threshold": 1.2
+      },
+      "weight_boost": 0.0,
+      "oos_sharpe": 0.0,
+      "oos_win_rate": 50.0,
+      "oos_pnl_pct": 0.0,
+      "is_active": false,
+      "updated_at": "2026-03-28T18:25:51.418824"
+    },
+    "ATR_Channel": {
+      "params": {
+        "ema_period": 20,
+        "atr_multiplier": 2.0,
+        "min_adx": 20
+      },
+      "weight_boost": 0.0,
+      "oos_sharpe": 0.0,
+      "oos_win_rate": 50.0,
+      "oos_pnl_pct": 0.0,
+      "is_active": false,
+      "updated_at": "2026-03-28T18:25:52.534416"
+    },
+    "OrderBlock_SMC": {
+      "params": {
+        "ob_lookback": 20,
+        "fvg_min_size": 0.003
+      },
+      "weight_boost": 0.0,
+      "oos_sharpe": 0.0,
+      "oos_win_rate": 50.0,
+      "oos_pnl_pct": 0.0,
+      "is_active": false,
+      "updated_at": "2026-03-28T18:25:52.700411"
+    }
+  }
+}

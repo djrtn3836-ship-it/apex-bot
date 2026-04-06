@@ -1,0 +1,23 @@
+{
+  "_comment": "전략별 신호 가중치 (성과 분석 기반, 2026-04-03)",
+  "strategy_weights": {
+    "macd_cross": 1.5,
+    "bollinger_squeeze": 1.3,
+    "Supertrend": 1.2,
+    "rsi_divergence": 0.7,
+    "VWAP_Reversion": 0.5
+  },
+  "risk_params": {
+    "stop_loss_pct": -0.03,
+    "take_profit_pct": 0.05,
+    "max_position_pct": 0.1,
+    "max_positions": 5
+  },
+  "coin_weights": {
+    "KRW-SOL": 1.3,
+    "KRW-ADA": 1.3,
+    "KRW-ETH": 1.2,
+    "KRW-XRP": 0.8,
+    "KRW-BTC": 0.6
+  }
+}

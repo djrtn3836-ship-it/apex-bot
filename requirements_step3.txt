@@ -1,0 +1,5 @@
+# Step 3 추가 의존성
+optuna>=3.5.0          # Walk-Forward 파라미터 최적화
+# 이미 설치된 경우 스킵
+aiohttp>=3.9.0
+numpy>=1.26.0
