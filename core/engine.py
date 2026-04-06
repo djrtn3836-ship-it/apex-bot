@@ -1065,8 +1065,8 @@ class TradingEngine:
                     _today = datetime.now().strftime('%Y-%m-%d')
                     _bear_count_key = f'_bear_rev_count_{_today}'
                     _bear_count = getattr(self, _bear_count_key, 0)
-                    if _bear_count >= 3:
-                        logger.info(f'⛔ BEAR_REVERSAL 일일 한도 초과 ({market}): {_bear_count}/3 → 강제 BUY 차단')
+                    if _bear_count >= 6:
+                        logger.info(f'⛔ BEAR_REVERSAL 일일 한도 초과 ({market}): {_bear_count}/6 → 강제 BUY 차단')
                         return
                     # 포지션이 max_positions의 50% 이상이면 차단
                     _max_p = self.settings.trading.max_positions
@@ -2605,8 +2605,8 @@ class TradingEngine:
                 except Exception:
                     _bear_today = 0
                 setattr(self, _bear_count_key, _bear_today)
-                _remain = max(0, 3 - _bear_today)
-                _status = "⛔ 오늘 한도 초과" if _bear_today >= 3 else f"잔여 {_remain}회"
+                _remain = max(0, 6 - _bear_today)
+                _status = "⛔ 오늘 한도 초과" if _bear_today >= 6 else f"잔여 {_remain}회"
                 logger.info(f"♻️  BEAR_REVERSAL 카운터 복원: 오늘 {_bear_today}회 → {_status}")
             except Exception as _br_e:
                 logger.warning(f"⚠️ BEAR_REVERSAL 카운터 복원 실패: {_br_e}")
