@@ -250,6 +250,7 @@ class TradingEngine:
         self._signal_cooldown = 300  # 신호 재발생 최소 5분
         self._device = "cpu"
         self._buying_markets: set = set()
+        self._selling_markets: set = set()  # 이중 매도 방지 락
         self._ml_batch_cache: dict = {}   # GPU 배치 추론 결과 캐시
 
         self._wallet = SmartWalletManager()
@@ -1705,6 +1706,17 @@ class TradingEngine:
             )
 
     async def _execute_sell(self, market: str, reason: str, current_price: float = None):
+        # 이중 매도 방지
+        if market in self._selling_markets:
+            logger.debug(f"매도 중복 스킵 ({market})")
+            return
+        self._selling_markets.add(market)
+        try:
+            await self._execute_sell_inner(market, reason, current_price)
+        finally:
+            self._selling_markets.discard(market)
+
+    async def _execute_sell_inner(self, market: str, reason: str, current_price: float = None):
         """전량 매도 실행"""
         # ── SmartWallet: 매도 수량 결정 ─────────────────────
         _symbol      = market.replace("KRW-", "")
@@ -2486,79 +2498,79 @@ class TradingEngine:
             restored = 0
             total_invested = 0.0
             for row in rows:
-                mkt = row["market"]
-                if self.portfolio.is_position_open(mkt):
+                try:
+                    mkt         = row["market"]
+                    _price      = float(row["price"]      or 0)
+                    _volume     = float(row["volume"]     or 0)
+                    _amount_krw = float(row["amount_krw"] or 0)
+                    _strategy   = row["strategy"] or "unknown"
+
+                    if self.portfolio.is_position_open(mkt):
+                        continue
+                    if _price <= 0 or _volume <= 0:
+                        logger.warning(f"포지션 복원 스킵 ({mkt}): 가격/수량 없음")
+                        continue
+
+                    self.portfolio.open_position(
+                        market      = mkt,
+                        entry_price = _price,
+                        volume      = _volume,
+                        amount_krw  = _amount_krw,
+                        strategy    = _strategy,
+                        stop_loss   = _price * 0.97,
+                        take_profit = _price * 1.05,
+                    )
+                    self.trailing_stop.add_position(
+                        market       = mkt,
+                        entry_price  = _price,
+                        initial_stop = _price * 0.97,
+                        atr          = None,
+                    )
+                    if self.position_mgr_v2 is not None:
+                        try:
+                            from risk.position_manager_v2 import PositionV2
+                            _pv2 = PositionV2(
+                                market      = mkt,
+                                entry_price = _price,
+                                volume      = _volume,
+                                amount_krw  = _amount_krw,
+                                stop_loss   = _price * 0.97,
+                                take_profit = _price * 1.05,
+                                strategy    = _strategy,
+                            )
+                            self.position_mgr_v2.add_position(_pv2)
+                        except Exception as _rv2_e:
+                            logger.debug(f"M4 복원 스킵: {_rv2_e}")
+                    self.partial_exit.add_position(
+                        market      = mkt,
+                        entry_price = _price,
+                        volume      = _volume,
+                        take_profit = _price * 1.05,
+                    )
+                    self.adapter._paper_balance["KRW"] = max(
+                        0.0,
+                        self.adapter._paper_balance.get("KRW", 1_000_000) - _amount_krw
+                    )
+                    coin = mkt.replace("KRW-", "")
+                    self.adapter._paper_balance[coin] = (
+                        self.adapter._paper_balance.get(coin, 0.0) + _volume
+                    )
+                    restored += 1
+                    total_invested += _amount_krw
+                    logger.info(
+                        f"♻️ 포지션 복원 | {mkt} | "
+                        f"매수가={_price:,.0f} | "
+                        f"금액=₩{_amount_krw:,.0f} | {_strategy}"
+                    )
+                except Exception as _row_e:
+                    logger.warning(f"행 복원 스킵 ({row['market'] if row else '?'}): {_row_e}")
                     continue
-                # None 방어: DB 값이 None일 경우 기본값 적용
-                _price      = float(row["price"]      or 0)
-                _volume     = float(row["volume"]     or 0)
-                _amount_krw = float(row["amount_krw"] or 0)
-                if _price <= 0 or _volume <= 0:
-                    logger.warning(f"포지션 복원 스킵 ({mkt}): 가격/수량 없음")
-                    continue
-                self.portfolio.open_position(
-                    market      = mkt,
-                    entry_price = _price,
-                    volume      = _volume,
-                    amount_krw  = _amount_krw,
-                    strategy    = row["strategy"] or "unknown",
-                    stop_loss   = _price * 0.97,
-                    take_profit = _price * 1.05,
-                )
-                # ✅ trailing_stop에도 등록 (복원 포지션 손절 활성화)
-                self.trailing_stop.add_position(
-                    market       = mkt,
-                    entry_price  = row["price"],
-                    initial_stop = row["price"] * 0.97,
-                    atr          = None,
-                )
-                # ── Layer 3: M4 PositionManagerV2 복원 ──
-                if self.position_mgr_v2 is not None:
-                    try:
-                        from risk.position_manager_v2 import PositionV2
-                        _pv2 = PositionV2(
-                            market      = mkt,
-                            entry_price = row["price"],
-                            volume      = row["volume"],
-                            amount_krw  = row["amount_krw"],
-                            stop_loss   = row["price"] * 0.97,
-                            take_profit = row["price"] * 1.05,
-                            strategy    = row["strategy"] or "unknown",
-                        )
-                        self.position_mgr_v2.add_position(_pv2)
-                    except Exception as _rv2_e:
-                        logger.debug(f"M4 복원 스킵: {_rv2_e}")
-                # ✅ partial_exit에도 등록
-                self.partial_exit.add_position(
-                    market      = mkt,
-                    entry_price = row["price"],
-                    volume      = row["volume"],
-                    take_profit = row["price"] * 1.05,
-                )
-                self.adapter._paper_balance["KRW"] = max(
-                    0.0,
-                    self.adapter._paper_balance.get("KRW", 1_000_000) - row["amount_krw"]
-                )
-                coin = mkt.replace("KRW-", "")
-                self.adapter._paper_balance[coin] = (
-                    self.adapter._paper_balance.get(coin, 0.0) + row["volume"]
-                )
-                restored += 1
-                total_invested += row["amount_krw"]
-                logger.info(
-                    f"♻️ 포지션 복원 | {mkt} | "
-                    f"매수가={row['price']:,.0f} | "
-                    f"금액=₩{row['amount_krw']:,.0f} | "
-                    f"{row['strategy']}"
-                )
 
             if restored:
                 logger.info(
                     f"✅ 포지션 복원 완료: {restored}개 | "
-                    f"투자금=₩{total_invested:,.0f} | "
-                    f"잔고=₩{self.adapter._paper_balance.get('KRW', 0):,.0f}"
+                    f"투자금=₩{total_invested:,.0f}"
                 )
-                # ── 페이퍼 잔고 동기화 ──
                 try:
                     _krw_cash = await self.adapter.get_balance("KRW")
                     _open_pos = {
@@ -2571,16 +2583,16 @@ class TradingEngine:
             else:
                 logger.info("📭 복원할 포지션 없음 (신규 시작)")
 
-            # ✅ BEAR_REVERSAL 오늘 카운터 DB에서 복원
+            # BEAR_REVERSAL 오늘 카운터 복원
             try:
                 from datetime import datetime as _dt_cls
                 _today_str = _dt_cls.now().strftime("%Y-%m-%d")
                 _bear_count_key = f"_bear_rev_count_{_today_str}"
                 _bear_today = 0
-                # db_manager._conn 재활용 (이미 초기화된 연결)
-                if self.db_manager._conn is not None:
-                    async with self.db_manager._lock:
-                        async with self.db_manager._conn.execute(
+                try:
+                    import aiosqlite as _aio2
+                    async with _aio2.connect(str(self.db_manager.db_path)) as _db2:
+                        async with _db2.execute(
                             """
                             SELECT COUNT(*) FROM trade_history
                             WHERE strategy LIKE '%BEAR_REVERSAL%'
@@ -2589,27 +2601,20 @@ class TradingEngine:
                             """
                         ) as _cur2:
                             _row2 = await _cur2.fetchone()
-                            _bear_today = _row2[0] if _row2 else 0
-                else:
-                    # db_manager 미초기화 시 trade_history 메모리 조회
-                    _all_trades = await self.db_manager.get_trades(limit=100)
-                    _bear_today = sum(
-                        1 for t in _all_trades
-                        if 'BEAR_REVERSAL' in t.get('strategy', '')
-                        and t.get('side') == 'BUY'
-                        and str(t.get('timestamp', ''))[:10] == _today_str
-                    )
+                            _bear_today = int(_row2[0]) if _row2 and _row2[0] is not None else 0
+                except Exception:
+                    _bear_today = 0
                 setattr(self, _bear_count_key, _bear_today)
                 _remain = max(0, 3 - _bear_today)
                 _status = "⛔ 오늘 한도 초과" if _bear_today >= 3 else f"잔여 {_remain}회"
-                logger.info(
-                    f"♻️  BEAR_REVERSAL 카운터 복원: 오늘 {_bear_today}회 → {_status}"
-                )
+                logger.info(f"♻️  BEAR_REVERSAL 카운터 복원: 오늘 {_bear_today}회 → {_status}")
             except Exception as _br_e:
                 logger.warning(f"⚠️ BEAR_REVERSAL 카운터 복원 실패: {_br_e}")
 
         except Exception as e:
+            import traceback
             logger.warning(f"⚠️ 포지션 복원 실패 (무시): {e}")
+            logger.debug(traceback.format_exc())
 
     async def _restore_sl_cooldown(self):
         """재시작 시 DB에서 손절 쿨다운 복원"""
