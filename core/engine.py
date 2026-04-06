@@ -2489,14 +2489,21 @@ class TradingEngine:
                 mkt = row["market"]
                 if self.portfolio.is_position_open(mkt):
                     continue
+                # None 방어: DB 값이 None일 경우 기본값 적용
+                _price      = float(row["price"]      or 0)
+                _volume     = float(row["volume"]     or 0)
+                _amount_krw = float(row["amount_krw"] or 0)
+                if _price <= 0 or _volume <= 0:
+                    logger.warning(f"포지션 복원 스킵 ({mkt}): 가격/수량 없음")
+                    continue
                 self.portfolio.open_position(
                     market      = mkt,
-                    entry_price = row["price"],
-                    volume      = row["volume"],
-                    amount_krw  = row["amount_krw"],
+                    entry_price = _price,
+                    volume      = _volume,
+                    amount_krw  = _amount_krw,
                     strategy    = row["strategy"] or "unknown",
-                    stop_loss   = row["price"] * 0.97,
-                    take_profit = row["price"] * 1.05,
+                    stop_loss   = _price * 0.97,
+                    take_profit = _price * 1.05,
                 )
                 # ✅ trailing_stop에도 등록 (복원 포지션 손절 활성화)
                 self.trailing_stop.add_position(
