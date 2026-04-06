@@ -1,4 +1,12 @@
-"""
+import shutil, py_compile, sys
+from pathlib import Path
+
+TARGET = "risk/stop_loss/atr_stop.py"
+BACKUP = "risk/stop_loss/atr_stop.py.bak_dynamic"
+shutil.copy(TARGET, BACKUP)
+print("✅ 백업 완료:", BACKUP)
+
+NEW_CONTENT = '''"""
 ATR 기반 동적 손절/익절 계산
 - 코인 현재가 기준 자동 프로필 선택 (고정 딕셔너리 제거)
 - 가격대별: BTC급/ETH급/중가/저가/초저가 자동 분류
@@ -157,3 +165,17 @@ class ATRStopLoss:
             tp_pct      = levels.tp_pct,
             rr_ratio    = levels.rr_ratio,
         )
+'''
+
+Path(TARGET).write_text(NEW_CONTENT, encoding="utf-8")
+
+try:
+    py_compile.compile(TARGET, doraise=True)
+    print("✅ 문법 검사 OK")
+except py_compile.PyCompileError as e:
+    print("❌ 문법 오류:", e)
+    shutil.copy(BACKUP, TARGET)
+    print("🔁 원본 복구 완료")
+    sys.exit(1)
+
+print("🎉 ATR 가격 기반 동적 프로필 적용 완료!")

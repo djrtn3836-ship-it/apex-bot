@@ -253,6 +253,7 @@ class TradingEngine:
         self._ml_batch_cache: dict = {}   # GPU 배치 추론 결과 캐시
 
         self._wallet = SmartWalletManager()
+        self.markets = self.settings.trading.target_markets
         logger.info(f"⚡ APEX BOT v{self.VERSION} 초기화 완료")
 
     # ── 시작 / 종료 ───────────────────────────────────────────────
@@ -2299,7 +2300,7 @@ class TradingEngine:
 
         summary = " | ".join(lines)
         try:
-            await self.telegram_bot.send_message(summary)
+            await self.telegram.send_message(summary)
         except Exception:
             pass
 
@@ -2652,9 +2653,6 @@ class TradingEngine:
             raw_balances = await self.adapter.get_balances()
             if isinstance(raw_balances, list) and raw_balances:
                 self._wallet.scan_balances(raw_balances)
-            self._wallet.print_status()
-        except Exception as e:
-            logger.warning(f"SmartWallet 초기 스캔 실패: {e}")
             self._wallet.print_status()
         except Exception as e:
             logger.warning(f"SmartWallet 초기 스캔 실패: {e}")
@@ -3051,7 +3049,12 @@ class TradingEngine:
             logger.error(f"Walk-Forward 스케줄 실패: {e}")
 
     async def _scheduled_news_update(self):
-        pass
+        """뉴스 감성 30분 주기 갱신"""
+        try:
+            count = await self.news_analyzer.fetch_news()
+            logger.debug(f"뉴스 갱신 완료: {count}건")
+        except Exception as e:
+            logger.debug(f"뉴스 갱신 실패: {e}")
 
 
     async def _ws_reconnect_loop(self):
