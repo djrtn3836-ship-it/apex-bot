@@ -530,6 +530,17 @@ class TradingEngine:
         if await self.risk_manager.check_circuit_breaker(drawdown, total_value):
             return  # 서킷브레이커 발동
 
+        # ✅ 전체 마켓 스캐너 (급등 코인 동적 포착)
+        try:
+            new_surge_markets = await self._market_scanner()
+            if new_surge_markets:
+                for _sm in new_surge_markets:
+                    if _sm not in self.markets:
+                        self.markets = list(self.markets) + [_sm]
+                        logger.info(f"🔥 급등 코인 감시 추가: {_sm}")
+        except Exception as _se:
+            logger.debug(f"마켓 스캐너 오류: {_se}")
+
         # ✅ 트레일링 스탑 + 부분 청산 체크
         await self._check_position_exits()
 
@@ -828,11 +839,17 @@ class TradingEngine:
                 except Exception as _atr_e:
                     logger.debug(f"ATR 동적 손절 체크 오류 ({market}): {_atr_e}")
 
-            # 익절 조건: ML SELL 신뢰도 > 0.75, 수익 > 1 %
+            # 익절 조건: ML SELL 신뢰도 > 0.75, 수익 > 1%
             if signal == "SELL" and confidence > 0.75 and pnl_pct > 1.0:
                 logger.info(
-                    f"🎯 ML 익절 신호 | {market} | 신뢰도={confidence:.2f} | 수익={pnl_pct:+.2f}%"
+                    f"🎯 ML 익절 실행 | {market} | 신뢰도={confidence:.2f} | 수익={pnl_pct:+.2f}%"
                 )
+                await self._execute_sell(
+                    market,
+                    f"ML익절_{pnl_pct:.1f}%",
+                    current_price,
+                )
+                return
 
         except Exception as e:
             import traceback
@@ -2122,9 +2139,11 @@ class TradingEngine:
             ], axis=1).max(axis=1)
             df["atr"] = tr.rolling(14).mean()
 
-            profile = self._COIN_ATR_PROFILES.get(
-                market, self._COIN_ATR_PROFILES["DEFAULT"]
-            )
+            # 가격 기반 동적 프로필 (atr_stop.py의 _get_profile_by_price 사용)
+            from risk.stop_loss.atr_stop import _get_profile_by_price
+            _entry_est = float(df["close"].iloc[-1]) if len(df) > 0 else 1000
+            _p = _get_profile_by_price(_entry_est)
+            profile = {"atr_low": _p["min_sl"], "atr_high": _p["max_sl"]}
 
             for i in range(50, len(df)):
                 row     = df.iloc[i]
