@@ -515,26 +515,6 @@ class TradingEngine:
                 logger.error(f"루프 오류: {e}")
                 await asyncio.sleep(30)
 
-
-# 업비트 코인별 수량 소수점 자리수
-_UPBIT_VOL_PREC = {
-    "KRW-BTC": 8, "KRW-ETH": 8, "KRW-SOL": 4, "KRW-XRP": 4,
-    "KRW-ADA": 2, "KRW-DOGE": 2, "KRW-DOT": 4, "KRW-LINK": 4,
-    "KRW-AVAX": 4, "KRW-ATOM": 4, "KRW-BORA": 0, "KRW-SUI": 4,
-}
-
-def _floor_vol(market: str, vol: float) -> float:
-    import math
-    d = _UPBIT_VOL_PREC.get(market, 4)
-    f = 10 ** d
-    return math.floor(vol * f) / f
-
-def _ceil_vol(market: str, vol: float) -> float:
-    import math
-    d = _UPBIT_VOL_PREC.get(market, 4)
-    f = 10 ** d
-    return math.ceil(vol * f) / f
-
     async def _cycle(self):
         """단일 트레이딩 사이클"""
         # ✅ 분석 대상: 고정 10개 + 동적 스캐너 발굴 코인
@@ -1792,10 +1772,7 @@ def _ceil_vol(market: str, vol: float) -> float:
         # Paper 모드: SmartWallet 실잔고 체크 스킵
         if getattr(self.settings, 'paper_mode', True):
             pos = self.portfolio._positions.get(market)
-            # 전량매도: 보유 수량 전체 올림으로 찌꺼기 완전 제거
-            _raw_qty = float(getattr(pos, 'volume',
-                             getattr(pos, 'quantity', 0))) if pos else 0.0
-            _wallet_sell_qty  = _ceil_vol(market, _raw_qty)
+            _wallet_sell_qty  = float(getattr(pos, 'quantity', 0)) if pos else 0.0
             _wallet_incl_dust = False
         else:
             if not _sell_dec['ok']:
