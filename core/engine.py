@@ -255,8 +255,18 @@ class TradingEngine:
 
         self._wallet = SmartWalletManager()
         # ✅ FIX: _SCANNER_CONFIG 초기화
-        self._SCANNER_CONFIG = {}
+        self._SCANNER_CONFIG = {
+            "interval_sec":     30,        # 30초마다 전체 마켓 스캔
+            "vol_surge_ratio":   3.0,      # 거래량 3배 이상 급증
+            "price_change_min":  0.02,     # 가격 2% 이상 변동
+            "min_trade_amount":  50_000_000,  # 최소 거래대금 5천만원
+            "max_dynamic_coins": 20,       # 동적 감시 최대 20개
+            "exclude_markets":   [],       # 제외 마켓 없음
+        }
         self._selling_markets: set = set()
+        self._dynamic_markets: list = []   # 동적 발굴 코인 풀
+        self._last_scan_time: float = 0.0  # 마지막 스캔 시각
+        self.markets: list = []            # 전체 분석 대상 (고정+동적)
         self.markets = self.settings.trading.target_markets
         logger.info(f"⚡ APEX BOT v{self.VERSION} 초기화 완료")
 
@@ -507,7 +517,12 @@ class TradingEngine:
 
     async def _cycle(self):
         """단일 트레이딩 사이클"""
-        markets = self.settings.trading.target_markets
+        # ✅ 분석 대상: 고정 10개 + 동적 스캐너 발굴 코인
+        _base = list(self.settings.trading.target_markets)
+        _dynamic = [m for m in getattr(self, '_dynamic_markets', []) if m not in _base]
+        markets = _base + _dynamic
+        # self.markets 동기화 (스캐너 결과 반영용)
+        self.markets = markets
 
         # 현재가 일괄 수집
         price_tasks = [self.adapter.get_current_price(m) for m in markets]
@@ -539,8 +554,9 @@ class TradingEngine:
             new_surge_markets = await self._market_scanner()
             if new_surge_markets:
                 for _sm in new_surge_markets:
-                    if _sm not in self.markets:
-                        self.markets = list(self.markets) + [_sm]
+                    if _sm not in markets:
+                        markets.append(_sm)
+                        self.markets = markets
                         logger.info(f"🔥 급등 코인 감시 추가: {_sm}")
         except Exception as _se:
             logger.debug(f"마켓 스캐너 오류: {_se}")
