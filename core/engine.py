@@ -1686,9 +1686,20 @@ class TradingEngine:
         if not pos or volume <= 0:
             return
 
-        # 최소 주문 수량 체크
-        if volume * current_price < self.settings.trading.min_order_amount:
-            logger.debug(f"부분 청산 수량 부족 ({market}): {volume:.6f}")
+        # 최소 주문 수량 체크 (부분청산은 min_order_amount의 40%까지 허용)
+        _min_partial = self.settings.trading.min_order_amount * 0.40
+        _order_value = volume * current_price
+        if _order_value < _min_partial:
+            # 소액이면 전량 매도로 전환
+            pos_value = getattr(pos, 'volume', 0) * current_price
+            if pos_value >= self.settings.trading.min_order_amount:
+                logger.info(
+                    f"⚡ 부분청산→전량매도 전환 ({market}): "
+                    f"부분청산금액=₩{_order_value:,.0f} < 최소=₩{_min_partial:,.0f}"
+                )
+                await self._execute_sell(market, "부분청산→전량익절", current_price)
+            else:
+                logger.debug(f"부분 청산 수량 부족 스킵 ({market}): ₩{_order_value:,.0f}")
             return
 
         state = self.partial_exit.get_state(market)
