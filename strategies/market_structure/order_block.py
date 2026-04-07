@@ -1,45 +1,51 @@
+from typing import Optional
 import pandas as pd
-from strategies.base_strategy import BaseStrategy
+from strategies.base_strategy import BaseStrategy, StrategySignal, SignalType
+
 
 class OrderBlockStrategy(BaseStrategy):
     NAME = "Order_Block"
-    def __init__(self):
-        super().__init__()
-        self.params = {"lookback": 10, "body_ratio": 0.6, "score": 1.2}
+    DESCRIPTION = "스마트머니 오더블록 전략"
+    WEIGHT = 1.2
+    MIN_CANDLES = 30
 
-    async def analyze(self, market: str, df: pd.DataFrame, **kwargs) -> dict | None:
-        if df is None or len(df) < 15:
+    def _default_params(self) -> dict:
+        return {"lookback": 10, "body_ratio": 0.6, "touch_pct": 0.005}
+
+    def generate_signal(self, df: pd.DataFrame, market: str,
+                        timeframe: str = "60") -> Optional[StrategySignal]:
+        if df is None or len(df) < self.MIN_CANDLES:
             return None
         try:
-            lb    = self.params["lookback"]
-            close = df["close"]
-            open_ = df["open"]
-            high  = df["high"]
-            low   = df["low"]
-
-            body       = (close - open_).abs()
-            full_range = (high - low) + 1e-9
-            body_ratio = body / full_range
-
-            # 최근 N봉에서 강한 상승 캔들 (불리시 오더블록)
+            lb     = self.params["lookback"]
             recent = df.tail(lb)
-            bull_ob = recent[(recent["close"] > recent["open"]) &
-                             (body_ratio.tail(lb) > self.params["body_ratio"])]
-            bear_ob = recent[(recent["close"] < recent["open"]) &
-                             (body_ratio.tail(lb) > self.params["body_ratio"])]
+            body   = (recent["close"] - recent["open"]).abs()
+            rng    = (recent["high"] - recent["low"]) + 1e-9
+            ratio  = body / rng
+            price  = float(df["close"].iloc[-1])
+            atr    = float((df["high"].iloc[-14:].mean() - df["low"].iloc[-14:].mean())) or price * 0.02
 
-            cur_price = close.iloc[-1]
+            bull_ob = recent[(recent["close"] > recent["open"]) &
+                             (ratio > self.params["body_ratio"])]
+            bear_ob = recent[(recent["close"] < recent["open"]) &
+                             (ratio > self.params["body_ratio"])]
 
             if not bull_ob.empty:
-                ob_low = bull_ob["low"].iloc[-1]
-                if abs(cur_price - ob_low) / ob_low < 0.005:
-                    return {"signal": "BUY",  "score": self.params["score"],
-                            "reason": "불리시 오더블록 지지", "strategy": self.NAME}
+                ob_low = float(bull_ob["low"].iloc[-1])
+                if abs(price - ob_low) / ob_low < self.params["touch_pct"]:
+                    return self._create_signal(
+                        signal=SignalType.BUY, score=0.70, confidence=0.68,
+                        market=market, entry_price=price,
+                        stop_loss=ob_low - atr, take_profit=price + atr * 3.0,
+                        reason="불리시 오더블록 지지", timeframe=timeframe)
             if not bear_ob.empty:
-                ob_high = bear_ob["high"].iloc[-1]
-                if abs(cur_price - ob_high) / ob_high < 0.005:
-                    return {"signal": "SELL", "score": self.params["score"],
-                            "reason": "베어리시 오더블록 저항", "strategy": self.NAME}
+                ob_high = float(bear_ob["high"].iloc[-1])
+                if abs(price - ob_high) / ob_high < self.params["touch_pct"]:
+                    return self._create_signal(
+                        signal=SignalType.SELL, score=-0.70, confidence=0.68,
+                        market=market, entry_price=price,
+                        stop_loss=ob_high + atr, take_profit=price - atr * 3.0,
+                        reason="베어리시 오더블록 저항", timeframe=timeframe)
         except Exception:
             pass
         return None
