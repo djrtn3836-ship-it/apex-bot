@@ -1,87 +1,44 @@
-"""
-APEX BOT - Supertrend Strategy
-ATR-based trend following with direction reversal signals
-"""
 import pandas as pd
 import numpy as np
-from typing import Optional
-from datetime import datetime
-from loguru import logger
-
-from strategies.base_strategy import BaseStrategy, StrategySignal, SignalType
-
+from strategies.base_strategy import BaseStrategy
 
 class SupertrendStrategy(BaseStrategy):
     NAME = "Supertrend"
-    DESCRIPTION = "ATR 기반 슈퍼트렌드 추세 추종"
-    WEIGHT = 1.1
-    MIN_CANDLES = 30
+    def __init__(self):
+        super().__init__()
+        self.params = {"period": 10, "multiplier": 3.0, "score": 1.1}
 
-    def _default_params(self) -> dict:
-        return {"atr_period": 10, "multiplier": 3.0, "min_adx": 25}
-
-    def generate_signal(self, df: pd.DataFrame, market: str,
-                        timeframe: str = "60") -> Optional[StrategySignal]:
-        if df is None or len(df) < self.MIN_CANDLES:
+    async def analyze(self, market: str, df: pd.DataFrame, **kwargs) -> dict | None:
+        if df is None or len(df) < 15:
             return None
         try:
-            last = df.iloc[-1]
-            prev = df.iloc[-2]
+            hl2   = (df["high"] + df["low"]) / 2
+            tr    = pd.concat([
+                df["high"] - df["low"],
+                (df["high"] - df["close"].shift()).abs(),
+                (df["low"]  - df["close"].shift()).abs()
+            ], axis=1).max(axis=1)
+            atr   = tr.rolling(self.params["period"]).mean()
+            m     = self.params["multiplier"]
+            upper = hl2 + m * atr
+            lower = hl2 - m * atr
 
-            current_dir = last.get("supertrend_dir", 0)
-            prev_dir    = prev.get("supertrend_dir", 0)
-            adx         = float(last.get("adx", 0) or 0)
-            rsi         = float(last.get("rsi", 50) or 50)
-            close       = float(last["close"])
-            st_line     = float(last.get("supertrend", close) or close)
-            atr         = float(last.get("atr", close * 0.02) or close * 0.02)
-            vol_ratio   = float(last.get("vol_ratio", 1.0) or 1.0)
+            close = df["close"]
+            trend = pd.Series(index=df.index, dtype=float)
+            for i in range(1, len(df)):
+                if close.iloc[i] > upper.iloc[i-1]:
+                    trend.iloc[i] = 1
+                elif close.iloc[i] < lower.iloc[i-1]:
+                    trend.iloc[i] = -1
+                else:
+                    trend.iloc[i] = trend.iloc[i-1] if i > 1 else 0
 
-            min_adx = self.params.get("min_adx", 25)
-            direction_changed = (current_dir != prev_dir) and (prev_dir != 0)
-
-            if direction_changed and current_dir > 0 and adx > min_adx and vol_ratio > 1.2:
-                conf = min(0.85, 0.65 + (adx - min_adx) * 0.005)
-                return self._create_signal(
-                    signal=SignalType.BUY,
-                    score=0.80, confidence=conf,
-                    market=market,
-                    entry_price=close,
-                    stop_loss=close - atr * 1.5,
-                    take_profit=close + atr * 3.0,
-                    reason=f"Supertrend UP | ADX={adx:.1f} | vol={vol_ratio:.1f}x",
-                    timeframe=timeframe,
-                    metadata={"adx": adx, "rsi": rsi, "st_line": st_line},
-                )
-
-            if direction_changed and current_dir < 0 and adx > min_adx:
-                conf = min(0.85, 0.65 + (adx - min_adx) * 0.005)
-                return self._create_signal(
-                    signal=SignalType.SELL,
-                    score=0.80, confidence=conf,
-                    market=market,
-                    entry_price=close,
-                    stop_loss=close + atr * 1.5,
-                    take_profit=close - atr * 3.0,
-                    reason=f"Supertrend DOWN | ADX={adx:.1f}",
-                    timeframe=timeframe,
-                    metadata={"adx": adx, "rsi": rsi},
-                )
-
-            # Continuation signal
-            if current_dir > 0 and adx > 35 and rsi < 65 and vol_ratio > 1.5:
-                return self._create_signal(
-                    signal=SignalType.BUY,
-                    score=0.60, confidence=0.60,
-                    market=market,
-                    entry_price=close,
-                    stop_loss=close - atr * 1.5,
-                    take_profit=close + atr * 3.0,
-                    reason=f"Supertrend continuation | ADX={adx:.1f}",
-                    timeframe=timeframe,
-                )
-
-            return None
-        except Exception as e:
-            logger.error(f"{self.NAME} error ({market}): {e}")
-            return None
+            if trend.iloc[-1] == 1 and trend.iloc[-2] != 1:
+                return {"signal": "BUY",  "score": self.params["score"],
+                        "reason": "Supertrend 상향 전환", "strategy": self.NAME}
+            if trend.iloc[-1] == -1 and trend.iloc[-2] != -1:
+                return {"signal": "SELL", "score": self.params["score"],
+                        "reason": "Supertrend 하향 전환", "strategy": self.NAME}
+        except Exception:
+            pass
+        return None
