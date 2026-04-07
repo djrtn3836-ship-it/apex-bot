@@ -142,7 +142,12 @@ class PartialExitManager:
                 # 청산 수량 계산 (초기 수량 기준)
                 exit_volume = state.initial_volume * level.exit_ratio
                 exit_volume = min(exit_volume, state.remaining_volume)
-                exit_volume = round(exit_volume, 4)  # 찌꺼기 방지
+                # 코인별 소수점 내림 (찌꺼기 방지)
+                try:
+                    from core.engine import _floor_vol as _fv
+                    exit_volume = _fv(market, exit_volume)
+                except Exception:
+                    exit_volume = round(exit_volume, 4)
 
                 if exit_volume <= 0:
                     continue
