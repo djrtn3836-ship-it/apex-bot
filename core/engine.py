@@ -2182,6 +2182,33 @@ class TradingEngine:
                 logger.warning(f"[DB-SELL] 저장 실패: {_e}")
             # ─────────────────────────────────────────────────
 
+            # ✅ PPO 온라인 학습: 전량매도 경험 기록
+            try:
+                if self.ppo_online_trainer is not None:
+                    import datetime as _ppo_dt
+                    _pos_ref = pos
+                    _etime = getattr(_pos_ref, 'entry_time', None) or getattr(_pos_ref, 'created_at', None)
+                    _hold_h = 0.0
+                    if _etime:
+                        if isinstance(_etime, str):
+                            _etime = _ppo_dt.datetime.fromisoformat(_etime)
+                        _hold_h = (_ppo_dt.datetime.now() - _etime).total_seconds() / 3600
+                    _pnl = profit_rate / 100
+                    self.ppo_online_trainer.add_experience(
+                        market=market,
+                        action=2,
+                        profit_rate=_pnl,
+                        hold_hours=_hold_h,
+                    )
+                    _buf = self.ppo_online_trainer.get_buffer_stats()
+                    logger.info(
+                        f"🧠 PPO 경험 기록 ({market}): "
+                        f"PnL={_pnl*100:.2f}% | 보유={_hold_h:.1f}h | "
+                        f"버퍼={_buf.get('size',0)}/{_buf.get('max',1000)}"
+                    )
+            except Exception as _ppo_e:
+                logger.debug(f"PPO SELL 경험 기록 실패: {_ppo_e}")
+
             self.trailing_stop.remove_position(market)
             self.partial_exit.remove_position(market)
             # 손절 후 재매수 쿨다운 등록 (4시간)
