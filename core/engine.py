@@ -1375,30 +1375,65 @@ class TradingEngine:
             # ── Layer 3: M3 MTF 신호 합산 필터 ─────────────
             if self.mtf_merger is not None:
                 try:
-                    # 보유 중인 TF 데이터로 MTF 분석
+                    # ✅ 6개 TF 전부 수집
+                    _tf_map = {
+                        "1d":  ("day",      "1d"),
+                        "4h":  ("minute240","4h"),
+                        "1h":  ("minute60", "1h"),
+                        "15m": ("minute15", "15m"),
+                        "5m":  ("minute5",  "5m"),
+                        "1m":  ("minute1",  "1m"),
+                    }
                     _tf_data = {}
-                    _cached_1h = self.cache_manager.get_candles(market, "1h")
-                    if _cached_1h is not None and len(_cached_1h) > 5:
-                        _tf_data["1h"] = _cached_1h
-                    # 일봉 캐시 시도
-                    _cached_1d = self.cache_manager.get_candles(market, "1d")
-                    if _cached_1d is not None and len(_cached_1d) > 5:
-                        _tf_data["1d"] = _cached_1d
+                    for _tf_key, (_tf_upbit, _tf_cache) in _tf_map.items():
+                        # 캐시 우선 시도
+                        _cached = self.cache_manager.get_candles(market, _tf_cache)
+                        if _cached is not None and len(_cached) > 5:
+                            _tf_data[_tf_key] = _cached
+                        else:
+                            # 캐시 없으면 API 호출
+                            try:
+                                _fetched = await self.rest_collector.get_ohlcv(
+                                    market, _tf_upbit, 50
+                                )
+                                if _fetched is not None and len(_fetched) > 5:
+                                    _tf_data[_tf_key] = _fetched
+                            except Exception:
+                                pass
+
                     if _tf_data:
                         _mtf_result = self.mtf_merger.analyze(_tf_data)
-                        # BUY 신호인데 MTF가 강한 하락 → 차단
-                        if (combined.signal_type == SignalType.BUY
-                                and _mtf_result.final_direction.value <= -1
-                                and not _is_bear_rev):
-                            logger.debug(
-                                f"MTF 차단 ({market}): "
-                                f"방향={_mtf_result.final_direction.name} | "
-                                f"{_mtf_result.reason}"
-                            )
-                            return
-                        logger.debug(
-                            f"MTF 통과 ({market}): {_mtf_result.reason}"
-                        )
+                        _mtf_score = _mtf_result.combined_score
+                        _mtf_dir   = _mtf_result.final_direction.value
+
+                        # ✅ BUY 신호 MTF 필터링
+                        if combined.signal_type == SignalType.BUY:
+                            if _mtf_dir <= -1 and not _is_bear_rev:
+                                logger.info(
+                                    f"⛔ MTF 차단 ({market}): "
+                                    f"방향={_mtf_result.final_direction.name} | "
+                                    f"{_mtf_result.reason}"
+                                )
+                                return
+                            # ✅ MTF 점수로 신호 강도 보강
+                            if _mtf_dir >= 1:
+                                _boost = min(0.3, abs(_mtf_score) * 0.2)
+                                combined.score = min(3.0, combined.score + _boost)
+                                logger.info(
+                                    f"📈 MTF 신호 보강 ({market}): "
+                                    f"+{_boost:.2f} → score={combined.score:.2f} | "
+                                    f"TF수={len(_tf_data)}개 | {_mtf_result.reason}"
+                                )
+                            else:
+                                logger.debug(
+                                    f"MTF 통과 ({market}): {_mtf_result.reason}"
+                                )
+                        # ✅ SELL 신호 MTF 확인
+                        elif combined.signal_type == SignalType.SELL:
+                            if _mtf_dir >= 1:
+                                logger.debug(
+                                    f"MTF SELL 약화 ({market}): 상위TF 상승중 | {_mtf_result.reason}"
+                                )
                 except Exception as _mtf_e:
                     logger.debug(f"MTF 분석 스킵 ({market}): {_mtf_e}")
 

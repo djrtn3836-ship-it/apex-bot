@@ -128,28 +128,48 @@ class MTFSignalMerger:
             for s in signals
         ) / (total_weight or 1)
 
-        # 일봉/4시간 추세 확인 (상위 TF 거부권)
+        # ✅ 상위 TF 거부권 (1d, 4h)
         higher_tfs   = [s for s in signals if s.timeframe in ("1d", "4h")]
         higher_down  = any(s.direction in (TFDirection.DOWN, TFDirection.STRONG_DOWN)
                            for s in higher_tfs)
         higher_up    = any(s.direction in (TFDirection.UP, TFDirection.STRONG_UP)
                            for s in higher_tfs)
 
-        allow_buy  = score > 0.3 and not higher_down
-        allow_sell = score < -0.3 and not higher_up
+        # ✅ 중간 TF 합의 체크 (1h, 15m)
+        mid_tfs      = [s for s in signals if s.timeframe in ("1h", "15m")]
+        mid_up_count = sum(1 for s in mid_tfs
+                           if s.direction in (TFDirection.UP, TFDirection.STRONG_UP))
+        mid_agreement = mid_up_count >= len(mid_tfs) * 0.5 if mid_tfs else True
 
-        if score > 1.0:
+        # ✅ RSI 과매도 보너스 (RSI < 35이면 매수 강화)
+        rsi_values   = [s.rsi for s in signals if s.rsi > 0]
+        avg_rsi      = sum(rsi_values) / len(rsi_values) if rsi_values else 50
+        rsi_bonus    = 0.2 if avg_rsi < 35 else (-0.1 if avg_rsi > 70 else 0)
+        score        = score + rsi_bonus
+
+        # ✅ TF 수 보너스 (더 많은 TF 동의할수록 신뢰도 상승)
+        tf_count     = len(signals)
+        tf_bonus     = min(0.15, tf_count * 0.025)
+        score        = score + (tf_bonus if score > 0 else -tf_bonus)
+
+        allow_buy  = score > 0.2 and not higher_down and mid_agreement
+        allow_sell = score < -0.2 and not higher_up
+
+        if score > 1.2:
             final = TFDirection.STRONG_UP
-        elif score > 0.3:
+        elif score > 0.2:
             final = TFDirection.UP
-        elif score < -1.0:
+        elif score < -1.2:
             final = TFDirection.STRONG_DOWN
-        elif score < -0.3:
+        elif score < -0.2:
             final = TFDirection.DOWN
         else:
             final = TFDirection.NEUTRAL
 
         dominant = max(signals, key=lambda s: s.weight * abs(s.direction.value))
+        tf_summary = "/".join(
+            f"{s.timeframe}:{s.direction.name[:1]}" for s in signals
+        )
 
         return MTFResult(
             combined_score  = score,
@@ -159,7 +179,8 @@ class MTFSignalMerger:
             tf_signals      = signals,
             dominant_tf     = dominant.timeframe,
             reason          = (
-                f"MTF합산={score:.2f} | 지배TF={dominant.timeframe} | "
-                f"BUY={'✅' if allow_buy else '❌'} SELL={'✅' if allow_sell else '❌'}"
+                f"MTF합산={score:.2f} | TF={tf_count}개({tf_summary}) | "
+                f"RSI={avg_rsi:.0f} | 지배TF={dominant.timeframe} | "
+                f"BUY={"'✅'" if allow_buy else "'❌'"} SELL={"'✅'" if allow_sell else "'❌'"}"
             ),
         )
