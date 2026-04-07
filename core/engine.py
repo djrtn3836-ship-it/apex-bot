@@ -91,6 +91,138 @@ from utils.cpu_optimizer import (  # ✅ Fix: CPU 최적화
 )
 from monitoring.paper_report import generate_paper_report
 
+
+# ══════════════════════════════════════════════════════════
+# 고급 포지션 사이징 모듈
+# ══════════════════════════════════════════════════════════
+import math as _math
+
+_UPBIT_VOL_PREC = {
+    "KRW-BTC": 8, "KRW-ETH": 8, "KRW-SOL": 4, "KRW-XRP": 4,
+    "KRW-ADA": 2, "KRW-DOGE": 2, "KRW-DOT": 4, "KRW-LINK": 4,
+    "KRW-AVAX": 4, "KRW-ATOM": 4, "KRW-BORA": 0, "KRW-SUI": 4,
+}
+
+def _floor_vol(market: str, vol: float) -> float:
+    d = _UPBIT_VOL_PREC.get(market, 4)
+    f = 10 ** d
+    return _math.floor(vol * f) / f
+
+def _ceil_vol(market: str, vol: float) -> float:
+    d = _UPBIT_VOL_PREC.get(market, 4)
+    f = 10 ** d
+    return _math.ceil(vol * f) / f
+
+MIN_POSITION_KRW  = 20_000   # 최소 포지션 (부분청산 가능 기준)
+MAX_POSITION_RATE = 0.20     # 총자산 대비 단일 포지션 최대 비율
+MIN_ORDER_KRW     = 5_000    # 업비트 최소 주문금액
+
+def calc_position_size(
+    total_capital: float,
+    kelly_f: float,
+    current_price: float,
+    atr: float,
+    open_positions: int,
+    max_positions: int,
+    signal_score: float = 0.7,
+    market: str = "",
+) -> dict:
+    """
+    고급 동적 포지션 사이징
+    Returns: {amount_krw, volume, sizing_reason}
+    """
+    # 1단계: 기본 Kelly
+    base_amount = total_capital * kelly_f
+
+    # 2단계: 변동성 조정 (ATR 기반)
+    if atr and current_price > 0:
+        vol_ratio = atr / current_price
+        target_vol = 0.02  # 목표 변동성 2%
+        vol_adj = min(target_vol / (vol_ratio + 1e-9), 2.0)  # 최대 2배
+        vol_adj = max(vol_adj, 0.3)  # 최소 0.3배
+        base_amount *= vol_adj
+        vol_note = f"변동성조정×{vol_adj:.2f}"
+    else:
+        vol_note = "변동성조정없음"
+
+    # 3단계: 신호 강도 조정
+    if signal_score >= 0.85:
+        sig_mult = 1.0    # 강한 신호: 전액
+        sig_note = "강신호×1.0"
+    elif signal_score >= 0.65:
+        sig_mult = 0.6    # 보통 신호: 60% (나머지 DCA 대기)
+        sig_note = "보통신호×0.6"
+    else:
+        sig_mult = 0.35   # 약한 신호: 35%
+        sig_note = "약신호×0.35"
+    base_amount *= sig_mult
+
+    # 4단계: 포지션 집중도 조정 (많이 열릴수록 작게)
+    position_ratio = open_positions / max(max_positions, 1)
+    conc_mult = max(1.0 - position_ratio * 0.5, 0.4)
+    base_amount *= conc_mult
+    conc_note = f"집중도×{conc_mult:.2f}"
+
+    # 5단계: 최소/최대 강제
+    base_amount = max(base_amount, MIN_POSITION_KRW)
+    base_amount = min(base_amount, total_capital * MAX_POSITION_RATE)
+
+    # 6단계: 잔여 자본 초과 방지
+    available = total_capital - (open_positions * MIN_POSITION_KRW)
+    base_amount = min(base_amount, available * 0.9)
+    base_amount = max(base_amount, MIN_POSITION_KRW)
+
+    volume = _floor_vol(market, base_amount / current_price) if current_price > 0 else 0
+
+    return {
+        "amount_krw": base_amount,
+        "volume": volume,
+        "sizing_reason": f"Kelly={kelly_f:.3f} | {vol_note} | {sig_note} | {conc_note} | 최종=₩{base_amount:,.0f}"
+    }
+
+
+def calc_exit_plan(
+    entry_price: float,
+    atr: float,
+    position_krw: float,
+) -> dict:
+    """
+    포지션별 매도 계획 수립
+    Returns: {tp1, tp2, tp3, sl, trail_pct, partial_ratios}
+    """
+    # ATR 기반 동적 목표가/손절가
+    atr_mult = atr if atr else entry_price * 0.02
+
+    sl    = entry_price - atr_mult * 1.5       # 손절: ATR × 1.5
+    tp1   = entry_price + atr_mult * 1.5       # 1차 익절: ATR × 1.5 (RR=1.0)
+    tp2   = entry_price + atr_mult * 3.0       # 2차 익절: ATR × 3.0 (RR=2.0)
+    tp3   = entry_price + atr_mult * 5.0       # 3차 익절: ATR × 5.0 (RR=3.33)
+    trail = 0.015                               # 기본 트레일링 1.5%
+
+    # 포지션 크기별 부분청산 비율 조정
+    if position_krw >= 100_000:
+        # ₩10만 이상: 3단계 부분청산 (25/25/25 + 잔량25)
+        partial_ratios = [0.25, 0.25, 0.25]
+        trail = 0.01  # 큰 포지션: 촘촘한 트레일링
+    elif position_krw >= 40_000:
+        # ₩4만 이상: 2단계 부분청산 (30/30 + 잔량40)
+        partial_ratios = [0.30, 0.30]
+        trail = 0.015
+    elif position_krw >= 20_000:
+        # ₩2만 이상: 1단계 부분청산 (50% + 잔량50)
+        partial_ratios = [0.50]
+        trail = 0.02
+    else:
+        # ₩2만 미만: 부분청산 없음, 전량매도만
+        partial_ratios = []
+        trail = 0.025
+
+    return {
+        "sl": sl, "tp1": tp1, "tp2": tp2, "tp3": tp3,
+        "trail_pct": trail,
+        "partial_ratios": partial_ratios,
+    }
+
 class TradingEngine:
     """
     APEX BOT 메인 엔진 v2.0.0
@@ -1789,7 +1921,10 @@ class TradingEngine:
         # Paper 모드: SmartWallet 실잔고 체크 스킵
         if getattr(self.settings, 'paper_mode', True):
             pos = self.portfolio._positions.get(market)
-            _wallet_sell_qty  = float(getattr(pos, 'quantity', 0)) if pos else 0.0
+            # 전량매도: 보유 전체 올림으로 찌꺼기 완전 제거
+            _raw_qty = float(getattr(pos, 'volume',
+                             getattr(pos, 'quantity', 0))) if pos else 0.0
+            _wallet_sell_qty  = _ceil_vol(market, _raw_qty)
             _wallet_incl_dust = False
         else:
             if not _sell_dec['ok']:
