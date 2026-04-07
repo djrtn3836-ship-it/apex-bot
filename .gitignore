@@ -9,3 +9,10 @@ reports/
 *.bak
 *.bak_*
 *.bak2
+
+fix_*.py
+check_*.py
+reset_*.py
+show_*.py
+create_strategies.py
+upgrade_trading_logic.py
