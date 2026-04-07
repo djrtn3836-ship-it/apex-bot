@@ -724,8 +724,10 @@ class TradingEngine:
 
                 # ✅ 2순위: 부분 청산 체크
                 exit_volume = self.partial_exit.check(market, current_price)
+                _partial_done = False
                 if exit_volume > 0:
                     await self._execute_partial_sell(market, exit_volume, current_price)
+                    _partial_done = True  # 이중 부분청산 방지 플래그
 
                 # ✅ 3순위: M4 PositionManagerV2 청산 체크
                 if self.position_mgr_v2 is not None:
@@ -740,11 +742,14 @@ class TradingEngine:
                                 f"{_exit_sig.message}"
                             )
                             if _exit_sig.reason.value == "PARTIAL_EXIT":
-                                _pos_v = self.portfolio.open_positions.get(market)
-                                if _pos_v:
-                                    _sell_vol = getattr(_pos_v, "volume", 0) * _exit_sig.volume_pct
-                                    if _sell_vol > 0:
-                                        await self._execute_partial_sell(market, _sell_vol, current_price)
+                                if _partial_done:
+                                    logger.debug(f"⏭️ M4 부분청산 스킵 ({market}): PartialExit 이미 실행됨")
+                                else:
+                                    _pos_v = self.portfolio.open_positions.get(market)
+                                    if _pos_v:
+                                        _sell_vol = getattr(_pos_v, "volume", 0) * _exit_sig.volume_pct
+                                        if _sell_vol > 0:
+                                            await self._execute_partial_sell(market, _sell_vol, current_price)
                             else:
                                 await self._execute_sell(
                                     market,
