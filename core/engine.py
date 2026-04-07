@@ -254,6 +254,9 @@ class TradingEngine:
         self._ml_batch_cache: dict = {}   # GPU 배치 추론 결과 캐시
 
         self._wallet = SmartWalletManager()
+        # ✅ FIX: _SCANNER_CONFIG 초기화
+        self._SCANNER_CONFIG = {}
+        self._selling_markets: set = set()
         self.markets = self.settings.trading.target_markets
         logger.info(f"⚡ APEX BOT v{self.VERSION} 초기화 완료")
 
@@ -902,6 +905,7 @@ class TradingEngine:
             # ── Layer 2: TrendFilter — 일봉 EMA200 트렌드 체크 ──
             try:
                 df_1d = await self.rest_collector.get_ohlcv(market, "day", 210)
+                if df_1d is None or len(df_1d) < 5: raise ValueError('일봉 데이터 없음')
                 _strategy_hint = (
                     "BEAR_REVERSAL"
                     if market in getattr(self, '_bear_reversal_markets', set())
