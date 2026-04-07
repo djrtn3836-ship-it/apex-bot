@@ -1723,6 +1723,24 @@ class TradingEngine:
                     f"잔량={pos.volume:.6f}"
                 )
 
+            # ✅ DB 저장 (PARTIAL_SELL)
+            try:
+                await self._db.save_trade(
+                    market=market,
+                    side="SELL",
+                    price=result.executed_price,
+                    volume=volume,
+                    amount_krw=volume * result.executed_price,
+                    fee=result.fee,
+                    profit_rate=profit_rate,
+                    strategy=getattr(self.portfolio.get_position(market),
+                                     'strategy', 'unknown') or 'unknown',
+                    reason=reason,
+                    mode="paper" if getattr(self.settings, 'paper_mode', True) else "live",
+                )
+            except Exception as _db_e:
+                logger.debug(f"부분청산 DB 저장 스킵 ({market}): {_db_e}")
+
             log_trade("PARTIAL_SELL", market, result.executed_price,
                       volume * result.executed_price, reason, profit_rate)
             await self.telegram.notify_sell(

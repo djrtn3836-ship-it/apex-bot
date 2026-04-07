@@ -142,6 +142,7 @@ class PartialExitManager:
                 # 청산 수량 계산 (초기 수량 기준)
                 exit_volume = state.initial_volume * level.exit_ratio
                 exit_volume = min(exit_volume, state.remaining_volume)
+                exit_volume = round(exit_volume, 4)  # 찌꺼기 방지
 
                 if exit_volume <= 0:
                     continue
