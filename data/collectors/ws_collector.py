@@ -44,6 +44,7 @@ class UpbitWebSocketCollector:
         self._last_message_time = time.time()
         self._message_count = 0
         self._subscription_types: List[str] = []
+        self._need_resubscribe: bool = False
 
     def subscribe_ticker(self) -> "UpbitWebSocketCollector":
         """현재가(ticker) 구독"""
@@ -59,6 +60,30 @@ class UpbitWebSocketCollector:
         """호가(orderbook) 구독"""
         self._subscription_types.append("orderbook")
         return self
+
+    def add_markets(self, new_markets: list) -> bool:
+        """동적 마켓 추가 — 재구독 필요 플래그 설정"""
+        added = []
+        for m in new_markets:
+            if m not in self.markets:
+                self.markets.append(m)
+                added.append(m)
+        if added:
+            self._need_resubscribe = True
+            logger.info(f"📡 WebSocket 동적 마켓 추가: {added} (재구독 예정)")
+            return True
+        return False
+
+    async def resubscribe(self):
+        """마켓 변경 시 재구독 (연결 유지하며 새 구독 메시지 전송)"""
+        if self._ws and not self._ws.closed:
+            try:
+                subscribe_msg = self._build_subscribe_message()
+                await self._ws.send(subscribe_msg)
+                self._need_resubscribe = False
+                logger.info(f"✅ WebSocket 재구독 완료 | 총 {len(self.markets)}개 코인")
+            except Exception as e:
+                logger.warning(f"⚠️ WebSocket 재구독 실패: {e}")
 
     def _build_subscribe_message(self) -> str:
         """업비트 WebSocket 구독 메시지 생성"""

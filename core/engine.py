@@ -692,11 +692,22 @@ class TradingEngine:
         try:
             new_surge_markets = await self._market_scanner()
             if new_surge_markets:
+                _ws_added = []
                 for _sm in new_surge_markets:
                     if _sm not in markets:
                         markets.append(_sm)
                         self.markets = markets
+                        _ws_added.append(_sm)
                         logger.info(f"🔥 급등 코인 감시 추가: {_sm}")
+
+                # ✅ WebSocket 동적 구독 추가
+                if _ws_added and hasattr(self, 'ws_collector') and self.ws_collector:
+                    try:
+                        added = self.ws_collector.add_markets(_ws_added)
+                        if added:
+                            await self.ws_collector.resubscribe()
+                    except Exception as _ws_e:
+                        logger.debug(f"WebSocket 동적 추가 실패: {_ws_e}")
         except Exception as _se:
             logger.debug(f"마켓 스캐너 오류: {_se}")
 
@@ -2421,9 +2432,17 @@ class TradingEngine:
                 self._dynamic_markets = self._dynamic_markets[-cfg["max_dynamic_coins"]:]
 
             if new_markets:
-                logger.info(f"[Scanner] 새 급등 코인 {len(new_markets)}개 감시 추가: {new_markets}")
+                logger.info(
+                    f"[Scanner] 새 급등 코인 {len(new_markets)}개 감시 추가: {new_markets} | "
+                    f"동적풀 총 {len(self._dynamic_markets)}개 | "
+                    f"전체 분석대상: 고정{len(self.settings.trading.target_markets)}개 "
+                    f"+ 동적{len(self._dynamic_markets)}개"
+                )
             else:
-                logger.debug(f"[Scanner] 새 급등 코인 없음")
+                logger.debug(
+                    f"[Scanner] 새 급등 코인 없음 | "
+                    f"현재 동적풀: {len(self._dynamic_markets)}개"
+                )
 
             return new_markets
 
