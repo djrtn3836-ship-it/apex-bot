@@ -242,17 +242,17 @@ class RegimeDetector:
         # 역발상 신호 카운트
         reversal_signals = 0
 
-        if rsi <= 28:
+        if rsi <= 35:
             reversal_signals += 1
 
-        if fear_greed_index is not None and fear_greed_index <= 20:
+        if fear_greed_index is not None and fear_greed_index <= 25:
             reversal_signals += 1
 
-        if bb_pct <= 0.05:
+        if bb_pct <= 0.15:
             reversal_signals += 1
 
         # 2개 이상 충족 시 BEAR_REVERSAL
-        return reversal_signals >= 2
+        return reversal_signals >= 1
 
     def _classify(
         self,
