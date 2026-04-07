@@ -784,6 +784,65 @@ class TradingEngine:
         await self._update_dashboard_state(krw, total_value)
 
 
+    async def _check_time_based_exits(self) -> None:
+        """시간기반 강제청산: 24h 손실지속 / 48h 횡보 / 72h 무조건"""
+        import datetime
+        now = datetime.datetime.now()
+        markets = list(self.portfolio.open_positions.keys())
+
+        for market in markets:
+            try:
+                pos = self.portfolio.get_position(market)
+                if not pos:
+                    continue
+
+                current_price = self._market_prices.get(market)
+                if not current_price or current_price <= 0:
+                    continue
+
+                entry_time = getattr(pos, 'entry_time', None) or getattr(pos, 'created_at', None)
+                if entry_time is None:
+                    continue
+
+                if isinstance(entry_time, str):
+                    try:
+                        entry_time = datetime.datetime.fromisoformat(entry_time)
+                    except Exception:
+                        continue
+
+                held_hours = (now - entry_time).total_seconds() / 3600
+                profit_rate = (current_price - pos.entry_price) / pos.entry_price
+
+                # 72시간 초과: 무조건 청산
+                if held_hours >= 72:
+                    logger.info(
+                        f"⏰ 72h 강제청산 ({market}): "
+                        f"보유={held_hours:.1f}h | 수익={profit_rate*100:.2f}%"
+                    )
+                    await self._execute_sell(market, "시간초과_72h_강제청산", current_price)
+                    continue
+
+                # 48시간 초과 + 수익률 -1% ~ +1% 횡보
+                if held_hours >= 48 and -0.01 <= profit_rate <= 0.01:
+                    logger.info(
+                        f"⏰ 48h 횡보청산 ({market}): "
+                        f"보유={held_hours:.1f}h | 수익={profit_rate*100:.2f}%"
+                    )
+                    await self._execute_sell(market, "횡보청산_48h", current_price)
+                    continue
+
+                # 24시간 초과 + 손실 -2% 이하
+                if held_hours >= 24 and profit_rate <= -0.02:
+                    logger.info(
+                        f"⏰ 24h 손실청산 ({market}): "
+                        f"보유={held_hours:.1f}h | 수익={profit_rate*100:.2f}%"
+                    )
+                    await self._execute_sell(market, "손실청산_24h", current_price)
+                    continue
+
+            except Exception as _te:
+                logger.debug(f"시간기반 청산 오류 ({market}): {_te}")
+
     async def _check_position_exits(self):
         """트레일링 스탑 + ATR 손절/익절 + 부분청산 + M4 청산 체크"""
         markets = list(self.portfolio.open_positions.keys())
