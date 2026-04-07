@@ -2587,6 +2587,14 @@ class TradingEngine:
                         f"매수가={_price:,.0f} | "
                         f"금액=₩{_amount_krw:,.0f} | {_strategy}"
                     )
+                    # ✅ 부분청산 누적 비율 복원 (재시작 후 이중 청산 방지)
+                    try:
+                        _exited = self._db.get_partial_exit_ratio(mkt)
+                        if _exited and _exited > 0:
+                            self.partial_exit.restore_executed_levels(mkt, _exited)
+                            logger.info(f"♻️ 부분청산 복원 | {mkt} | 누적={_exited:.0%}")
+                    except Exception as _pe_e:
+                        logger.debug(f"부분청산 복원 스킵 ({mkt}): {_pe_e}")
                 except Exception as _row_e:
                     logger.warning(f"행 복원 스킵 ({row['market'] if row else '?'}): {_row_e}")
                     continue

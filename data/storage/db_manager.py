@@ -324,3 +324,29 @@ class DatabaseManager:
             await self._conn.close()
             logger.info("DB 연결 종료")
 
+    def get_partial_exit_ratio(self, market: str) -> float:
+        """
+        오늘 해당 마켓의 PARTIAL_SELL 누적 청산 비율 반환
+        trade_history의 volume 합산 / 최초 BUY volume 으로 계산
+        """
+        try:
+            today = __import__("datetime").date.today().isoformat()
+            rows = self._conn.execute(
+                """SELECT side, volume FROM trade_history
+                   WHERE market=? AND timestamp LIKE ?
+                   ORDER BY id ASC""",
+                (market, f"{today}%")
+            ).fetchall()
+            buy_vol = 0.0
+            sell_vol = 0.0
+            for side, vol in rows:
+                if side == "BUY":
+                    buy_vol = vol  # 최초 BUY 수량 (마지막 BUY 기준)
+                elif side in ("SELL", "PARTIAL_SELL"):
+                    sell_vol += vol
+            if buy_vol > 0:
+                return sell_vol / buy_vol
+        except Exception as e:
+            pass
+        return 0.0
+

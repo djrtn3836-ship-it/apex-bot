@@ -174,6 +174,22 @@ class PartialExitManager:
         """포지션 제거"""
         self._positions.pop(market, None)
 
+    def restore_executed_levels(self, market: str, exited_ratio: float):
+        """
+        DB 복원 시: 이미 실행된 부분청산 레벨을 executed=True 로 표시
+        exited_ratio: DB의 누적 청산 비율 (예: 0.25 → 1단계 완료)
+        """
+        state = self._positions.get(market)
+        if not state:
+            return
+        cumulative = 0.0
+        for level in state.levels:
+            cumulative += level.exit_ratio
+            if exited_ratio >= cumulative - 0.001:
+                level.executed = True
+                state.total_exited_ratio = cumulative
+        state.remaining_volume = state.initial_volume * (1.0 - state.total_exited_ratio)
+
     def get_state(self, market: str) -> Optional[PartialExitState]:
         return self._positions.get(market)
 
