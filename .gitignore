@@ -16,3 +16,5 @@ reset_*.py
 show_*.py
 create_strategies.py
 upgrade_trading_logic.py
+
+fix4_only.py
