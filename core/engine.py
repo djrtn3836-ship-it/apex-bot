@@ -693,6 +693,8 @@ class TradingEngine:
         except Exception as _se:
             logger.debug(f"마켓 스캐너 오류: {_se}")
 
+        # ✅ 시간기반 강제청산 체크 (24h 손실 / 48h 횡보 / 72h 무조건)
+        await self._check_time_based_exits()
         # ✅ 트레일링 스탑 + 부분 청산 체크
         await self._check_position_exits()
 
@@ -1682,6 +1684,55 @@ class TradingEngine:
                 f"⚡ BEAR_REVERSAL 포지션 50% 축소 ({market}): "
                 f"₩{position_size*2:,.0f} → ₩{position_size:,.0f}"
             )
+
+        # ✅ 신호강도 기반 분할매수 결정
+        _ml_conf_score = getattr(signal, 'ml_confidence', 0.5)
+        _ensemble_score = getattr(signal, 'score', 0.5)
+        _combined_score = (_ml_conf_score + _ensemble_score) / 2
+
+        if _combined_score >= 0.80:
+            # 강한 신호: 전량 즉시 매수
+            _buy_ratio = 1.0
+            _buy_reason = f"강한신호({_combined_score:.2f}) 전량매수"
+        elif _combined_score >= 0.60:
+            # 중간 신호: 70% 즉시, 나머지는 다음 사이클
+            _buy_ratio = 0.70
+            _buy_reason = f"중간신호({_combined_score:.2f}) 70%매수"
+        else:
+            # 약한 신호: 50% 매수 (확인 후 추가)
+            _buy_ratio = 0.50
+            _buy_reason = f"약한신호({_combined_score:.2f}) 50%매수"
+
+        _original_size = position_size
+        position_size = max(position_size * _buy_ratio, 20000)  # 최소 ₩20,000 보장
+        logger.info(
+            f"📊 분할매수 결정 ({market}): {_buy_reason} | "
+            f"₩{_original_size:,.0f} → ₩{position_size:,.0f}"
+        )
+        # ✅ 최소 포지션 ₩20,000 보장 (부분청산 가능한 최소 단위)
+        _MIN_POSITION_KRW = 20000
+        _MAX_POSITION_KRW = krw * 0.20  # 전체 자본의 최대 20%
+
+        if position_size < _MIN_POSITION_KRW:
+            # Kelly 계산 결과가 너무 작으면 최소값으로 강제 설정
+            if krw >= _MIN_POSITION_KRW * 2:
+                position_size = _MIN_POSITION_KRW
+                logger.info(
+                    f"📏 포지션 최소값 적용 ({market}): ₩{position_size:,.0f} (자본 ₩{krw:,.0f})"
+                )
+            else:
+                logger.debug(
+                    f"포지션 너무 작음 ({market}): "
+                    f"₩{position_size:,.0f} < 최소 ₩{_MIN_POSITION_KRW:,.0f}"
+                )
+                return
+
+        if position_size > _MAX_POSITION_KRW:
+            position_size = _MAX_POSITION_KRW
+            logger.info(
+                f"📏 포지션 최대값 적용 ({market}): ₩{position_size:,.0f} (자본의 20%)"
+            )
+
         if position_size < self.settings.trading.min_order_amount:
             logger.debug(
                 f"포지션 너무 작음 ({market}): "
@@ -1699,10 +1750,15 @@ class TradingEngine:
         # ✅ stop_loss / take_profit → ATR 계산 블록에서 이미 산출됨
         # (L1188 블록 참조)
 
+        # ✅ 수량 정밀도 보정 (업비트 소수점 제한)
+        _buy_raw_volume = position_size / current_price if current_price > 0 else 0
+        _buy_volume = _floor_vol(market, _buy_raw_volume) if '_floor_vol' in dir() or '_floor_vol' in globals() else _buy_raw_volume
+        _adjusted_krw = _buy_volume * current_price if _buy_volume > 0 else position_size
+
         req = ExecutionRequest(
             market=market,
             side=OrderSide.BUY,
-            amount_krw=position_size,
+            amount_krw=_adjusted_krw,
             reason=signal.reasons[0] if signal.reasons else "앙상블 매수",
             strategy_name=", ".join(signal.contributing_strategies),
             stop_loss=stop_loss,
@@ -1818,20 +1874,25 @@ class TradingEngine:
         if not pos or volume <= 0:
             return
 
-        # 최소 주문 수량 체크 (부분청산은 min_order_amount의 40%까지 허용)
-        _min_partial = self.settings.trading.min_order_amount * 0.40
+        # ✅ 업비트 최소주문 ₩5,000 기준 체크
         _order_value = volume * current_price
-        if _order_value < _min_partial:
-            # 소액이면 전량 매도로 전환
-            pos_value = getattr(pos, 'volume', 0) * current_price
-            if pos_value >= self.settings.trading.min_order_amount:
+        _min_order = self.settings.trading.min_order_amount  # ₩5,000
+        _pos_total_value = getattr(pos, 'volume', 0) * current_price
+
+        if _order_value < _min_order:
+            # 부분청산 금액이 ₩5,000 미만 → 전량매도 가능하면 전환
+            if _pos_total_value >= _min_order:
                 logger.info(
-                    f"⚡ 부분청산→전량매도 전환 ({market}): "
-                    f"부분청산금액=₩{_order_value:,.0f} < 최소=₩{_min_partial:,.0f}"
+                    f"⚡ 부분청산 금액 부족 → 전량매도 전환 ({market}): "
+                    f"부분=₩{_order_value:,.0f} < 최소=₩{_min_order:,.0f} | "
+                    f"전체포지션=₩{_pos_total_value:,.0f}"
                 )
-                await self._execute_sell(market, "부분청산→전량익절", current_price)
+                await self._execute_sell(market, "소액포지션_전량매도", current_price)
             else:
-                logger.debug(f"부분 청산 수량 부족 스킵 ({market}): ₩{_order_value:,.0f}")
+                logger.warning(
+                    f"⚠️ 포지션 전체도 최소금액 미만 스킵 ({market}): "
+                    f"₩{_pos_total_value:,.0f} < ₩{_min_order:,.0f}"
+                )
             return
 
         state = self.partial_exit.get_state(market)
