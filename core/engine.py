@@ -375,6 +375,13 @@ class TradingEngine:
         self._strategies = {}
         self._ml_predictor = None
         self._ppo_agent = None   # ✅ FIX: AttributeError 방지
+        # ✅ PPO 온라인 학습 트레이너 초기화
+        try:
+            self.ppo_online_trainer = PPOOnlineTrainer()
+            logger.info("✅ PPOOnlineTrainer 초기화 완료")
+        except Exception as _ppo_e:
+            self.ppo_online_trainer = None
+            logger.warning(f"⚠️ PPOOnlineTrainer 초기화 실패: {_ppo_e}")
 
         # 내부 상태
         self._market_prices: Dict[str, float] = {}
@@ -1878,6 +1885,17 @@ class TradingEngine:
             self.trailing_stop.add_position(
                 market, result.executed_price, stop_loss, atr
             )
+            # ✅ PPO 온라인 학습: BUY 경험 기록
+            try:
+                if self.ppo_online_trainer is not None:
+                    self.ppo_online_trainer.add_experience(
+                        market=market,
+                        action=1,  # BUY
+                        profit_rate=0.0,
+                        hold_hours=0.0,
+                    )
+            except Exception as _ppo_buy_e:
+                logger.debug(f"PPO BUY 경험 기록 실패: {_ppo_buy_e}")
 
             # ── Layer 3: M4 PositionManagerV2 등록 ──────
             if self.position_mgr_v2 is not None:
@@ -2005,6 +2023,25 @@ class TradingEngine:
         result = await self.executor.execute(req)
         if result.executed_price > 0:
             profit_rate = (result.executed_price - pos.entry_price) / pos.entry_price
+
+            # ✅ PPO 온라인 학습: PARTIAL SELL 경험 기록
+            try:
+                if self.ppo_online_trainer is not None:
+                    import datetime
+                    _entry_time = getattr(pos, 'entry_time', None) or getattr(pos, 'created_at', None)
+                    _hold_hours = 0.0
+                    if _entry_time:
+                        if isinstance(_entry_time, str):
+                            _entry_time = datetime.datetime.fromisoformat(_entry_time)
+                        _hold_hours = (datetime.datetime.now() - _entry_time).total_seconds() / 3600
+                    self.ppo_online_trainer.add_experience(
+                        market=market,
+                        action=2,  # SELL
+                        profit_rate=profit_rate,
+                        hold_hours=_hold_hours,
+                    )
+            except Exception as _ppo_ps_e:
+                logger.debug(f"PPO PARTIAL SELL 경험 기록 실패: {_ppo_ps_e}")
 
             # 포트폴리오 볼륨 감소
             pos.volume -= volume
