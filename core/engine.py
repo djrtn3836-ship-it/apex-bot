@@ -1725,19 +1725,25 @@ class TradingEngine:
 
             # ✅ DB 저장 (PARTIAL_SELL)
             try:
-                await self._db.save_trade(
-                    market=market,
-                    side="SELL",
-                    price=result.executed_price,
-                    volume=volume,
-                    amount_krw=volume * result.executed_price,
-                    fee=result.fee,
-                    profit_rate=profit_rate,
-                    strategy=getattr(self.portfolio.get_position(market),
-                                     'strategy', 'unknown') or 'unknown',
-                    reason=reason,
-                    mode="paper" if getattr(self.settings, 'paper_mode', True) else "live",
-                )
+                import datetime as _dt
+                _strat = getattr(
+                    self.portfolio.get_position(market), 'strategy', 'unknown'
+                ) or 'unknown'
+                _mode = "paper" if getattr(self.settings, 'paper_mode', True) else "live"
+                self.db_manager.insert_trade({
+                    "market":      market,
+                    "side":        "SELL",
+                    "price":       result.executed_price,
+                    "volume":      volume,
+                    "amount_krw":  volume * result.executed_price,
+                    "fee":         result.fee,
+                    "profit_rate": profit_rate,
+                    "strategy":    _strat,
+                    "reason":      reason,
+                    "mode":        _mode,
+                    "timestamp":   _dt.datetime.now().isoformat(),
+                })
+                logger.debug(f"✅ 부분청산 DB 저장 완료 ({market}): {reason}")
             except Exception as _db_e:
                 logger.debug(f"부분청산 DB 저장 스킵 ({market}): {_db_e}")
 
@@ -2607,7 +2613,7 @@ class TradingEngine:
                     )
                     # ✅ 부분청산 누적 비율 복원 (재시작 후 이중 청산 방지)
                     try:
-                        _exited = self._db.get_partial_exit_ratio(mkt)
+                        _exited = self.db_manager.get_partial_exit_ratio(mkt)
                         if _exited and _exited > 0:
                             self.partial_exit.restore_executed_levels(mkt, _exited)
                             logger.info(f"♻️ 부분청산 복원 | {mkt} | 누적={_exited:.0%}")
