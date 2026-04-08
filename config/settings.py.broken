@@ -1,6 +1,7 @@
 """
 APEX BOT - ?ㅼ젙 愿由?紐⑤뱢
 ?섍꼍蹂??+ YAML ?ㅼ젙 ?듯빀 愿由?
+
 ?섏젙 ?대젰:
   v1.1 - mode 湲곕낯媛?"live" ??"paper" (?ㅼ닔 ?ㅺ굅??諛⑹?)
        - ?ㅺ굅?????섍꼍蹂??APEX_LIVE_CONFIRM=yes ?댁쨷?좉툑 異붽?
@@ -137,7 +138,7 @@ class Settings:
         if env_mode in ("live", "paper", "backtest"):
             self.mode = env_mode
 
-    def validate(self):
+        """설정 유효성 검증"""
         """?ㅼ젙 ?좏슚??寃利?""
         if self.mode == "live":
             # ??FIX: ?ㅺ굅?????섍꼍蹂???댁쨷?좉툑

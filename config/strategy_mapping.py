@@ -1,15 +1,15 @@
 """
-APEX BOT - 최종 전략 매핑
-일봉 1년 + 4시간봉 6개월 백테스트 결과 종합 (2026-04-05)
+APEX BOT - 理쒖쥌 ?꾨왂 留ㅽ븨
+?쇰큺 1??+ 4?쒓컙遊?6媛쒖썡 諛깊뀒?ㅽ듃 寃곌낵 醫낇빀 (2026-04-05)
 
-핵심 결론:
-  - 현재 시장(극단적 공포, 하락장)에서는 손실 최소화가 목표
-  - volume_spike + rsi_divergence 가 하락장 생존 전략
-  - volatility_breakout / order_block_smc 는 현재 시장 부적합
-  - 상승장 전환 시 trend_following + ml_strategy 활성화 예정
+?듭떖 寃곕줎:
+  - ?꾩옱 ?쒖옣(洹밸떒??怨듯룷, ?섎씫???먯꽌???먯떎 理쒖냼?붽? 紐⑺몴
+  - volume_spike + rsi_divergence 媛 ?섎씫???앹〈 ?꾨왂
+  - volatility_breakout / order_block_smc ???꾩옱 ?쒖옣 遺?곹빀
+  - ?곸듅???꾪솚 ??trend_following + ml_strategy ?쒖꽦???덉젙
 """
 
-# 코인별 최적 전략 (현재 하락장 기준)
+# 肄붿씤蹂?理쒖쟻 ?꾨왂 (?꾩옱 ?섎씫??湲곗?)
 COIN_STRATEGY_MAP = {
     "KRW-BTC":  ["ml_strategy",    "rsi_divergence"],
     "KRW-ETH":  ["volume_spike",   "rsi_divergence"],
@@ -23,7 +23,7 @@ COIN_STRATEGY_MAP = {
     "KRW-ATOM": ["volume_spike",   "rsi_divergence"],
 }
 
-# 상승장 전환 시 사용할 전략 (EMA200 위 + ADX > 25 조건)
+# ?곸듅???꾪솚 ???ъ슜???꾨왂 (EMA200 ??+ ADX > 25 議곌굔)
 BULL_MARKET_MAP = {
     "KRW-BTC":  ["ml_strategy",     "trend_following"],
     "KRW-ETH":  ["trend_following", "volatility_breakout"],
@@ -37,10 +37,10 @@ BULL_MARKET_MAP = {
     "KRW-ATOM": ["mean_reversion",  "trend_following"],
 }
 
-# 퇴출 전략 (현재 시장 부적합)
+# ?댁텧 ?꾨왂 (?꾩옱 ?쒖옣 遺?곹빀)
 BLACKLIST_STRATEGIES = ["volatility_breakout", "order_block_smc"]
 
-# 전략 성과 요약 (4h 6개월 기준, 샤프 최고값)
+# ?꾨왂 ?깃낵 ?붿빟 (4h 6媛쒖썡 湲곗?, ?ㅽ봽 理쒓퀬媛?
 STRATEGY_BEST_SHARPE = {
     "rsi_divergence":    {"best_coin": "ETH",  "sharpe": 0.104, "timeframe": "4h"},
     "volume_spike":      {"best_coin": "ETH",  "sharpe": 0.451, "timeframe": "4h"},
@@ -54,12 +54,12 @@ STRATEGY_BEST_SHARPE = {
 
 
 def get_strategy(market: str, is_bull: bool = False) -> list:
-    """시장 국면에 따라 코인별 최적 전략 반환"""
+    """?쒖옣 援?㈃???곕씪 肄붿씤蹂?理쒖쟻 ?꾨왂 諛섑솚"""
     if is_bull:
         return BULL_MARKET_MAP.get(market, ["trend_following", "ml_strategy"])
     return COIN_STRATEGY_MAP.get(market, ["rsi_divergence", "volume_spike"])
 
 
 def is_blacklisted(strategy: str) -> bool:
-    """현재 시장 부적합 전략 여부"""
+    """?꾩옱 ?쒖옣 遺?곹빀 ?꾨왂 ?щ?"""
     return strategy in BLACKLIST_STRATEGIES
