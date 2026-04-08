@@ -1612,6 +1612,82 @@ class TradingEngine:
             return None
 
     # ── 매수 실행 ────────────────────────────────────────────────
+    
+    async def _evaluate_entry_signals(self, market: str, df, ml_score: float):
+        """시그널 평가 (v2.0.4 복원 + v2.1.0 필터 통합)"""
+        try:
+            # 1. ATR 변동성 필터 (v2.1.0)
+            atr = df['atr'].iloc[-1] if 'atr' in df.columns else 0
+            price = df['close'].iloc[-1]
+            volatility = (atr / price) * 100 if price > 0 else 0
+            
+            if volatility < 1.0 or volatility > 5.0:
+                self.logger.debug(f"{market} ATR 변동성 차단: {volatility:.2f}%")
+                return None
+            
+            # 2. VolumeProfile RR 필터 (v2.1.0)
+            vp_rr = getattr(self, 'volume_profile', {}).get(market, {}).get('rr', 0)
+            if vp_rr < 1.0:
+                self.logger.debug(f"{market} VolumeProfile RR 미달: {vp_rr:.2f}")
+                return None
+            
+            # 3. Multi-Timeframe Confirmation (v2.1.0)
+            if hasattr(self, 'mtf_confirmation'):
+                mtf_result = await self.mtf_confirmation.check(market, df)
+                if not mtf_result.get('aligned', False):
+                    self.logger.debug(f"{market} MTF 불일치")
+                    return None
+            
+            # 4. ML 임계값 확인 (동적, v2.1.0)
+            fgi = getattr(self, 'fear_greed_index', 50)
+            buy_threshold = 0.8 if fgi > 30 else 0.6  # 극단 공포 시 완화
+            
+            if ml_score < buy_threshold:
+                self.logger.debug(f"{market} ML 신호 약함: {ml_score:.3f} < {buy_threshold}")
+                return None
+            
+            # 5. 전략 합의 확인 (기존 로직)
+            strategy_scores = []
+            for strategy_name, strategy in self.strategies.items():
+                if hasattr(strategy, 'generate'):
+                    sig = strategy.generate(df)
+                    if sig and sig.action == 'BUY':
+                        strategy_scores.append(sig.confidence)
+            
+            if len(strategy_scores) < 3:  # 최소 3개 전략 동의
+                self.logger.debug(f"{market} 전략 합의 실패: {len(strategy_scores)}개")
+                return None
+            
+            # 6. Kelly Criterion 포지션 크기 (v2.1.0)
+            win_rate = getattr(self, 'historical_win_rate', 0.55)
+            avg_win = getattr(self, 'avg_win', 0.03)
+            avg_loss = getattr(self, 'avg_loss', 0.02)
+            
+            if avg_loss > 0:
+                kelly_fraction = (win_rate * avg_win - (1 - win_rate) * avg_loss) / avg_win
+                kelly_fraction = max(0.05, min(kelly_fraction, 0.15))  # 5~15% 제한
+            else:
+                kelly_fraction = 0.10
+            
+            self.logger.info(
+                f"✅ {market} 진입 시그널 생성 | ML: {ml_score:.3f} | "
+                f"전략: {len(strategy_scores)}개 | Kelly: {kelly_fraction:.1%} | "
+                f"ATR: {volatility:.2f}% | RR: {vp_rr:.2f}"
+            )
+            
+            return {
+                'action': 'BUY',
+                'confidence': ml_score,
+                'position_size': kelly_fraction,
+                'strategies': len(strategy_scores),
+                'filters_passed': ['ATR', 'VolumeProfile', 'MTF', 'ML', 'Consensus']
+            }
+            
+        except Exception as e:
+            self.logger.error(f"{market} 시그널 평가 오류: {e}")
+            return None
+
+
     async def _execute_buy(self, market: str, signal: CombinedSignal, df):
         _max_pos = self.settings.trading.max_positions
         if self.portfolio.position_count >= _max_pos:
