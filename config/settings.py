@@ -1,9 +1,6 @@
 """
-APEX BOT - ?ㅼ젙 愿由?紐⑤뱢
-?섍꼍蹂??+ YAML ?ㅼ젙 ?듯빀 愿由?
-?섏젙 ?대젰:
-  v1.1 - mode 湲곕낯媛?"live" ??"paper" (?ㅼ닔 ?ㅺ굅??諛⑹?)
-       - ?ㅺ굅?????섍꼍蹂??APEX_LIVE_CONFIRM=yes ?댁쨷?좉툑 異붽?
+APEX BOT - 설정 파일
+Pydantic + YAML 설정 시스템
 """
 import os
 from pathlib import Path
@@ -18,7 +15,7 @@ BASE_DIR = Path(__file__).parent.parent
 
 @dataclass
 class APIConfig:
-    """?낅퉬??API ?ㅼ젙"""
+    """업비트 API 설정"""
     access_key: str = field(default_factory=lambda: os.getenv("UPBIT_ACCESS_KEY", ""))
     secret_key: str = field(default_factory=lambda: os.getenv("UPBIT_SECRET_KEY", ""))
     base_url: str = "https://api.upbit.com/v1"
@@ -30,7 +27,7 @@ class APIConfig:
 
 @dataclass
 class TradingConfig:
-    """?몃젅?대뵫 ?ㅼ젙"""
+    """거래 설정"""
     target_markets: List[str] = field(default_factory=lambda: [
         "KRW-BTC", "KRW-ETH", "KRW-XRP", "KRW-SOL", "KRW-ADA",
         "KRW-DOGE", "KRW-AVAX", "KRW-DOT", "KRW-LINK", "KRW-ATOM"
@@ -51,7 +48,7 @@ class TradingConfig:
 
 @dataclass
 class RiskConfig:
-    """由ъ뒪??愿由??ㅼ젙"""
+    """리스크 관리 설정"""
     max_risk_per_trade: float = 0.02
     kelly_fraction: float = 0.5
     min_position_size: float = 5000
@@ -63,13 +60,13 @@ class RiskConfig:
     total_drawdown_limit: float = 0.10
     monthly_loss_limit: float = 0.15
     consecutive_loss_limit: int = 5
-    buy_signal_threshold: float = 1.50  # 蹂듭썝: ML+?꾨왂1媛??숈쓽 ?꾩슂
-    sell_signal_threshold: float = -1.2  # ?꾪솕: -4.5??1.2
+    buy_signal_threshold: float = 1.50
+    sell_signal_threshold: float = -1.2
 
 
 @dataclass
 class MLConfig:
-    """ML 紐⑤뜽 ?ㅼ젙"""
+    """ML 모델 설정"""
     use_gpu: bool = True
     device: str = "cuda"
     mixed_precision: bool = True
@@ -92,8 +89,29 @@ class MLConfig:
 
 
 @dataclass
+class StrategyConfig:
+    """전략 설정"""
+    enabled_strategies: List[str] = field(default_factory=lambda: [
+        "Williams_R",
+        "MACD_Cross",
+        "RSI_Divergence",
+        "Bollinger_Squeeze",
+        "BEAR_REVERSAL",
+        "Volume_Profile",
+        "Smart_Money",
+        "Ichimoku_Cloud"
+    ])
+    signal_weight: dict = field(default_factory=lambda: {
+        "ML": 0.40,
+        "Technical": 0.35,
+        "Volume": 0.15,
+        "Sentiment": 0.10
+    })
+
+
+@dataclass
 class MonitoringConfig:
-    """紐⑤땲?곕쭅 ?ㅼ젙"""
+    """모니터링 설정"""
     dashboard_host: str = "0.0.0.0"
     dashboard_port: int = 8888
     telegram_token: str = field(
@@ -111,7 +129,7 @@ class MonitoringConfig:
 
 @dataclass
 class DatabaseConfig:
-    """?곗씠?곕쿋?댁뒪 ?ㅼ젙"""
+    """데이터베이스 설정"""
     db_path: Path = BASE_DIR / "database" / "apex_bot.db"
     cache_max_candles: int = 2000
     cache_max_ticks: int = 10000
@@ -119,51 +137,48 @@ class DatabaseConfig:
 
 @dataclass
 class Settings:
-    """?듯빀 ?ㅼ젙"""
+    """전체 설정"""
     api: APIConfig = field(default_factory=APIConfig)
     trading: TradingConfig = field(default_factory=TradingConfig)
     risk: RiskConfig = field(default_factory=RiskConfig)
     ml: MLConfig = field(default_factory=MLConfig)
+    strategy: StrategyConfig = field(default_factory=StrategyConfig)
     monitoring: MonitoringConfig = field(default_factory=MonitoringConfig)
     database: DatabaseConfig = field(default_factory=DatabaseConfig)
 
-    # ??FIX: 湲곕낯媛?"live" ??"paper" (?ㅼ닔 ?ㅺ굅??諛⑹?)
     mode: str = "paper"
     debug: bool = False
 
     def __post_init__(self):
-        # ?섍꼍蹂?섎줈 紐⑤뱶 ?ㅻ쾭?쇱씠??(main.py?먯꽌 ?ㅼ젙)
         env_mode = os.getenv("TRADING_MODE", "").lower()
         if env_mode in ("live", "paper", "backtest"):
             self.mode = env_mode
 
     def validate(self):
-        """?ㅼ젙 ?좏슚??寃利?""
+        """설정 유효성 검증"""
         if self.mode == "live":
-            # ??FIX: ?ㅺ굅?????섍꼍蹂???댁쨷?좉툑
             confirm = os.getenv("APEX_LIVE_CONFIRM", "").lower()
             if confirm != "yes":
                 raise RuntimeError(
                     "\n" + "=" * 55 + "\n"
-                    "  ?좑툘  ?ㅺ굅??紐⑤뱶 ?댁쨷 ?뺤씤 ?꾩슂\n"
-                    "  ?섍꼍蹂?섎? ?ㅼ젙?섏꽭??\n"
+                    "  경고: 실거래 모드는 환경 변수 확인 필요\n"
+                    "  환경변수에 설정하세요:\n"
                     "  APEX_LIVE_CONFIRM=yes\n"
-                    "  (?ㅺ굅???섎룄媛 留욌떎硫?.env??異붽?)\n"
+                    "  (실거래의 위험성을 .env에 명시)\n"
                     + "=" * 55
                 )
-            assert self.api.access_key, "??UPBIT_ACCESS_KEY 誘몄꽕??
-            assert self.api.secret_key, "??UPBIT_SECRET_KEY 誘몄꽕??
+            assert self.api.access_key, "UPBIT_ACCESS_KEY 필수"
+            assert self.api.secret_key, "UPBIT_SECRET_KEY 필수"
 
         assert 0 < self.risk.max_risk_per_trade <= 0.05, (
-            "??max_risk_per_trade??0~5% ?ъ씠"
+            "max_risk_per_trade는 0~5% 사이"
         )
         assert self.trading.max_positions >= 1, (
-            "??max_positions??1 ?댁긽"
+            "max_positions는 1 이상"
         )
         return self
 
 
-# ?? ?깃???????????????????????????????????????????????????????
 _settings: Optional[Settings] = None
 
 
