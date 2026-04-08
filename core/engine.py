@@ -2124,7 +2124,7 @@ class TradingEngine:
             self.trailing_stop.remove_position(market)
             self.partial_exit.remove_position(market)
 
-            if "손절" in reason or "stop" in reason.lower():
+            if "손절" in reason or "stop" in reason.lower() or "트레일링" in reason or "ATR" in reason:
                 if not hasattr(self, "_sl_cooldown"):
                     self._sl_cooldown = {}
                 import datetime as _dt
@@ -3555,3 +3555,4 @@ class TradingEngine:
 
         except Exception as _e:
             logger.debug(f"대시보드 업데이트 오류: {_e}")
+
