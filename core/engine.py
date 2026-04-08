@@ -3492,6 +3492,40 @@ class TradingEngine:
                     logger.warning(
                         f"⚠️ WebSocket 연결 끊김 → {delay}초 후 재연결 시도"
                     )
+                    
+                    # ===== 시그널 평가 및 진입 로직 (v2.1.0) =====
+                    try:
+                        for market in self.target_markets:
+                            try:
+                                # 데이터 가져오기
+                                df = self.data_manager.get_market_data(market) if hasattr(self, 'data_manager') else None
+                                if df is None or len(df) == 0:
+                                    continue
+                                
+                                # ML 점수 가져오기 (캐시 또는 새로 계산)
+                                ml_score = 0
+                                if hasattr(self, 'ml_predictor') and self.ml_predictor:
+                                    try:
+                                        prediction = await self.ml_predictor.predict(market, df)
+                                        ml_score = prediction.get('score', 0) if prediction else 0
+                                    except Exception as e:
+                                        self.logger.debug(f"{market} ML 예측 실패: {e}")
+                                        continue
+                                
+                                # 시그널 평가
+                                if ml_score > 0.1:  # 최소 임계값
+                                    signal = await self._evaluate_entry_signals(market, df, ml_score)
+                                    if signal and signal.get('action') == 'BUY':
+                                        self.logger.info(f"🎯 {market} 진입 시그널 확정")
+                                        await self._execute_buy(market, signal, df)
+                            
+                            except Exception as e:
+                                self.logger.error(f"{market} 시그널 처리 오류: {e}")
+                    
+                    except Exception as e:
+                        self.logger.error(f"시그널 평가 루프 오류: {e}")
+                    # =================================================
+
                     await asyncio.sleep(delay)
                     await self.ws_collector.reconnect()
                     logger.info("✅ WebSocket 재연결 성공")
