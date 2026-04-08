@@ -78,7 +78,8 @@ from signals.filters.correlation_filter import CorrelationFilter
 from signals.filters.kimchi_premium import KimchiPremiumMonitor
 from signals.filters.fear_greed import FearGreedMonitor
 from signals.filters.volume_spike import VolumeSpikeDetector
-from signals.filters.news_sentiment import NewsSentimentAnalyzer
+from signals.filters.news_sentiment import NewsSentiment
+from signals.filters.elliott_wave import ElliottWaveDetectorAnalyzer
 from signals.filters.orderbook_signal import OrderbookSignalAnalyzer
 from strategies.base_strategy import SignalType
 from monitoring.dashboard import DashboardServer, update_dashboard
@@ -1008,6 +1009,20 @@ class TradingEngine:
 
     # ── 신규 마켓 분석 ───────────────────────────────────────────
     async def _analyze_market(self, market: str):
+# 동적 ML 임계값 (v2.0.4)
+        fgi_idx = self.fear_greed.latest_index or 50
+        if fgi_idx < 20:  # Extreme Fear
+            buy_threshold = 0.8
+            sell_threshold = -0.8
+        elif fgi_idx < 40:  # Fear
+            buy_threshold = 1.2
+            sell_threshold = -1.0
+        elif fgi_idx > 80:  # Extreme Greed
+            buy_threshold = 2.0
+            sell_threshold = -1.5
+        else:  # Neutral
+            buy_threshold = 1.5
+            sell_threshold = -1.2
         from signals.signal_combiner import CombinedSignal, SignalType
 
         if self.portfolio.position_count >= self.settings.trading.max_positions:
