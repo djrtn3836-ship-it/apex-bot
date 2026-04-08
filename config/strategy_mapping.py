@@ -21,6 +21,30 @@ COIN_STRATEGY_MAP = {
     "KRW-LINK": ["rsi_divergence", "mean_reversion"],
     "KRW-AVAX": ["rsi_divergence", "volume_spike"],
     "KRW-ATOM": ["volume_spike",   "rsi_divergence"],
+    "Ichimoku_Cloud": {
+        "class": "IchimokuCloudStrategy",
+        "module": "strategies.trend.ichimoku_cloud",
+        "weight": 0.1,
+        "category": "advanced"
+    },
+    "Fibonacci_Retracement": {
+        "class": "FibonacciRetracementStrategy",
+        "module": "strategies.mean_reversion.fibonacci_retracement",
+        "weight": 0.08,
+        "category": "advanced"
+    },
+    "Volume_Spike": {
+        "class": "VolumeSpikeDetector",
+        "module": "strategies.volume.volume_spike",
+        "weight": 0.12,
+        "category": "advanced"
+    },
+    "Market_Regime": {
+        "class": "MarketRegimeDetector",
+        "module": "strategies.regime.market_regime",
+        "weight": 0.1,
+        "category": "advanced"
+    },
 }
 
 # ?곸듅???꾪솚 ???ъ슜???꾨왂 (EMA200 ??+ ADX > 25 議곌굔)
