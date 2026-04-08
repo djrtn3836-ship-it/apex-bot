@@ -78,7 +78,7 @@ from signals.filters.correlation_filter import CorrelationFilter
 from signals.filters.kimchi_premium import KimchiPremiumMonitor
 from signals.filters.fear_greed import FearGreedMonitor
 from signals.filters.volume_spike import VolumeSpikeDetector
-from signals.filters.news_sentiment import NewsItem
+from signals.filters.news_sentiment import NewsSentimentAnalyzer
 from signals.filters.elliott_wave import ElliottWaveDetectorAnalyzer
 from signals.filters.orderbook_signal import OrderbookSignalAnalyzer
 from strategies.base_strategy import SignalType

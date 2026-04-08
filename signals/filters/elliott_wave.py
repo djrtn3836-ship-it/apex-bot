@@ -6,7 +6,7 @@ import numpy as np
 from typing import List, Optional
 
 
-class ElliottWaveDetector:
+class ElliottWaveDetectorAnalyzer:
     """엘리엇 파동 5파 상승 감지"""
     
     def __init__(self):
