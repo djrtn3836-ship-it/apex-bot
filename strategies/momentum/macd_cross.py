@@ -1,4 +1,4 @@
-from datetime import datetime
+﻿from datetime import datetime
 from typing import Optional
 import pandas as pd
 from strategies.base_strategy import BaseStrategy, StrategySignal, SignalType
@@ -25,20 +25,29 @@ class MACDCrossStrategy(BaseStrategy):
             sig   = macd.ewm(span=self.params["signal"],  adjust=False).mean()
             hist  = macd - sig
             price = float(close.iloc[-1])
-            atr   = float(df["high"].iloc[-14:].mean() - df["low"].iloc[-14:].mean()) or price * 0.02
+            atr   = float(pd.concat([df["high"]-df["low"],(df["high"]-df["close"].shift()).abs(),(df["low"]-df["close"].shift()).abs()],axis=1).max(axis=1).rolling(14).mean().iloc[-1]) or price * 0.02
+
+            # ✅ 동적 score: 히스토그램 크기를 ATR 대비 비율로 계산
+            hist_strength = min(abs(float(hist.iloc[-1])) / (atr + 1e-9), 1.0)
+            score = round(min(0.60 + hist_strength * 0.35, 0.95), 3)
 
             if hist.iloc[-1] > 0 and hist.iloc[-2] <= 0:
+                # ✅ 동적 confidence: 히스토그램 기울기 반영
+                slope = float(hist.iloc[-1]) - float(hist.iloc[-2])
+                conf  = min(0.60 + (slope / (atr + 1e-9)) * 0.3, 0.92)
                 return self._create_signal(
-                    signal=SignalType.BUY, score=0.7, confidence=0.65,
+                    signal=SignalType.BUY, score=score, confidence=conf,
                     market=market, entry_price=price,
                     stop_loss=price - atr * 1.5, take_profit=price + atr * 3.0,
-                    reason="MACD 골든크로스", timeframe=timeframe)
+                    reason=f"MACD 골든크로스(hist={float(hist.iloc[-1]):.4f})", timeframe=timeframe)
             if hist.iloc[-1] < 0 and hist.iloc[-2] >= 0:
+                slope = float(hist.iloc[-2]) - float(hist.iloc[-1])
+                conf  = min(0.60 + (slope / (atr + 1e-9)) * 0.3, 0.92)
                 return self._create_signal(
-                    signal=SignalType.SELL, score=-0.7, confidence=0.65,
+                    signal=SignalType.SELL, score=-score, confidence=conf,
                     market=market, entry_price=price,
                     stop_loss=price + atr * 1.5, take_profit=price - atr * 3.0,
-                    reason="MACD 데드크로스", timeframe=timeframe)
-        except Exception as e:
+                    reason=f"MACD 데드크로스(hist={float(hist.iloc[-1]):.4f})", timeframe=timeframe)
+        except Exception:
             pass
         return None

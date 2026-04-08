@@ -1,4 +1,4 @@
-from typing import Optional
+﻿from typing import Optional
 import pandas as pd
 from strategies.base_strategy import BaseStrategy, StrategySignal, SignalType
 
@@ -27,19 +27,25 @@ class RSIDivergenceStrategy(BaseStrategy):
             rsi   = self._rsi(df["close"], self.params["period"])
             cur   = float(rsi.iloc[-1])
             price = float(df["close"].iloc[-1])
-            atr   = float(df["high"].iloc[-14:].mean() - df["low"].iloc[-14:].mean()) or price * 0.02
+            atr   = float(pd.concat([df["high"]-df["low"],(df["high"]-df["close"].shift()).abs(),(df["low"]-df["close"].shift()).abs()],axis=1).max(axis=1).rolling(14).mean().iloc[-1]) or price * 0.02
 
             if cur < self.params["oversold"]:
-                conf = min(0.9, 0.5 + (self.params["oversold"] - cur) / 50)
+                # ✅ 동적 score: RSI가 낮을수록(극단적일수록) 높은 score
+                depth = (self.params["oversold"] - cur) / self.params["oversold"]
+                score = round(min(0.55 + depth * 0.40, 0.95), 3)
+                conf  = min(0.50 + depth * 0.45, 0.92)
                 return self._create_signal(
-                    signal=SignalType.BUY, score=0.6, confidence=conf,
+                    signal=SignalType.BUY, score=score, confidence=conf,
                     market=market, entry_price=price,
                     stop_loss=price - atr * 1.5, take_profit=price + atr * 3.0,
                     reason=f"RSI 과매도({cur:.1f})", timeframe=timeframe)
             if cur > self.params["overbought"]:
-                conf = min(0.9, 0.5 + (cur - self.params["overbought"]) / 50)
+                # ✅ 동적 score: RSI가 높을수록(극단적일수록) 높은 score
+                depth = (cur - self.params["overbought"]) / (100 - self.params["overbought"])
+                score = round(min(0.55 + depth * 0.40, 0.95), 3)
+                conf  = min(0.50 + depth * 0.45, 0.92)
                 return self._create_signal(
-                    signal=SignalType.SELL, score=-0.6, confidence=conf,
+                    signal=SignalType.SELL, score=-score, confidence=conf,
                     market=market, entry_price=price,
                     stop_loss=price + atr * 1.5, take_profit=price - atr * 3.0,
                     reason=f"RSI 과매수({cur:.1f})", timeframe=timeframe)
