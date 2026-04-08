@@ -22,9 +22,9 @@ class KellyPositionSizer:
 
     MIN_TRADES       = 20        # Kelly 활성화 최소 거래 수
     HALF_KELLY       = 0.5       # Half-Kelly 안전 계수
-    MAX_RISK_PCT = 0.20      # 단일 포지션 최대 5%
-    MIN_RISK_PCT = 0.05      # 최소 1% (너무 소액 방지)
-    FIXED_RATIO = 0.10      # 데이터 부족시 고정 2%
+    MAX_RISK_PCT = 0.20      # 단일 포지션 최대 20%
+    MIN_RISK_PCT = 0.05      # 최소 5%  (너무 소액 방지)
+    FIXED_RATIO  = 0.10      # 데이터 부족시 고정 10%
     MIN_ORDER_KRW    = 5_000     # 업비트 최소 주문금액
     DB_PATH          = Path("database/apex_bot.db")
 
@@ -169,3 +169,4 @@ class KellyPositionSizer:
         if not self._cache:
             lines.append(f"  데이터 부족 → 전략 고정 {self.FIXED_RATIO*100:.0f}%")
         return "\n".join(lines)
+

@@ -6,6 +6,8 @@ APEX BOT - 신호 결합기
   v1.1 - _filter_by_regime() Signal 생성 인수 불일치 수정
          (signal_type= → signal=, strength= → score=)
        - 부스트 신호 생성 헬퍼 _boost_signal() 추가
+  v1.2 - RSI_Divergence 가중치 0.0 → REGIME_PREFERRED 에서 제거
+         (가중치 0.0 전략을 레짐 부스트해도 0.0 × 1.2 = 0.0 이므로 의미 없음)
 """
 import asyncio
 from typing import Dict, List, Optional, Tuple
@@ -38,52 +40,75 @@ class SignalCombiner:
     멀티 전략 신호 결합 엔진
 
     가중치 체계:
-    - ML 앙상블 (LSTM+TFT+CNN): 가중치 2.5
-    - 시장구조 (OB/SMC): 1.5
-    - 모멘텀 (MACD/RSI/Supertrend): 1.0~1.5
-    - 변동성 돌파 (ATR/볼린저): 1.0
-    - 평균회귀 (VWAP/BB): 1.2
+    - ML 앙상블 (LSTM+TFT+CNN): 가중치 3.0
+    - 역추세 반전 (BEAR_REVERSAL): 2.0
+    - 모멘텀 (MACD/Supertrend): 1.3~1.8
+    - 평균회귀 (VWAP/BB): 1.0~1.2
+    - 변동성 돌파 (ATR/볼린저): 0.4~1.0
+    - 시장구조 (OB/SMC): 0.3
+    - RSI_Divergence: 0.0 (백테스트 -10.0% → 완전 비활성화)
     """
 
     STRATEGY_WEIGHTS = {
-        # ── 모멘텀 전략 ──────────────────────────────
+        # ── 모멘텀 전략 ──────────────────────────────────────
         # MACD_Cross: 백테스트 +2.2% → 1.8 상향
         "MACD_Cross":        1.8,
         # RSI_Divergence: 백테스트 -10.0% → 0.0 완전 차단
         "RSI_Divergence":    0.0,
-        # Supertrend: 백테스트 trend_following +2.0% → 1.3 유지
+        # Supertrend: 백테스트 +2.0% → 1.3 유지
         "Supertrend":        1.3,
-        # ── 평균회귀 전략 ─────────────────────────────
+        # ── 평균회귀 전략 ─────────────────────────────────────
         "Bollinger_Squeeze": 1.0,
         "VWAP_Reversion":    1.2,
-        # ── 변동성 전략 ──────────────────────────────
+        # ── 변동성 전략 ──────────────────────────────────────
         # VolBreakout: 백테스트 -2.7% → 0.4로 하향
         "VolBreakout":       0.4,
         "ATR_Channel":       1.0,
-        # ── 시장구조 전략 ─────────────────────────────
+        # ── 시장구조 전략 ─────────────────────────────────────
         # OrderBlock_SMC: 백테스트 -4.7% → 0.3으로 하향
         "OrderBlock_SMC":    0.3,
-        # ── ML/AI 레이어 ─────────────────────────────
+        # ── ML/AI 레이어 ─────────────────────────────────────
         # ML_Ensemble: 백테스트 +2.9% → 3.0으로 상향 (핵심 전략)
         "ML_Ensemble":       3.0,
         "BEAR_REVERSAL":     2.0,
     }
 
-    # 레짐별 선호 전략
+    # ✅ FIX v1.2: RSI_Divergence 제거
+    # 가중치가 0.0인 전략을 레짐 부스트(×1.2)해도 0.0이므로
+    # REGIME_PREFERRED 포함 자체가 의미 없고 코드 혼란만 유발
     REGIME_PREFERRED = {
-        "TRENDING":   {"MACD_Cross", "Supertrend", "OrderBlock_SMC", "VolBreakout"},
-        "RANGING":    {"VWAP_Reversion", "Bollinger_Squeeze", "RSI_Divergence", "ATR_Channel"},
-        "VOLATILE":   {"VolBreakout", "ATR_Channel", "Bollinger_Squeeze"},
-        "BEAR_REVERSAL": {"RSI_Divergence", "VWAP_Reversion", "Bollinger_Squeeze"},
+        "TRENDING": {
+            "MACD_Cross",
+            "Supertrend",
+            "OrderBlock_SMC",
+            "VolBreakout",
+        },
+        "RANGING": {
+            "VWAP_Reversion",
+            "Bollinger_Squeeze",
+            # RSI_Divergence 제거 — 가중치 0.0, 비활성화 전략
+            "ATR_Channel",
+        },
+        "VOLATILE": {
+            "VolBreakout",
+            "ATR_Channel",
+            "Bollinger_Squeeze",
+        },
+        "BEAR_REVERSAL": {
+            # RSI_Divergence 제거 — 가중치 0.0, 비활성화 전략
+            "VWAP_Reversion",
+            "Bollinger_Squeeze",
+            "BEAR_REVERSAL",
+        },
     }
 
     def __init__(self, settings=None):
         self.settings = settings or get_settings()
         self.buy_threshold  = self.settings.risk.buy_signal_threshold
         self.sell_threshold = self.settings.risk.sell_signal_threshold
-        self.min_agreement  = 0.20  # 완화
+        self.min_agreement  = 0.20  # 단일 전략 신호도 허용
 
-    # ── 신호 결합 ─────────────────────────────────────────────
+    # ── 신호 결합 ────────────────────────────────────────────────
 
     def combine(
         self,
@@ -104,14 +129,14 @@ class SignalCombiner:
 
         filtered_signals = self._filter_by_regime(signals, regime)
 
-        buy_score  = 0.0
-        sell_score = 0.0
-        buy_strategies  = []
-        sell_strategies = []
-        reasons = []
+        buy_score        = 0.0
+        sell_score       = 0.0
+        buy_strategies   = []
+        sell_strategies  = []
+        reasons          = []
 
         for sig in filtered_signals:
-            weight           = self.STRATEGY_WEIGHTS.get(sig.strategy_name, 1.0)
+            weight            = self.STRATEGY_WEIGHTS.get(sig.strategy_name, 1.0)
             weighted_strength = sig.score * weight * sig.confidence
 
             if sig.signal == SignalType.BUY:
@@ -123,8 +148,8 @@ class SignalCombiner:
                 sell_strategies.append(sig.strategy_name)
                 reasons.append(sig.reason)
 
-        # ML 신호 점수 추가
-        if ml_signal and ml_confidence > 0.50:  # ML 단독 매수 방지
+        # ML 신호 점수 추가 (confidence > 0.50 조건 유지)
+        if ml_signal and ml_confidence > 0.50:
             ml_weight = self.STRATEGY_WEIGHTS["ML_Ensemble"]
             if ml_signal == "BUY":
                 buy_score += ml_weight * ml_confidence
@@ -139,7 +164,6 @@ class SignalCombiner:
         if net_score >= self.buy_threshold:
             n_buy          = len(buy_strategies)
             agreement_rate = n_buy / max(total_strategies, 1)
-            # 동의율 체크 비활성화 — 단일 전략 신호도 허용
             if agreement_rate < self.min_agreement:
                 return None  # BUY 동의율 미달 → HOLD
 
@@ -157,9 +181,9 @@ class SignalCombiner:
                 contributing_strategies=buy_strategies,
                 reasons=reasons[:5],
                 metadata={
-                    "buy_score": buy_score,
+                    "buy_score":  buy_score,
                     "sell_score": sell_score,
-                    "regime": regime,
+                    "regime":     regime,
                 },
                 ml_signal=ml_signal,
                 ml_confidence=ml_confidence,
@@ -168,9 +192,8 @@ class SignalCombiner:
         elif net_score <= self.sell_threshold:
             n_sell         = len(sell_strategies)
             agreement_rate = n_sell / max(total_strategies, 1)
-            # SELL 신호 품질 검증
             if agreement_rate < self.min_agreement and not (
-                ml_signal == 'SELL' and ml_confidence > 0.55
+                ml_signal == "SELL" and ml_confidence > 0.55
             ):
                 return None  # SELL 동의율 미달 → HOLD
 
@@ -188,9 +211,9 @@ class SignalCombiner:
                 contributing_strategies=sell_strategies,
                 reasons=reasons[:5],
                 metadata={
-                    "buy_score": buy_score,
+                    "buy_score":  buy_score,
                     "sell_score": sell_score,
-                    "regime": regime,
+                    "regime":     regime,
                 },
                 ml_signal=ml_signal,
                 ml_confidence=ml_confidence,
@@ -198,7 +221,7 @@ class SignalCombiner:
 
         return None  # HOLD
 
-    # ── 레짐 필터 ─────────────────────────────────────────────
+    # ── 레짐 필터 ────────────────────────────────────────────────
 
     def _filter_by_regime(
         self, signals: List[Signal], regime: str
@@ -206,8 +229,10 @@ class SignalCombiner:
         """
         시장 레짐에 맞는 전략만 필터링 + 선호 전략 1.2배 부스트
 
-        ✅ FIX: Signal 생성 시 signal= (not signal_type=),
-                score= (not strength=) 사용
+        ✅ FIX v1.1: Signal 생성 시 signal= (not signal_type=),
+                     score= (not strength=) 사용
+        ✅ FIX v1.2: RSI_Divergence는 REGIME_PREFERRED에서 제거됐으므로
+                     preferred 집합에 포함되지 않아 자동으로 부스트 제외
         """
         preferred = self.REGIME_PREFERRED.get(regime.upper(), None)
         if preferred is None:
@@ -217,24 +242,31 @@ class SignalCombiner:
         for sig in signals:
             if sig.strategy_name in preferred:
                 boosted.append(
-                    self._boost_signal(sig, score_mult=1.2, reason_suffix="[레짐부스트]")
+                    self._boost_signal(
+                        sig,
+                        score_mult=1.2,
+                        reason_suffix="[레짐부스트]",
+                    )
                 )
             else:
                 boosted.append(sig)
         return boosted
 
     @staticmethod
-    def _boost_signal(sig: Signal, score_mult: float = 1.0,
-                      reason_suffix: str = "") -> Signal:
+    def _boost_signal(
+        sig: Signal,
+        score_mult: float = 1.0,
+        reason_suffix: str = "",
+    ) -> Signal:
         """
-        ✅ FIX: StrategySignal 실제 필드명(signal, score)으로 새 신호 생성
+        ✅ FIX v1.1: StrategySignal 실제 필드명(signal, score)으로 새 신호 생성
         """
         from strategies.base_strategy import StrategySignal
         return StrategySignal(
             strategy_name=sig.strategy_name,
             market=sig.market,
-            signal=sig.signal,                         # ✅ signal= (not signal_type=)
-            score=min(sig.score * score_mult, 1.0),    # ✅ score= (not strength=)
+            signal=sig.signal,                       # ✅ signal= (not signal_type=)
+            score=min(sig.score * score_mult, 1.0),  # ✅ score= (not strength=)
             confidence=sig.confidence,
             entry_price=sig.entry_price,
             stop_loss=sig.stop_loss,
