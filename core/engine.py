@@ -1220,10 +1220,10 @@ class TradingEngine:
                         else:
                             del self._sl_cooldown[market]
                     _fg_idx = getattr(self.fear_greed, "index", 50)
-                    if _fg_idx > 15:
+                    if _fg_idx > 20:
                         logger.info(
                             f"⛔ BEAR_REVERSAL 공포탐욕 조건 불충족 ({market}): "
-                            f"지수={_fg_idx} > 15 → 강제 BUY 차단"
+                            f"지수={_fg_idx} > 20 → 강제 BUY 차단"
                         )
                         return
                     setattr(self, _bear_count_key, _bear_count + 1)
@@ -2802,7 +2802,7 @@ class TradingEngine:
                     )
 
                     try:
-                        _exited = self.db_manager.get_partial_exit_ratio(mkt)
+                        _exited = await self.db_manager.get_partial_exit_ratio(mkt)
                         if _exited and _exited > 0:
                             self.partial_exit.restore_executed_levels(mkt, _exited)
                             logger.info(
@@ -3214,7 +3214,7 @@ class TradingEngine:
             "total_assets":   total,
             "open_positions": self.portfolio.position_count,
         }
-        await self.telegram.send_daily_report(report)
+        await self.telegram.notify_daily_report(report)
         try:
             await self.db_manager.save_daily_performance({
                 "date":           report.get("date"),
