@@ -652,7 +652,7 @@ class TradingEngine:
 
         # ===== v2.1.0 시그널 평가 =====
         if self._ml_batch_cache:
-            self.logger.debug("🔍 시그널 평가 시작")
+            logger.debug("🔍 시그널 평가 시작")
             for market, ml_pred in self._ml_batch_cache.items():
                 try:
                     if self.portfolio.is_position_open(market):
@@ -661,17 +661,17 @@ class TradingEngine:
                     if df is None or len(df) < 60:
                         continue
                     ml_score = ml_pred.get('score', 0)
-                    self.logger.debug(f"{market} ML={ml_score:.3f}")
+                    logger.debug(f"{market} ML={ml_score:.3f}")
                     if ml_score > 0.1:
-                        self.logger.debug(f"🎯 {market} 시그널 평가 시작")
+                        logger.debug(f"🎯 {market} 시그널 평가 시작")
                         signal = await self._evaluate_entry_signals(market, df, ml_score)
                         if signal and signal.get('action') == 'BUY':
-                            self.logger.info(f"✅ {market} 진입!")
+                            logger.info(f"✅ {market} 진입!")
                             await self._execute_buy(market, signal, df)
                         elif signal is None:
-                            self.logger.debug(f"{market} 필터 차단")
+                            logger.debug(f"{market} 필터 차단")
                 except Exception as e:
-                    self.logger.error(f"{market} 시그널 오류: {e}")
+                    logger.error(f"{market} 시그널 오류: {e}")
         # ===============================
 
 
