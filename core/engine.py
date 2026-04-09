@@ -650,6 +650,7 @@ class TradingEngine:
             logger.debug(f"배치 ML 추론 스킵: {_be}")
             self._ml_batch_cache = {}
 
+        logger.debug(f"🔎 [v2.1.0] ML 캐시 크기: {len(self._ml_batch_cache)} | 내용: {list(self._ml_batch_cache.keys()) if self._ml_batch_cache else 'EMPTY'}")
         # ===== v2.1.0 시그널 평가 =====
         if self._ml_batch_cache:
             logger.debug("🔍 시그널 평가 시작")
