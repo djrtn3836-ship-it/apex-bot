@@ -1655,7 +1655,19 @@ class TradingEngine:
         """시그널 평가 (v2.0.4 복원 + v2.1.0 필터 통합)"""
         try:
             # 1. ATR 변동성 필터 (v2.1.0)
-            atr = df['atr'].iloc[-1] if 'atr' in df.columns else 0
+            # 1. ATR 변동성 필터 (v2.1.0) - 자동 계산 추가
+            if 'atr' in df.columns and not pd.isna(df['atr'].iloc[-1]):
+                atr = df['atr'].iloc[-1]
+            else:
+                # ATR 없으면 고가-저가 범위의 2% 추정
+                if 'high' in df.columns and 'low' in df.columns:
+                    recent_range = (df['high'].iloc[-14:].mean() - df['low'].iloc[-14:].mean())
+                    atr = recent_range
+                    logger.debug(f"{market} ATR 컬럼 없음 → 수동 계산: {atr:.2f}")
+                else:
+                    atr = df['close'].iloc[-1] * 0.02  # 폴백: 현재가의 2%
+                    logger.debug(f"{market} ATR 폴백: 현재가의 2%")
+            
             price = df['close'].iloc[-1]
             volatility = (atr / price) * 100 if price > 0 else 0
             
