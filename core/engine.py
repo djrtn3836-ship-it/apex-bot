@@ -676,6 +676,7 @@ class TradingEngine:
         # ===============================
 
 
+
         new_entry_markets = [
             m for m in markets if not self.portfolio.is_position_open(m)
         ]
