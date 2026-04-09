@@ -1921,7 +1921,7 @@ class TradingEngine:
             side=OrderSide.BUY,
             amount_krw=_adjusted_krw,
             reason=signal.get('reasons', [])[0] if signal.get('reasons', []) else "앙상블 매수",
-            strategy_name=", ".join(signal.contributing_strategies),
+            strategy_name=", ".join(signal.get('contributing_strategies', [])),
             stop_loss=stop_loss,
             take_profit=take_profit,
         )
