@@ -1652,7 +1652,6 @@ class TradingEngine:
     # ── 매수 실행 ────────────────────────────────────────────────
     
     async def _evaluate_entry_signals(self, market: str, df, ml_score: float):
-        logger.critical(f"🚨 [TRACE] _evaluate_entry_signals 진입: {market}")
         """시그널 평가 (v2.0.4 복원 + v2.1.0 필터 통합)"""
         try:
             # 1. ATR 변동성 필터 (v2.1.0)
