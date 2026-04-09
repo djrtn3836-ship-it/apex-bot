@@ -1648,20 +1648,20 @@ class TradingEngine:
             volatility = (atr / price) * 100 if price > 0 else 0
             
             if volatility < 1.0 or volatility > 5.0:
-                self.logger.debug(f"{market} ATR 변동성 차단: {volatility:.2f}%")
+                logger.debug(f"{market} ATR 변동성 차단: {volatility:.2f}%")
                 return None
             
             # 2. VolumeProfile RR 필터 (v2.1.0)
             vp_rr = getattr(self, 'volume_profile', {}).get(market, {}).get('rr', 0)
             if vp_rr < 1.0:
-                self.logger.debug(f"{market} VolumeProfile RR 미달: {vp_rr:.2f}")
+                logger.debug(f"{market} VolumeProfile RR 미달: {vp_rr:.2f}")
                 return None
             
             # 3. Multi-Timeframe Confirmation (v2.1.0)
             if hasattr(self, 'mtf_confirmation'):
                 mtf_result = await self.mtf_confirmation.check(market, df)
                 if not mtf_result.get('aligned', False):
-                    self.logger.debug(f"{market} MTF 불일치")
+                    logger.debug(f"{market} MTF 불일치")
                     return None
             
             # 4. ML 임계값 확인 (동적, v2.1.0)
@@ -1669,7 +1669,7 @@ class TradingEngine:
             buy_threshold = 0.8 if fgi > 30 else 0.6  # 극단 공포 시 완화
             
             if ml_score < buy_threshold:
-                self.logger.debug(f"{market} ML 신호 약함: {ml_score:.3f} < {buy_threshold}")
+                logger.debug(f"{market} ML 신호 약함: {ml_score:.3f} < {buy_threshold}")
                 return None
             
             # 5. 전략 합의 확인 (기존 로직)
@@ -1681,7 +1681,7 @@ class TradingEngine:
                         strategy_scores.append(sig.confidence)
             
             if len(strategy_scores) < 3:  # 최소 3개 전략 동의
-                self.logger.debug(f"{market} 전략 합의 실패: {len(strategy_scores)}개")
+                logger.debug(f"{market} 전략 합의 실패: {len(strategy_scores)}개")
                 return None
             
             # 6. Kelly Criterion 포지션 크기 (v2.1.0)
@@ -1695,7 +1695,7 @@ class TradingEngine:
             else:
                 kelly_fraction = 0.10
             
-            self.logger.info(
+            logger.info(
                 f"✅ {market} 진입 시그널 생성 | ML: {ml_score:.3f} | "
                 f"전략: {len(strategy_scores)}개 | Kelly: {kelly_fraction:.1%} | "
                 f"ATR: {volatility:.2f}% | RR: {vp_rr:.2f}"
@@ -1710,7 +1710,7 @@ class TradingEngine:
             }
             
         except Exception as e:
-            self.logger.error(f"{market} 시그널 평가 오류: {e}")
+            logger.error(f"{market} 시그널 평가 오류: {e}")
             return None
 
 
@@ -3535,21 +3535,21 @@ class TradingEngine:
                                         prediction = await self.ml_predictor.predict(market, df)
                                         ml_score = prediction.get('score', 0) if prediction else 0
                                     except Exception as e:
-                                        self.logger.debug(f"{market} ML 예측 실패: {e}")
+                                        logger.debug(f"{market} ML 예측 실패: {e}")
                                         continue
                                 
                                 # 시그널 평가
                                 if ml_score > 0.1:  # 최소 임계값
                                     signal = await self._evaluate_entry_signals(market, df, ml_score)
                                     if signal and signal.get('action') == 'BUY':
-                                        self.logger.info(f"🎯 {market} 진입 시그널 확정")
+                                        logger.info(f"🎯 {market} 진입 시그널 확정")
                                         await self._execute_buy(market, signal, df)
                             
                             except Exception as e:
-                                self.logger.error(f"{market} 시그널 처리 오류: {e}")
+                                logger.error(f"{market} 시그널 처리 오류: {e}")
                     
                     except Exception as e:
-                        self.logger.error(f"시그널 평가 루프 오류: {e}")
+                        logger.error(f"시그널 평가 루프 오류: {e}")
                     # =================================================
 
                     await asyncio.sleep(delay)
