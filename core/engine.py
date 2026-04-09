@@ -650,50 +650,38 @@ class TradingEngine:
             logger.debug(f"배치 ML 추론 스킵: {_be}")
             self._ml_batch_cache = {}
 
-            # ===== v2.1.0 시그널 평가 (ML 배치 캐시 기반) =====
-            if self._ml_batch_cache:
-                logger.debug(f"🔍 시그널 평가 시작 ({len(self._ml_batch_cache)}개 코인)")
-                for market, ml_pred in self._ml_batch_cache.items():
-                    try:
-                        # 포지션 중복 확인
-                        if self.portfolio.is_position_open(market):
-                            logger.debug(f"{market} 이미 포지션 보유 - 스킵")
-                            continue
-                        
-                        # OHLCV 데이터 확인
-                        df = self.cache_manager.get_ohlcv(market)
-                        if df is None or len(df) < 60:
-                            logger.debug(f"{market} 데이터 부족 ({len(df) if df is not None else 0}개) - 스킵")
-                            continue
-                        
-                        # ML 점수 추출
-                        ml_score = ml_pred.get('confidence', 0)
-                        ml_signal = ml_pred.get('signal', 'UNKNOWN')
-                        
-                        logger.debug(f"{market} ML={ml_score:.3f} 신호={ml_signal}")
-                        
-                        # ML 점수 임계값 (0.1 이상)
-                        if ml_score > 0.1:
-                            logger.info(f"🎯 {market} 시그널 평가 시작 (ML={ml_score:.3f})")
-                            
-                            # _evaluate_entry_signals 호출
-                            signal = await self._evaluate_entry_signals(market, df, ml_score)
-                            
-                            if signal and signal.get('action') == 'BUY':
-                                logger.info(f"✅ {market} 진입 시그널 확정! ML={ml_score:.3f}")
-                                await self._execute_buy(market, signal, df)
-                            elif signal is None:
-                                logger.debug(f"{market} 필터 차단 (ATR/VolumeProfile/MTF 등)")
-                            else:
-                                logger.debug(f"{market} 신호 약함 또는 조건 미충족")
-                        else:
-                            logger.debug(f"{market} ML 점수 낮음 ({ml_score:.3f} <= 0.1)")
-                    
-                    except Exception as e:
-                        logger.error(f"{market} 시그널 평가 오류: {e}", exc_info=True)
-            else:
-                logger.debug("ML 캐시 비어있음 - 시그널 평가 스킵")
-            # ===============================
+        # ===== v2.1.0 시그널 평가 (ML 배치 캐시 기반) =====
+        if self._ml_batch_cache:
+            logger.debug(f"🔍 시그널 평가 시작 ({len(self._ml_batch_cache)}개 코인)")
+            for market, ml_pred in self._ml_batch_cache.items():
+                try:
+                    if self.portfolio.is_position_open(market):
+                        logger.debug(f"{market} 이미 포지션 보유 - 스킵")
+                        continue
+                    df = self.cache_manager.get_ohlcv(market)
+                    if df is None or len(df) < 60:
+                        logger.debug(f"{market} 데이터 부족 ({len(df) if df is not None else 0}개)")
+                        continue
+                    ml_score = ml_pred.get('confidence', 0)
+                    ml_signal = ml_pred.get('signal', 'UNKNOWN')
+                    logger.debug(f"{market} ML={ml_score:.3f} 신호={ml_signal}")
+                    if ml_score > 0.1:
+                        logger.info(f"🎯 {market} 시그널 평가 시작 (ML={ml_score:.3f})")
+                        signal = await self._evaluate_entry_signals(market, df, ml_score)
+                        if signal and signal.get('action') == 'BUY':
+                            logger.info(f"✅ {market} 진입 시그널 확정! ML={ml_score:.3f}")
+                            await self._execute_buy(market, signal, df)
+                        elif signal is None:
+                            logger.debug(f"{market} 필터 차단")
+                    else:
+                        logger.debug(f"{market} ML 점수 낮음 ({ml_score:.3f})")
+                except Exception as e:
+                    logger.error(f"{market} 시그널 평가 오류: {e}", exc_info=True)
+        else:
+            logger.debug("ML 캐시 비어있음 - 시그널 평가 스킵")
+        # ===============================
+
+
 
 
         logger.debug(f"🔎 [v2.1.0] ML 캐시 크기: {len(self._ml_batch_cache)} | 내용: {list(self._ml_batch_cache.keys()) if self._ml_batch_cache else 'EMPTY'}")
