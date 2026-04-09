@@ -1674,6 +1674,10 @@ class TradingEngine:
             
             if volatility < 0.5 or volatility > 5.0:  # 🔧 v2.1.0 완화: 최소값 1.0→0.5 (정상 시장 대응)
                 logger.debug(f"{market} ATR 변동성 차단: {volatility:.2f}%")
+                logger.debug(f"{market} 조기 종료: unknown")  # 🔍 TRACE
+
+                logger.debug(f"{market} 조기 종료: unknown")  # 🔍 TRACE
+
                 return None
             
             # 2. VolumeProfile RR 필터 (v2.1.0)
@@ -1689,6 +1693,10 @@ class TradingEngine:
                 vp_rr = 999  # 에러 시 통과
             if vp_rr < 0.8:  # 🔧 v2.1.0 완화: RR 1.0→0.8 (공격적 진입)
                 logger.debug(f"{market} VolumeProfile RR 미달: {vp_rr:.2f}")
+                logger.debug(f"{market} 조기 종료: unknown")  # 🔍 TRACE
+
+                logger.debug(f"{market} 조기 종료: unknown")  # 🔍 TRACE
+
                 return None
             
             # 3. Multi-Timeframe Confirmation (v2.1.0)
@@ -1696,14 +1704,22 @@ class TradingEngine:
                 mtf_result = await self.mtf_confirmation.check(market, df)
                 if not mtf_result.get('aligned', False):
                     logger.debug(f"{market} MTF 불일치")
+                    logger.debug(f"{market} 조기 종료: unknown")  # 🔍 TRACE
+
+                    logger.debug(f"{market} 조기 종료: unknown")  # 🔍 TRACE
+
                     return None
             
             # 4. ML 임계값 확인 (동적, v2.1.0)
             fgi = getattr(self, 'fear_greed_index', 50)
-            buy_threshold = 0.8 if fgi > 30 else 0.6  # 극단 공포 시 완화
+            buy_threshold = 0.4 if fgi > 30 else 0.3  # 🔧 v2.1.0 완화: 0.8→0.4, 0.6→0.3 (실전 데이터 수집)
             
             if ml_score < buy_threshold:
                 logger.debug(f"{market} ML 신호 약함: {ml_score:.3f} < {buy_threshold}")
+                logger.debug(f"{market} 조기 종료: unknown")  # 🔍 TRACE
+
+                logger.debug(f"{market} 조기 종료: unknown")  # 🔍 TRACE
+
                 return None
             
             # 5. 전략 합의 확인 (기존 로직)
@@ -1716,6 +1732,10 @@ class TradingEngine:
             
             if len(strategy_scores) < 3:  # 최소 3개 전략 동의
                 logger.debug(f"{market} 전략 합의 실패: {len(strategy_scores)}개")
+                logger.debug(f"{market} 조기 종료: strategy consensus failed")  # 🔍 TRACE
+
+                logger.debug(f"{market} 조기 종료: strategy consensus failed")  # 🔍 TRACE
+
                 return None
             
             # 6. Kelly Criterion 포지션 크기 (v2.1.0)
@@ -1745,6 +1765,10 @@ class TradingEngine:
             
         except Exception as e:
             logger.error(f"{market} 시그널 평가 오류: {e}")
+            logger.debug(f"{market} 조기 종료: unknown")  # 🔍 TRACE
+
+            logger.debug(f"{market} 조기 종료: unknown")  # 🔍 TRACE
+
             return None
 
 
