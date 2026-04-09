@@ -1671,7 +1671,7 @@ class TradingEngine:
             price = df['close'].iloc[-1]
             volatility = (atr / price) * 100 if price > 0 else 0
             
-            if volatility < 1.0 or volatility > 5.0:
+            if volatility < 0.5 or volatility > 5.0:  # 🔧 v2.1.0 완화: 최소값 1.0→0.5 (정상 시장 대응)
                 logger.debug(f"{market} ATR 변동성 차단: {volatility:.2f}%")
                 return None
             
@@ -1686,7 +1686,7 @@ class TradingEngine:
             except Exception as e:
                 logger.debug(f'{market} VolumeProfile 계산 실패: {e}')
                 vp_rr = 999  # 에러 시 통과
-            if vp_rr < 1.0:
+            if vp_rr < 0.8:  # 🔧 v2.1.0 완화: RR 1.0→0.8 (공격적 진입)
                 logger.debug(f"{market} VolumeProfile RR 미달: {vp_rr:.2f}")
                 return None
             
