@@ -1794,12 +1794,12 @@ class TradingEngine:
         )
         if not _is_bear_rev_signal:
             fg_threshold_adj = self.fear_greed.get_buy_threshold_adjustment()
-            if signal.score < (
+            if signal.get('confidence', 0) < (
                 self.settings.risk.buy_signal_threshold + fg_threshold_adj
             ):
                 logger.debug(
                     f"공포탐욕 임계값 조정 차단 ({market}): "
-                    f"점수={signal.score:.2f} < "
+                    f"점수={signal.get('confidence', 0):.2f} < "
                     f"임계={self.settings.risk.buy_signal_threshold + fg_threshold_adj:.2f} "
                     f"(조정={fg_threshold_adj:+.2f})"
                 )
