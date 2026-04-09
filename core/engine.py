@@ -1656,7 +1656,7 @@ class TradingEngine:
         try:
             # 1. ATR 변동성 필터 (v2.1.0)
             # 1. ATR 변동성 필터 (v2.1.0) - 자동 계산 추가
-            if 'atr' in df.columns and not pd.isna(df['atr'].iloc[-1]):
+            if 'atr' in df.columns and df['atr'].iloc[-1] is not None and df['atr'].iloc[-1] > 0:
                 atr = df['atr'].iloc[-1]
             else:
                 # ATR 없으면 고가-저가 범위의 2% 추정
