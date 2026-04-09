@@ -1722,22 +1722,7 @@ class TradingEngine:
 
                 return None
             
-            # # 5. 전략 합의 확인 (기존 로직)
-            # strategy_scores = []
-            # for strategy_name, strategy in self.strategies.items():
-                # if hasattr(strategy, 'generate'):
-                    # sig = strategy.generate(df)
-                    # if sig and sig.action == 'BUY':
-                        # strategy_scores.append(sig.confidence)
-            
-            # if len(strategy_scores) < 3:  # 최소 3개 전략 동의
-                # logger.debug(f"{market} 전략 합의 실패: {len(strategy_scores)}개")
-                # logger.debug(f"{market} 조기 종료: strategy consensus failed")  # 🔍 TRACE
-
-                # logger.debug(f"{market} 조기 종료: strategy consensus failed")  # 🔍 TRACE
-
-                # return None
-            
+            #            
             # 6. Kelly Criterion 포지션 크기 (v2.1.0)
             win_rate = getattr(self, 'historical_win_rate', 0.55)
             avg_win = getattr(self, 'avg_win', 0.03)
@@ -1751,15 +1736,14 @@ class TradingEngine:
             
             logger.info(
                 f"✅ {market} 진입 시그널 생성 | ML: {ml_score:.3f} | "
-                f"전략: {len(strategy_scores)}개 | Kelly: {kelly_fraction:.1%} | "
-                f"ATR: {volatility:.2f}% | RR: {vp_rr:.2f}"
+                f"Kelly: {kelly_fraction:.1%} | ATR: {volatility:.2f}% | RR: {vp_rr:.2f}"
             )
             
             return {
                 'action': 'BUY',
                 'confidence': ml_score,
                 'position_size': kelly_fraction,
-                'strategies': len(strategy_scores),
+                
                 'filters_passed': ['ATR', 'VolumeProfile', 'MTF', 'ML', 'Consensus']
             }
             
