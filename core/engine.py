@@ -661,8 +661,8 @@ class TradingEngine:
                     df = self.cache_manager.get_ohlcv(market)
                     if df is None or len(df) < 60:
                         continue
-                    ml_score = ml_pred.get('score', 0)
-                    logger.debug(f"{market} ML={ml_score:.3f}")
+                    ml_score = ml_pred.get('confidence', 0)  # 🔧 수정: score → confidence
+                    logger.debug(f"{market} ML={ml_score:.3f} | 신호={ml_pred.get('signal')}")
                     if ml_score > 0.1:
                         logger.debug(f"🎯 {market} 시그널 평가 시작")
                         signal = await self._evaluate_entry_signals(market, df, ml_score)
