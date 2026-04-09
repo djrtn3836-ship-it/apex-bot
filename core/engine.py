@@ -1722,21 +1722,21 @@ class TradingEngine:
 
                 return None
             
-            # 5. 전략 합의 확인 (기존 로직)
-            strategy_scores = []
-            for strategy_name, strategy in self.strategies.items():
-                if hasattr(strategy, 'generate'):
-                    sig = strategy.generate(df)
-                    if sig and sig.action == 'BUY':
-                        strategy_scores.append(sig.confidence)
+            # # 5. 전략 합의 확인 (기존 로직)
+            # strategy_scores = []
+            # for strategy_name, strategy in self.strategies.items():
+                # if hasattr(strategy, 'generate'):
+                    # sig = strategy.generate(df)
+                    # if sig and sig.action == 'BUY':
+                        # strategy_scores.append(sig.confidence)
             
-            if len(strategy_scores) < 3:  # 최소 3개 전략 동의
-                logger.debug(f"{market} 전략 합의 실패: {len(strategy_scores)}개")
-                logger.debug(f"{market} 조기 종료: strategy consensus failed")  # 🔍 TRACE
+            # if len(strategy_scores) < 3:  # 최소 3개 전략 동의
+                # logger.debug(f"{market} 전략 합의 실패: {len(strategy_scores)}개")
+                # logger.debug(f"{market} 조기 종료: strategy consensus failed")  # 🔍 TRACE
 
-                logger.debug(f"{market} 조기 종료: strategy consensus failed")  # 🔍 TRACE
+                # logger.debug(f"{market} 조기 종료: strategy consensus failed")  # 🔍 TRACE
 
-                return None
+                # return None
             
             # 6. Kelly Criterion 포지션 크기 (v2.1.0)
             win_rate = getattr(self, 'historical_win_rate', 0.55)
