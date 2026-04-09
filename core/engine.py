@@ -1676,7 +1676,16 @@ class TradingEngine:
                 return None
             
             # 2. VolumeProfile RR 필터 (v2.1.0)
-            vp_rr = getattr(self, 'volume_profile', {}).get(market, {}).get('rr', 0)
+            # 2. VolumeProfile RR 필터 (v2.1.0)
+            try:
+                if hasattr(self, 'volume_profile') and hasattr(self.volume_profile, 'calculate'):
+                    vp_result = self.volume_profile.calculate(df)
+                    vp_rr = vp_result.get('rr', 0) if isinstance(vp_result, dict) else 0
+                else:
+                    vp_rr = 999  # VolumeProfile 없으면 통과
+            except Exception as e:
+                logger.debug(f'{market} VolumeProfile 계산 실패: {e}')
+                vp_rr = 999  # 에러 시 통과
             if vp_rr < 1.0:
                 logger.debug(f"{market} VolumeProfile RR 미달: {vp_rr:.2f}")
                 return None
