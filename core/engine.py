@@ -2092,6 +2092,8 @@ class TradingEngine:
                     if _entry_time:
                         if isinstance(_entry_time, str):
                             _entry_time = _dt_ps.datetime.fromisoformat(_entry_time)
+                        elif isinstance(_entry_time, float):
+                            _entry_time = _dt_ps.datetime.fromtimestamp(_entry_time)
                         _hold_hours = (
                             _dt_ps.datetime.now() - _entry_time
                         ).total_seconds() / 3600
