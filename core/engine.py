@@ -1361,15 +1361,38 @@ class TradingEngine:
                     }
                     _tf_data = {}
                     for _tf_key, (_tf_upbit, _tf_cache) in _tf_map.items():
-                        _cached = self.cache_manager.get_candles(market, _tf_cache)
-                        if _cached is not None and len(_cached) > 5:
+                        # 1) 1h는 이미 처리된 df_processed 재사용 (API 호출 0)
+                        if _tf_key == "1h" and df_processed is not None and len(df_processed) >= 5:
+                            _tf_data["1h"] = df_processed
+                            continue
+                        # 2) 5m/1m 은 Rate Limit 절약을 위해 skip
+                        if _tf_key in ("5m", "1m"):
+                            continue
+                        # 3) cache_manager에서 다양한 방법으로 시도
+                        _cached = None
+                        for _getter in [
+                            lambda: self.cache_manager.get_ohlcv(market, _tf_key),
+                            lambda: self.cache_manager.get_ohlcv(market, _tf_cache),
+                            lambda: self.cache_manager.get_candles(market, _tf_cache),
+                            lambda: self.cache_manager.get_candles(market, _tf_key),
+                        ]:
+                            try:
+                                _cached = _getter()
+                                if _cached is not None and len(_cached) >= 5:
+                                    break
+                                _cached = None
+                            except Exception:
+                                _cached = None
+                        if _cached is not None and len(_cached) >= 5:
                             _tf_data[_tf_key] = _cached
-                        else:
+                            continue
+                        # 4) REST API fallback (1d, 4h 만 추가 요청)
+                        if _tf_key in ("1d", "4h"):
                             try:
                                 _fetched = await self.rest_collector.get_ohlcv(
-                                    market, _tf_upbit, 50
+                                    market, _tf_upbit, 60
                                 )
-                                if _fetched is not None and len(_fetched) > 5:
+                                if _fetched is not None and len(_fetched) >= 5:
                                     _tf_data[_tf_key] = _fetched
                             except Exception:
                                 pass

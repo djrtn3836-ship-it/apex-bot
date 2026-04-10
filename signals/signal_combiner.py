@@ -32,6 +32,22 @@ class CombinedSignal:
     ml_signal: Optional[str] = None
     ml_confidence: float = 0.0
 
+    # ── dict-like compatibility (하위호환) ──────────────────
+    def get(self, key: str, default=None):
+        """dict.get() 호환 - CombinedSignal을 dict처럼 사용하는 코드 지원"""
+        return getattr(self, key, default)
+
+    def __getitem__(self, key: str):
+        """dict[] 접근 호환"""
+        val = getattr(self, key, None)
+        if val is None:
+            raise KeyError(key)
+        return val
+
+    def __contains__(self, key: str) -> bool:
+        """'key' in signal 호환"""
+        return hasattr(self, key)
+
 
 class SignalCombiner:
     """:

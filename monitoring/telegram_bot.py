@@ -253,11 +253,11 @@ class TelegramNotifier:
         msg = (
             f"*🤖 APEX BOT 명령어*\n"
             f"━━━━━━━━━━━━━━━━\n"
-            f"/status \- 현재 현황 요약\n"
-            f"/portfolio \- 포지션 수익률\n"
-            f"/pause \- 매수 중단\n"
-            f"/resume \- 매수 재개\n"
-            f"/emergency \- 긴급 전량 매도\n"
+            f"/status \\- 현재 현황 요약\n"
+            f"/portfolio \\- 포지션 수익률\n"
+            f"/pause \\- 매수 중단\n"
+            f"/resume \\- 매수 재개\n"
+            f"/emergency \\- 긴급 전량 매도\n"
             f"━━━━━━━━━━━━━━━━\n"
             f"📡 자동알림: 매수/매도/피라미딩/손절/1시간요약"
         )

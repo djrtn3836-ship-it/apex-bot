@@ -29,8 +29,9 @@ class RestCollector:
 
     def __init__(self):
         self.settings = get_settings()
-        self._limiter = RateLimiter(calls_per_second=5)
-        self._session = None
+        self._limiter   = RateLimiter(calls_per_second=5)
+        self._semaphore = asyncio.Semaphore(3)   # 동시 요청 최대 3개
+        self._session   = None
         self._cache: Dict[str, Dict] = {}  # 간단한 메모리 캐시
 
     async def get_ohlcv(
@@ -43,6 +44,8 @@ class RestCollector:
             market: 'KRW-BTC'
             interval: 'minute1'|'minute5'|'minute15'|'minute60'|'minute240'|'day'|'week'
             count:  200 ( )"""
+        async with self._semaphore:
+            pass  # 동시 요청 제한
         await self._limiter.acquire()
 
         cache_key = f"{market}_{interval}_{count}"
@@ -123,6 +126,8 @@ class RestCollector:
 
     async def get_ticker(self, markets: List[str]) -> Optional[List[Dict]]:
         """( )"""
+        async with self._semaphore:
+            pass  # 동시 요청 제한
         await self._limiter.acquire()
         if PYUPBIT_OK:
             try:
@@ -150,6 +155,8 @@ class RestCollector:
 
     async def get_orderbook(self, market: str) -> Optional[Dict]:
         """docstring"""
+        async with self._semaphore:
+            pass  # 동시 요청 제한
         await self._limiter.acquire()
         try:
             import aiohttp
