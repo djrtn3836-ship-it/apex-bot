@@ -182,11 +182,11 @@ class ModelTrainer:
         )
         train_loader = DataLoader(
             train_ds, batch_size=self.ml_cfg.batch_size,
-            shuffle=True, num_workers=2, pin_memory=(self.device == "cuda")
+            shuffle=True, num_workers=0, pin_memory=(self.device == "cuda")
         )
         val_loader = DataLoader(
             val_ds, batch_size=self.ml_cfg.batch_size * 2,
-            shuffle=False, num_workers=2
+            shuffle=False, num_workers=0
         )
 
         # 모델 초기화

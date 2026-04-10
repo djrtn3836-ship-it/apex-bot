@@ -103,11 +103,29 @@ class MLPredictor:
             )
 
             if model_path.exists():
-                state = torch.load(str(model_path), map_location=self.device, weights_only=True)
-                self._model.load_state_dict(state)
-                logger.info(f"✅ 앙상블 모델 로드: {model_path}")
+                try:
+                    # state_dict (OrderedDict) 직접 로드
+                    state = torch.load(
+                        str(model_path), map_location=self.device, weights_only=False
+                    )
+                    # checkpoint 래퍼인 경우 벗겨내기
+                    if isinstance(state, dict) and 'model_state_dict' in state:
+                        state = state['model_state_dict']
+                    # OrderedDict / state_dict 직접 적용
+                    missing, unexpected = self._model.load_state_dict(state, strict=False)
+                    if missing:
+                        logger.warning(f"⚠️ 모델 missing keys: {len(missing)}개")
+                    if unexpected:
+                        logger.warning(f"⚠️ 모델 unexpected keys: {len(unexpected)}개")
+                    logger.info(
+                        f"✅ 앙상블 모델 로드 완료: {model_path.name} "
+                        f"| missing={len(missing)} unexpected={len(unexpected)}"
+                    )
+                except Exception as _load_e:
+                    logger.error(f"❌ 모델 로드 실패: {_load_e}")
+                    logger.warning("신규 초기화 모델로 폴백 (추론 품질 저하 가능)")
             else:
-                logger.warning("저장된 모델 없음 → 신규 초기화 모델 사용")
+                logger.warning(f"저장된 모델 없음 ({model_path}) → 신규 초기화 모델 사용")
 
             self._model.to(self.device)
             self._model.eval()
