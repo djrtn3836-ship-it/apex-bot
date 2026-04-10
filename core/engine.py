@@ -1708,7 +1708,8 @@ class TradingEngine:
                     return None
             
             # 4. ML 임계값 확인 (동적, v2.1.0)
-            fgi = getattr(self, 'fear_greed_index', 50)
+            fgi = getattr(self.fear_greed, "index", None) or 50
+            buy_threshold = 0.4 if fgi > 30 else 0.3  # FGI<=30: extreme fear, lower threshold
             buy_threshold = 0.4 if fgi > 30 else 0.3  # 🔧 v2.1.0 완화: 0.8→0.4, 0.6→0.3 (실전 데이터 수집)
             
             if ml_score < buy_threshold:
@@ -2261,6 +2262,9 @@ class TradingEngine:
                     _hold_h  = 0.0
                     if _etime:
                         if isinstance(_etime, str):
+                            _etime = _ppo_dt.datetime.fromisoformat(_etime)
+                        elif isinstance(_etime, (int, float)):
+                            _etime = _ppo_dt.datetime.fromtimestamp(_etime)
                             _etime = _ppo_dt.datetime.fromisoformat(_etime)
                         _hold_h = (
                             _ppo_dt.datetime.now() - _etime
