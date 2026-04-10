@@ -1023,7 +1023,7 @@ class TradingEngine:
 
             if signal == "SELL" and (
                 (confidence >= 0.58 and pnl_pct <= -0.5) or
-                (confidence >= 0.55 and pnl_pct >= 0.3)
+                (confidence >= 0.52 and pnl_pct >= 0.3)
             ):
                 logger.info(
                     f" ML   | {market} | "
