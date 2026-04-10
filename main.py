@@ -1,3 +1,11 @@
+import sys as _sys, os as _os
+_os.environ.setdefault("PYTHONIOENCODING", "utf-8")
+_os.environ.setdefault("PYTHONUTF8", "1")
+if hasattr(_sys.stdout, "reconfigure"):
+    _sys.stdout.reconfigure(encoding="utf-8", errors="replace")
+if hasattr(_sys.stderr, "reconfigure"):
+    _sys.stderr.reconfigure(encoding="utf-8", errors="replace")
+
 """APEX BOT -  
   AI  
 

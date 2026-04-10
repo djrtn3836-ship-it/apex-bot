@@ -21,6 +21,7 @@ def setup_logger(log_level: str = "INFO", log_dir: Path = None) -> None:
             "<level>{message}</level>"
         ),
         colorize=True,
+        encoding="utf-8",
     )
 
     if log_dir:
