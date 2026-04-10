@@ -61,7 +61,7 @@ class MLPredictor:
     """
 
     CLASS_NAMES    = ["BUY", "HOLD", "SELL"]
-    MIN_CONFIDENCE = 0.42  # lowered: model outputs 0.42-0.46 range
+    MIN_CONFIDENCE = 0.40  # lowered further: catch BUY/SELL at 0.40+
     SEQ_LEN        = 60
 
     def __init__(self):

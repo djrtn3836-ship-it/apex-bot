@@ -1022,7 +1022,7 @@ class TradingEngine:
                     logger.debug(f"ATR     ({market}): {_atr_e}")
 
             if signal == "SELL" and (
-                (confidence >= 0.70 and pnl_pct <= -0.5) or
+                (confidence >= 0.58 and pnl_pct <= -0.5) or
                 (confidence >= 0.55 and pnl_pct >= 0.3)
             ):
                 logger.info(
@@ -1186,21 +1186,16 @@ class TradingEngine:
             if ppo_pred and ml_pred:
                 ml_conf  = ml_pred.get("confidence",  0)
                 ppo_conf = ppo_pred.get("confidence", 0)
-                if ml_pred.get("signal") == ppo_pred.get("signal"):
-                    ml_pred["confidence"]    = min(
-                        1.0, ml_conf * 0.6 + ppo_conf * 0.4 + 0.05
-                    )
+                ml_sig   = ml_pred.get("signal", "HOLD")
+                ppo_sig  = str(ppo_pred.get("action", ppo_pred.get("signal", "HOLD"))).upper()
+                if ml_sig == ppo_sig:
+                    # Agreement: boost confidence but never reduce below ml_conf
+                    boosted = ml_conf * 0.7 + ppo_conf * 0.3 + 0.05
+                    ml_pred["confidence"]    = min(1.0, max(ml_conf, boosted))
                     ml_pred["ppo_agreement"] = True
                 else:
-                    ppo_signal = str(
-                        ppo_pred.get("action", ppo_pred.get("signal", ""))
-                    ).upper()
-                    if ppo_signal == "BUY":
-                        ml_pred["confidence"] = min(
-                            1.0, ml_conf + ppo_conf * 0.30
-                        )
-                    else:
-                        ml_pred["confidence"] = ml_conf
+                    # Disagreement: keep ML confidence unchanged (no penalty)
+                    ml_pred["confidence"]    = ml_conf
                     ml_pred["ppo_agreement"] = False
                 logger.debug(
                     f"ML+PPO  ({market}): "

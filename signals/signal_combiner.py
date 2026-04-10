@@ -159,7 +159,7 @@ class SignalCombiner:
                 reasons.append(sig.reason)
 
         # ML 신호 점수 추가 (confidence > 0.50 조건 유지)
-        if ml_signal and ml_confidence > 0.50:
+        if ml_signal and ml_confidence > 0.45:
             ml_weight = self.STRATEGY_WEIGHTS["ML_Ensemble"]
             if ml_signal == "BUY":
                 buy_score += ml_weight * ml_confidence
@@ -203,7 +203,7 @@ class SignalCombiner:
             n_sell         = len(sell_strategies)
             agreement_rate = n_sell / max(total_strategies, 1)
             if agreement_rate < self.min_agreement and not (
-                ml_signal == "SELL" and ml_confidence > 0.55
+                ml_signal == "SELL" and ml_confidence > 0.52
             ):
                 return None  # SELL 동의율 미달 → HOLD
 
