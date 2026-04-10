@@ -1021,7 +1021,7 @@ class TradingEngine:
                 except Exception as _atr_e:
                     logger.debug(f"ATR     ({market}): {_atr_e}")
 
-            if signal == "SELL" and confidence > 0.75 and pnl_pct > 1.0:
+            if signal == "SELL" and confidence > 0.55 and (pnl_pct > 0.5 or pnl_pct < -1.0):
                 logger.info(
                     f" ML   | {market} | "
                     f"={confidence:.2f} | ={pnl_pct:+.2f}%"
@@ -1685,7 +1685,7 @@ class TradingEngine:
             except Exception as e:
                 logger.debug(f'{market} VolumeProfile  : {e}')
                 vp_rr = 999  # 에러 시 통과
-            if vp_rr < 0.8:  # 🔧 v2.1.0 완화: RR 1.0→0.8 (공격적 진입)
+            if vp_rr < 0.0:  # disabled: was 0.8, too strict
                 logger.debug(f"{market} VolumeProfile RR : {vp_rr:.2f}")
                 logger.debug(f"{market}  : unknown")  # 🔍 TRACE
 
