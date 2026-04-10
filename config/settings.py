@@ -1,6 +1,6 @@
 """
-APEX BOT - 설정 파일
-Pydantic + YAML 설정 시스템
+APEX BOT - ?�정 ?�일
+Pydantic + YAML ?�정 ?�스??
 """
 import os
 from pathlib import Path
@@ -15,7 +15,7 @@ BASE_DIR = Path(__file__).parent.parent
 
 @dataclass
 class APIConfig:
-    """업비트 API 설정"""
+    """?�비??API ?�정"""
     access_key: str = field(default_factory=lambda: os.getenv("UPBIT_ACCESS_KEY", ""))
     secret_key: str = field(default_factory=lambda: os.getenv("UPBIT_SECRET_KEY", ""))
     base_url: str = "https://api.upbit.com/v1"
@@ -27,7 +27,7 @@ class APIConfig:
 
 @dataclass
 class TradingConfig:
-    """거래 설정"""
+    """거래 ?�정"""
     target_markets: List[str] = field(default_factory=lambda: [
         "KRW-BTC", "KRW-ETH", "KRW-XRP", "KRW-SOL", "KRW-ADA",
         "KRW-DOGE", "KRW-AVAX", "KRW-DOT", "KRW-LINK", "KRW-ATOM"
@@ -42,13 +42,13 @@ class TradingConfig:
     min_order_amount: int = 5000
     fee_rate: float = 0.0005
     slippage_rate: float = 0.001
-    max_positions: int = 3
+    max_positions: int = 10
     max_position_ratio: float = 0.20
 
 
 @dataclass
 class RiskConfig:
-    """리스크 관리 설정"""
+    """리스??관�??�정"""
     max_risk_per_trade: float = 0.02
     kelly_fraction: float = 0.25
     min_position_size: float = 5000
@@ -66,7 +66,7 @@ class RiskConfig:
 
 @dataclass
 class MLConfig:
-    """ML 모델 설정"""
+    """ML 모델 ?�정"""
     use_gpu: bool = True
     device: str = "cuda"
     mixed_precision: bool = True
@@ -90,7 +90,7 @@ class MLConfig:
 
 @dataclass
 class StrategyConfig:
-    """전략 설정"""
+    """?�략 ?�정"""
     enabled_strategies: List[str] = field(default_factory=lambda: [
         "Williams_R",
         "MACD_Cross",
@@ -111,7 +111,7 @@ class StrategyConfig:
 
 @dataclass
 class MonitoringConfig:
-    """모니터링 설정"""
+    """모니?�링 ?�정"""
     dashboard_host: str = "0.0.0.0"
     dashboard_port: int = 8888
     telegram_token: str = field(
@@ -129,7 +129,7 @@ class MonitoringConfig:
 
 @dataclass
 class DatabaseConfig:
-    """데이터베이스 설정"""
+    """?�이?�베?�스 ?�정"""
     db_path: Path = BASE_DIR / "database" / "apex_bot.db"
     cache_max_candles: int = 2000
     cache_max_ticks: int = 10000
@@ -137,7 +137,7 @@ class DatabaseConfig:
 
 @dataclass
 class Settings:
-    """전체 설정"""
+    """?�체 ?�정"""
     api: APIConfig = field(default_factory=APIConfig)
     trading: TradingConfig = field(default_factory=TradingConfig)
     risk: RiskConfig = field(default_factory=RiskConfig)
@@ -155,26 +155,26 @@ class Settings:
             self.mode = env_mode
 
     def validate(self):
-        """설정 유효성 검증"""
+        """?�정 ?�효??검�?""
         if self.mode == "live":
             confirm = os.getenv("APEX_LIVE_CONFIRM", "").lower()
             if confirm != "yes":
                 raise RuntimeError(
                     "\n" + "=" * 55 + "\n"
-                    "  경고: 실거래 모드는 환경 변수 확인 필요\n"
-                    "  환경변수에 설정하세요:\n"
+                    "  경고: ?�거??모드???�경 변???�인 ?�요\n"
+                    "  ?�경변?�에 ?�정?�세??\n"
                     "  APEX_LIVE_CONFIRM=yes\n"
-                    "  (실거래의 위험성을 .env에 명시)\n"
+                    "  (?�거?�의 ?�험?�을 .env??명시)\n"
                     + "=" * 55
                 )
-            assert self.api.access_key, "UPBIT_ACCESS_KEY 필수"
-            assert self.api.secret_key, "UPBIT_SECRET_KEY 필수"
+            assert self.api.access_key, "UPBIT_ACCESS_KEY ?�수"
+            assert self.api.secret_key, "UPBIT_SECRET_KEY ?�수"
 
         assert 0 < self.risk.max_risk_per_trade <= 0.05, (
-            "max_risk_per_trade는 0~5% 사이"
+            "max_risk_per_trade??0~5% ?�이"
         )
         assert self.trading.max_positions >= 1, (
-            "max_positions는 1 이상"
+            "max_positions??1 ?�상"
         )
         return self
 
