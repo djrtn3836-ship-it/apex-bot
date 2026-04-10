@@ -1029,10 +1029,12 @@ class TradingEngine:
                 except Exception as _atr_e:
                     logger.debug(f"ATR     ({market}): {_atr_e}")
 
-            if signal == "SELL" and (
+            if (
                 (confidence >= 0.45 and pnl_pct <= -0.3) or
                 (confidence >= 0.45 and pnl_pct >= 0.3) or
-                (confidence >= 0.42 and pnl_pct >= 1.0)
+                (confidence >= 0.42 and pnl_pct >= 1.0) or
+                (pnl_pct >= 1.5) or
+                (pnl_pct <= -1.5 and confidence >= 0.38)
             ):
                 logger.info(
                     f" ML   | {market} | "
