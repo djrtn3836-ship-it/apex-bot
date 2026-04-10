@@ -1,4 +1,4 @@
-﻿# signals/filters/trend_filter.py — EMA200 + 다중 TF 트렌드 필터
+# signals/filters/trend_filter.py — EMA200 + 다중 TF 트렌드 필터
 """
 Layer 2 트렌드 필터:
   1) 일봉 EMA(200) 위: 강세장 → 매수 허용

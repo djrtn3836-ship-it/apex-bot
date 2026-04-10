@@ -1,4 +1,4 @@
-﻿"""APEX BOT - ? ?
+"""APEX BOT - ? ?
 Pydantic + YAML ? ???"""
 import os
 from pathlib import Path

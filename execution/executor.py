@@ -1,4 +1,4 @@
-﻿"""APEX BOT -  
+"""APEX BOT -  
  →   +   +   +"""
 import asyncio
 import time

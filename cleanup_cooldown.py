@@ -1,4 +1,4 @@
-﻿import sqlite3
+import sqlite3
 conn = sqlite3.connect('database/apex_bot.db')
 cur = conn.cursor()
 cur.execute("DELETE FROM bot_state WHERE key LIKE 'sl_cooldown_%'")

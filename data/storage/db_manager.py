@@ -1,4 +1,4 @@
-﻿"""APEX BOT -  
+"""APEX BOT -  
 SQLite (aiosqlite)   
   +   +"""
 import asyncio

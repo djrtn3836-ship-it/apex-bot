@@ -1,4 +1,4 @@
-﻿"""Williams %R  -  
+"""Williams %R  -  
 / +"""
 from typing import Dict, Optional
 from signals.base_strategy import BaseStrategy, SignalType

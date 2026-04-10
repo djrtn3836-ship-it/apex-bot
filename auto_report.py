@@ -1,4 +1,4 @@
-﻿# auto_report.py
+# auto_report.py
 import os
 from datetime import datetime
 from pathlib import Path

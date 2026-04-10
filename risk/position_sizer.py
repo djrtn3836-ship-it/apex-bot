@@ -1,4 +1,4 @@
-﻿# risk/position_sizer.py  — Kelly Criterion 동적 포지션 사이징
+# risk/position_sizer.py  — Kelly Criterion 동적 포지션 사이징
 """Half-Kelly Criterion    
 - (W) (R) DB    
 - ( )    fallback

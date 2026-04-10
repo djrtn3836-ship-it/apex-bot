@@ -1,4 +1,4 @@
-﻿from typing import Optional
+from typing import Optional
 import pandas as pd
 from strategies.base_strategy import BaseStrategy, StrategySignal, SignalType
 
