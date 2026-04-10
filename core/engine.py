@@ -1792,12 +1792,12 @@ class TradingEngine:
         )
         if not _is_bear_rev_signal:
             fg_threshold_adj = self.fear_greed.get_buy_threshold_adjustment()
-            if signal.get('confidence', 0) < (
+            if getattr(signal, 'confidence', 0) < (
                 self.settings.risk.buy_signal_threshold + fg_threshold_adj
             ):
                 logger.debug(
                     f"    ({market}): "
-                    f"점수={signal.get('confidence', 0):.2f} < "
+                    f"점수={getattr(signal, 'confidence', 0):.2f} < "
                     f"임계={self.settings.risk.buy_signal_threshold + fg_threshold_adj:.2f} "
                     f"(조정={fg_threshold_adj:+.2f})"
                 )
@@ -1918,8 +1918,8 @@ class TradingEngine:
             market=market,
             side=OrderSide.BUY,
             amount_krw=_adjusted_krw,
-            reason=signal.get('reasons', [])[0] if signal.get('reasons', []) else "앙상블 매수",
-            strategy_name=", ".join(signal.get('contributing_strategies', [])),
+            reason=signal.reasons[0] if getattr(signal, 'reasons', []) else "BUY signal",
+            strategy_name=", ".join(getattr(signal, 'contributing_strategies', [])),
             stop_loss=stop_loss,
             take_profit=take_profit,
         )
