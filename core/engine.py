@@ -378,8 +378,15 @@ class TradingEngine:
             await self._init_ppo_agent()
             await self._init_external_data()
 
-            self.dashboard.setup(engine_ref=self)
-            await self.dashboard.start()
+            try:
+                self.dashboard.setup(engine_ref=self)
+                await self.dashboard.start()
+                logger.info('  Dashboard  : http://0.0.0.0:' + str(
+                    _find_free_port(self.settings.monitoring.dashboard_port)))
+            except Exception as _dash_err:
+                logger.warning(' Dashboard   (  ): ' + str(_dash_err))
+                logger.warning('  Dashboard   Bot  ')
+
             await self.telegram.initialize(engine_ref=self)
 
             self._register_schedules()

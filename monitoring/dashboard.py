@@ -926,7 +926,7 @@ class DashboardServer:
         config = uvicorn.Config(
             self.app,
             host=self.settings.monitoring.dashboard_host,
-            port=self.settings.monitoring.dashboard_port,
+            port=_find_free_port(self.settings.monitoring.dashboard_port),
             log_level="warning",
         )
         server = uvicorn.Server(config)
