@@ -1,4 +1,4 @@
-﻿"""APEX BOT -     v2.0.0
+"""APEX BOT -     v2.0.0
     
 
   :
@@ -1040,20 +1040,22 @@ class TradingEngine:
 
     # ── 신규 마켓 분석 ───────────────────────────────────────────
     async def _analyze_market(self, market: str):
-# 동적 ML 임계값 (v2.0.4)
-        fgi_idx = self.fear_greed.latest_index or 50
-        if fgi_idx < 20:  # Extreme Fear
-            buy_threshold = 0.8
-            sell_threshold = -0.8
+        # Dynamic ML threshold based on Fear & Greed Index (v2.0.4 fixed)
+        fgi_idx = getattr(self.fear_greed, 'index', None) or 50
+        _base_buy  = self.settings.risk.buy_signal_threshold   # 0.35
+        _base_sell = self.settings.risk.sell_signal_threshold  # 0.35
+        if fgi_idx < 20:    # Extreme Fear -> lower threshold (easier to buy)
+            buy_threshold  = max(0.25, _base_buy  - 0.10)
+            sell_threshold = max(0.20, _base_sell - 0.10)
         elif fgi_idx < 40:  # Fear
-            buy_threshold = 1.2
-            sell_threshold = -1.0
-        elif fgi_idx > 80:  # Extreme Greed
-            buy_threshold = 2.0
-            sell_threshold = -1.5
-        else:  # Neutral
-            buy_threshold = 1.5
-            sell_threshold = -1.2
+            buy_threshold  = max(0.30, _base_buy  - 0.05)
+            sell_threshold = _base_sell
+        elif fgi_idx > 80:  # Extreme Greed -> raise threshold (harder to buy)
+            buy_threshold  = _base_buy  + 0.15
+            sell_threshold = _base_sell + 0.10
+        else:               # Neutral / Greed
+            buy_threshold  = _base_buy
+            sell_threshold = _base_sell
         from signals.signal_combiner import CombinedSignal, SignalType
 
         if self.portfolio.position_count >= self.settings.trading.max_positions:
