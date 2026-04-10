@@ -1,1 +1,1 @@
-"""Analytics 패키지"""
+"""Analytics"""

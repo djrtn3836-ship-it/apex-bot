@@ -1,13 +1,11 @@
-"""
-APEX BOT - 공포탐욕 지수 연동 (Fear & Greed Index)
-Alternative.me API → 크립토 시장 심리 반영
+"""APEX BOT -    (Fear & Greed Index)
+Alternative.me API →    
 
-수정 이력:
-  v1.1 - is_valid property + 메서드 이중 호출 지원
-       - get_signal_adjustment()에 "mode" 키 추가
-       - Extreme Greed 90+ 시 block_buy 완전 동작
-       - get_buy_threshold_adjustment() 반환 범위 명확화
-"""
+ :
+  v1.1 - is_valid property +    
+       - get_signal_adjustment() "mode"  
+       - Extreme Greed 90+  block_buy  
+       - get_buy_threshold_adjustment()"""
 from __future__ import annotations
 
 import asyncio
@@ -26,10 +24,7 @@ CACHE_TTL = 3600  # 1시간
 
 
 class FearGreedMonitor:
-    """
-    공포탐욕 지수 실시간 모니터링 및 전략 보정
-
-    사용법:
+    """:
         fgm = FearGreedMonitor()
         await fgm.fetch()
 
@@ -42,8 +37,7 @@ class FearGreedMonitor:
         #   "index": 13,
         #   "label": "Extreme Fear",
         #   "reason": "...",
-        # }
-    """
+        # }"""
 
     def __init__(self):
         self._index: Optional[int] = None
@@ -54,9 +48,9 @@ class FearGreedMonitor:
         self._available = AIOHTTP_OK
 
         if not AIOHTTP_OK:
-            logger.warning("⚠️ aiohttp 미설치 → 공포탐욕 지수 비활성화")
+            logger.warning(" aiohttp  →   ")
         else:
-            logger.info("✅ 공포탐욕 지수 모니터 초기화")
+            logger.info("    ")
 
     # ── Public API ──────────────────────────────────────────────
 
@@ -70,35 +64,31 @@ class FearGreedMonitor:
 
     @property
     def is_valid(self) -> bool:
-        """데이터 유효성 (1시간 이내 갱신) — @property"""
+        """(1  ) — @property"""
         return (
             self._index is not None
             and time.time() - self._last_fetch < CACHE_TTL * 2
         )
 
     def is_valid_check(self) -> bool:
-        """
-        ✅ FIX: engine.py에서 is_valid() 메서드 형태로 호출되는 경우를 위한 alias
-        engine.py: fear_greed.is_valid() → TypeError 방지
-        """
+        """FIX: engine.py is_valid()      alias
+        engine.py: fear_greed.is_valid() → TypeError"""
         return self.is_valid
 
     def get_signal_adjustment(self) -> Dict:
-        """
-        ✅ FIX: "mode" 키 추가, "block_buy" 완전 동작
-        현재 공포탐욕 지수 기반 신호 보정값 반환
+        """FIX: "mode"  , "block_buy"  
+              
 
         Returns:
             {
-              "confidence_mult": float,    신뢰도 배수 (0.85 ~ 1.10)
-              "position_ratio": float,     포지션 규모 비율 (0.60 ~ 1.00)
-              "block_buy": bool,           매수 차단 여부
-              "mode": str,                 레짐 문자열
-              "index": int | None,         현재 지수
-              "label": str,               현재 레이블
-              "reason": str,              설명
-            }
-        """
+              "confidence_mult": float,      (0.85 ~ 1.10)
+              "position_ratio": float,        (0.60 ~ 1.00)
+              "block_buy": bool,             
+              "mode": str,                  
+              "index": int | None,          
+              "label": str,                
+              "reason": str,              
+            }"""
         base = {
             "confidence_mult": 1.0,
             "position_ratio": 1.0,
@@ -166,13 +156,10 @@ class FearGreedMonitor:
         return base
 
     def get_buy_threshold_adjustment(self) -> float:
-        """
-        신호 결합기 매수 임계값 조정
-        공포 시 낮춤 (매수 용이), 탐욕 시 높임 (매수 어렵게)
+        """( ),    ( )
 
         Returns:
-            임계값 보정 (-1.0 ~ +2.0)
-        """
+              (-1.0 ~ +2.0)"""
         if not self.is_valid or self._index is None:
             return 0.0
 
@@ -184,13 +171,13 @@ class FearGreedMonitor:
         return              +1.5       # 극단적 탐욕
 
     def is_trend_reversing(self) -> bool:
-        """전일 대비 급격한 심리 변화 감지 (20포인트+)"""
+        """(20+)"""
         if self._index is None or self._prev_index is None:
             return False
         return abs(self._index - self._prev_index) >= 20
 
     def get_dashboard_info(self) -> Dict:
-        """대시보드 표시용 정보"""
+        """docstring"""
         if not self.is_valid:
             return {"index": None, "label": "N/A", "emoji": "⚪"}
         idx = self._index
@@ -209,7 +196,7 @@ class FearGreedMonitor:
     # ── Async Fetch ─────────────────────────────────────────────
 
     async def fetch(self) -> bool:
-        """공포탐욕 지수 API 조회"""
+        """API"""
         if not self._available:
             return False
         if time.time() - self._last_fetch < CACHE_TTL:
@@ -237,10 +224,10 @@ class FearGreedMonitor:
 
                     adj = self.get_signal_adjustment()
                     logger.info(
-                        f"📊 공포탐욕 지수: {self._index} ({self._label}) | "
+                        f"  : {self._index} ({self._label}) | "
                         f"모드={adj['mode']} | {adj['reason']}"
                     )
                     return True
         except Exception as e:
-            logger.debug(f"공포탐욕 조회 실패: {e}")
+            logger.debug(f"  : {e}")
             return False

@@ -7,7 +7,7 @@ from signals.signal_combiner import CombinedSignal, SignalType
 
 
 class MACDMomentum(BaseStrategy):
-    """MACD 모멘텀 전략 - MACD 크로스 + 히스토그램 방향"""
+    """MACD   - MACD  +"""
 
     def __init__(self, settings: dict = None):
         super().__init__("MACDMomentum", settings)

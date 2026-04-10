@@ -1,19 +1,15 @@
-"""
-APEX BOT - Slippage Model
-호가창 스프레드 + 거래량 기반 슬리피지 예측
-"""
+"""APEX BOT - Slippage Model
+  +"""
 import numpy as np
 from loguru import logger
 
 
 class SlippageModel:
-    """
-    실제 체결가 = 주문가 + 슬리피지
-    슬리피지 요인:
-      1. 호가 스프레드 (bid-ask spread)
-      2. 주문 크기 대비 호가창 유동성
-      3. 시장 변동성 (ATR 기반)
-    """
+    """=  + 
+     :
+      1.   (bid-ask spread)
+      2.     
+      3.   (ATR )"""
 
     # 코인별 기본 슬리피지 (실측 기반, %)
     BASE_SLIPPAGE = {
@@ -32,7 +28,7 @@ class SlippageModel:
 
     def __init__(self):
         self._history: dict = {}  # 실측 슬리피지 누적
-        logger.info("✅ SlippageModel 초기화 | 호가창 스프레드 기반 슬리피지 예측")
+        logger.info(" SlippageModel  |     ")
 
     def estimate(
         self,
@@ -41,13 +37,11 @@ class SlippageModel:
         orderbook: dict = None,
         volatility: float = None,
     ) -> float:
-        """
-        슬리피지 예측 (%)
-        - order_amount_krw: 주문 금액 (KRW)
-        - orderbook: 호가창 데이터 (없으면 기본값 사용)
-        - volatility: ATR 기반 변동성 (없으면 무시)
-        반환: 예상 슬리피지 비율 (예: 0.05 = 0.05%)
-        """
+        """(%)
+        - order_amount_krw:   (KRW)
+        - orderbook:   (  )
+        - volatility: ATR   ( )
+        :    (: 0.05 = 0.05%)"""
         base = self.BASE_SLIPPAGE.get(market, self.DEFAULT_SLIPPAGE)
 
         # 1. 호가창 스프레드 반영
@@ -80,17 +74,14 @@ class SlippageModel:
         total = min(total, 0.5)  # 최대 0.5% 상한
 
         logger.debug(
-            f"슬리피지 예측 ({market}): {total:.3f}% "
+            f"  ({market}): {total:.3f}% "
             f"[base={base:.3f} spread={spread_adj:.3f} "
             f"size={size_adj:.3f} vol={vol_adj:.3f}]"
         )
         return total
 
     def apply(self, price: float, market: str, side: str = "buy", **kwargs) -> float:
-        """
-        슬리피지 적용 가격 반환
-        - side: "buy" → 가격 상승, "sell" → 가격 하락
-        """
+        """- side: "buy" →  , "sell" →"""
         slippage_pct = self.estimate(market, kwargs.get("order_amount_krw", 100_000))
         if side == "buy":
             return price * (1 + slippage_pct / 100)
@@ -98,7 +89,7 @@ class SlippageModel:
             return price * (1 - slippage_pct / 100)
 
     def record_actual(self, market: str, expected: float, actual: float):
-        """실제 체결 슬리피지 기록 (자기학습)"""
+        """()"""
         if expected <= 0:
             return
         actual_slip = abs(actual - expected) / expected * 100
@@ -111,7 +102,7 @@ class SlippageModel:
         # 실측 평균으로 BASE_SLIPPAGE 업데이트
         avg = float(np.mean(self._history[market]))
         self.BASE_SLIPPAGE[market] = round(avg, 4)
-        logger.debug(f"슬리피지 실측 업데이트 ({market}): {avg:.4f}%")
+        logger.debug(f"   ({market}): {avg:.4f}%")
 
     def get_status(self) -> dict:
         return {

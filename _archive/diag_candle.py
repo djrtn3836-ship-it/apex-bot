@@ -11,7 +11,7 @@ async def test():
 
     markets = ['KRW-BTC', 'KRW-ADA', 'KRW-DOGE']
 
-    print("=== NpyCache 직접 확인 ===")
+    print("=== NpyCache   ===")
     npy = getattr(cm, '_npy_cache', None)
     print('_npy_cache:', npy)
 
@@ -23,7 +23,7 @@ async def test():
             print(f'{m}: None (get_ohlcv)')
 
     print()
-    print("=== REST 직접 수집 테스트 ===")
+    print("=== REST    ===")
     rc = RestCollector()
     for m in markets:
         try:
@@ -33,6 +33,6 @@ async def test():
             else:
                 print(f'{m}: REST None')
         except Exception as e:
-            print(f'{m}: REST 오류 - {e}')
+            print(f'{m}: REST  - {e}')
 
 asyncio.run(test())

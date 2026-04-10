@@ -6,7 +6,7 @@ shutil.copy('signals/signal_combiner.py', 'signals/signal_combiner.py.bak_sc2')
 with open('signals/signal_combiner.py', 'r', encoding='utf-8') as f:
     lines = f.readlines()
 
-print(f"전체 라인 수: {len(lines)}")
+print(f"  : {len(lines)}")
 
 # ── 수정 1: L48~L63 STRATEGY_WEIGHTS 교체 (index 47~62) ──────────────
 new_weights = \
@@ -32,7 +32,7 @@ new_weights = \
 # L48=index47 ~ L63=index62 교체
 new_lines = lines[:47] + [new_weights] + lines[63:]
 lines = new_lines
-print(f"✅ 수정 1: STRATEGY_WEIGHTS L48~L63 교체 완료 (중복 키 제거)")
+print(f"  1: STRATEGY_WEIGHTS L48~L63   (  )")
 
 # ── 수정 2: L120 ML confidence 임계값 0.35→0.50 상향 (index 119) ─────
 # buy_threshold가 1.50으로 올라갔으므로 ML 단독 기여값도 재조정
@@ -44,7 +44,7 @@ for i, line in enumerate(lines):
             'ml_confidence > 0.35',
             'ml_confidence > 0.50  # 상향: 0.35→0.50 (ML 단독 매수 방지)'
         )
-        print(f"✅ 수정 2: L{i+1} ML confidence 임계값 0.35→0.50 상향")
+        print(f"  2: L{i+1} ML confidence  0.35→0.50 ")
         break
 
 # ── 수정 3: BUY agreement_rate 필터 복원 (L136~L137 주석 해제) ────────
@@ -54,13 +54,13 @@ for i, line in enumerate(lines):
             '# if agreement_rate < self.min_agreement:',
             'if agreement_rate < self.min_agreement:'
         )
-        print(f"✅ 수정 3a: L{i+1} BUY agreement_rate 필터 주석 해제")
+        print(f"  3a: L{i+1} BUY agreement_rate   ")
     if '#     return None' in line and i > 130 and i < 145:
         lines[i] = line.replace(
             '#     return None',
             '    return None  # BUY 동의율 미달 → HOLD'
         )
-        print(f"✅ 수정 3b: L{i+1} BUY return None 주석 해제")
+        print(f"  3b: L{i+1} BUY return None  ")
 
 # ── 수정 4: L164 SELL pass 제거 + min_agreement 필터 삽입 ─────────────
 for i, line in enumerate(lines):
@@ -77,7 +77,7 @@ for i, line in enumerate(lines):
             f"{ind}    return None  # SELL 동의율 미달 + ML SELL 미확인 → HOLD\n"
         )
         lines[i] = new_sell_filter
-        print(f"✅ 수정 4: L{i+1} SELL pass → min_agreement 필터로 교체")
+        print(f"  4: L{i+1} SELL pass → min_agreement  ")
         break
 
 with open('signals/signal_combiner.py', 'w', encoding='utf-8') as f:
@@ -87,12 +87,12 @@ with open('signals/signal_combiner.py', 'w', encoding='utf-8') as f:
 with open('signals/signal_combiner.py', 'r', encoding='utf-8') as f:
     final = f.read()
 
-print("\n── 최종 검증 ────────────────────────────────────────")
+print("\n   ")
 ob_count = final.count('"OrderBlock_SMC"')
-print(f"OrderBlock_SMC 키 개수: {ob_count}개 (정상=1, REGIME_PREFERRED 제외시 2→1)")
-print(f"fear_greed 잔존:    {'있음 ⚠️' if '\"fear_greed\"'    in final else '없음 ✅'}")
-print(f"news_sentiment 잔존: {'있음 ⚠️' if '\"news_sentiment\"' in final else '없음 ✅'}")
-print(f"중복 pass 잔존:      {'있음 ⚠️' if 'pass  #' in final else '없음 ✅'}")
-print(f"ml_confidence>0.35:  {'있음 ⚠️' if '> 0.35' in final else '없음 ✅'}")
-print(f"agreement_rate 필터: {'활성 ✅' if 'if agreement_rate < self.min_agreement' in final else '비활성 ⚠️'}")
-print("\n✅ fix_signal_combiner2.py 완료")
+print(f"OrderBlock_SMC  : {ob_count} (=1, REGIME_PREFERRED  2→1)")
+print(f"fear_greed :    {' ' if '\"fear_greed\"'    in final else ' '}")
+print(f"news_sentiment : {' ' if '\"news_sentiment\"' in final else ' '}")
+print(f" pass :      {' ' if 'pass  #' in final else ' '}")
+print(f"ml_confidence>0.35:  {' ' if '> 0.35' in final else ' '}")
+print(f"agreement_rate : {' ' if 'if agreement_rate < self.min_agreement' in final else ' '}")
+print("\n fix_signal_combiner2.py ")

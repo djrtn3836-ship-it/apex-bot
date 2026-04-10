@@ -1,11 +1,9 @@
-"""
-APEX BOT - 국면 감지 + 전략 자동 전환 백테스터
-국면 분류:
-  BULL     : EMA200 위 + ADX > 25  -> trend_following + ml_strategy
-  BEAR     : EMA200 아래 + ADX > 25 -> mean_reversion + rsi_divergence
+"""APEX BOT -   +    
+ :
+  BULL     : EMA200  + ADX > 25  -> trend_following + ml_strategy
+  BEAR     : EMA200  + ADX > 25 -> mean_reversion + rsi_divergence
   RANGE    : ADX < 20              -> mean_reversion + volume_spike
-  VOLATILE : ADX > 40              -> rsi_divergence + volume_spike
-"""
+  VOLATILE : ADX > 40              -> rsi_divergence + volume_spike"""
 import pandas as pd
 from typing import Dict, Tuple
 from loguru import logger
@@ -41,13 +39,11 @@ def detect_regime(
     adx_trend: float = 20.0,
     adx_volatile: float = 35.0,
 ) -> pd.Series:
-    """
-    봉별 시장 국면 감지 -> BULL/BEAR/RANGE/VOLATILE
-    개선된 로직:
-    - BULL: EMA20 > EMA50 (단기 상승) OR EMA50 > EMA200 (중기 상승)
-    - BEAR: EMA20 < EMA50 AND EMA50 < EMA200 (단중기 모두 하락)
-    - ADX 임계값 완화: 25 -> 20
-    """
+    """-> BULL/BEAR/RANGE/VOLATILE
+     :
+    - BULL: EMA20 > EMA50 ( ) OR EMA50 > EMA200 ( )
+    - BEAR: EMA20 < EMA50 AND EMA50 < EMA200 (  )
+    - ADX  : 25 -> 20"""
     ema20  = _ema(df["close"], 20)
     ema50  = _ema(df["close"], 50)
     ema200 = _ema(df["close"], ema_period)
@@ -75,10 +71,10 @@ def build_regime_signal(
     df: pd.DataFrame,
     min_score: float = 1.0,
 ) -> Tuple[pd.Series, pd.DataFrame]:
-    """국면 감지 후 국면별 가중 앙상블 신호 생성"""
+    """docstring"""
     regime = detect_regime(df)
     counts = regime.value_counts().to_dict()
-    logger.info("국면 분포: " + str({k: int(v) for k, v in counts.items()}))
+    logger.info(" : " + str({k: int(v) for k, v in counts.items()}))
 
     all_signals = {
         "trend_following": signal_trend_following(df),
@@ -108,7 +104,7 @@ def build_regime_signal(
     buy_cnt  = int((signal == 1).sum())
     sell_cnt = int((signal == -1).sum())
     hold_cnt = int((signal == 0).sum())
-    logger.info("앙상블 신호: BUY=" + str(buy_cnt) + " SELL=" + str(sell_cnt) + " HOLD=" + str(hold_cnt))
+    logger.info(" : BUY=" + str(buy_cnt) + " SELL=" + str(sell_cnt) + " HOLD=" + str(hold_cnt))
 
     debug_df = pd.DataFrame({
         "regime":     regime,
@@ -120,7 +116,7 @@ def build_regime_signal(
 
 
 class RegimeStrategyBacktester:
-    """국면 감지 + 전략 자동 전환 백테스터"""
+    """+"""
 
     def __init__(self, base_backtester: Backtester = None):
         self.bt = base_backtester or Backtester()
@@ -131,12 +127,12 @@ class RegimeStrategyBacktester:
         market:    str   = "KRW-BTC",
         min_score: float = 1.0,
     ) -> Tuple[BacktestResult, pd.DataFrame]:
-        """국면 전환 전략 백테스트 실행"""
+        """docstring"""
         signal, debug_df = build_regime_signal(df, min_score)
 
         regime_counts = debug_df["regime"].value_counts()
         print("")
-        print("  [" + market + "] 국면 분포:")
+        print("  [" + market + "]  :")
         for reg, cnt in regime_counts.items():
             pct = cnt / len(debug_df) * 100
             bar = chr(9608) * int(pct / 5)
@@ -151,15 +147,15 @@ class RegimeStrategyBacktester:
         market: str = "KRW-BTC",
         scores: list = None,
     ) -> Dict[float, BacktestResult]:
-        """min_score 값별 성과 비교"""
+        """min_score"""
         if scores is None:
             scores = [0.5, 0.8, 1.0, 1.2, 1.5, 2.0]
 
         results = {}
         print("=" * 60)
-        print("  국면 적응 전략 min_score 비교 (" + market + ")")
+        print("     min_score  (" + market + ")")
         print("=" * 60)
-        print("  score    수익률     샤프     승률      낙폭   거래수")
+        print("  score                       ")
         print("-" * 60)
 
         for s in scores:
@@ -176,5 +172,5 @@ class RegimeStrategyBacktester:
 
         print("=" * 60)
         best_s = max(results, key=lambda k: results[k].sharpe_ratio)
-        print("  최적 score: " + str(best_s) + " (샤프 " + f"{results[best_s].sharpe_ratio:.3f})")
+        print("   score: " + str(best_s) + " (샤프 " + f"{results[best_s].sharpe_ratio:.3f})")
         return results

@@ -1,8 +1,6 @@
-"""
-페이퍼 트레이딩 DB 초기화 후 새로 시작
-- 기존 데이터 백업 후 테이블 초기화
-- 오늘부터 14일간 새로 측정
-"""
+"""DB    
+-      
+-  14"""
 import sqlite3
 import shutil
 from datetime import datetime
@@ -13,7 +11,7 @@ backup_path = Path(f"database/apex_bot_backup_{datetime.now().strftime('%Y%m%d_%
 
 # 백업
 shutil.copy(db_path, backup_path)
-print(f"✅ 기존 데이터 백업: {backup_path}")
+print(f"   : {backup_path}")
 
 conn = sqlite3.connect(db_path)
 cur = conn.cursor()
@@ -28,8 +26,8 @@ cur.execute("DELETE FROM sqlite_sequence WHERE name='trade_history'")
 conn.commit()
 conn.close()
 
-print("✅ DB 초기화 완료")
-print(f"📅 새 측정 시작: {datetime.now().strftime('%Y-%m-%d %H:%M')}")
-print(f"📅 실거래 판단 목표일: 2026-04-17 (14일 후)")
+print(" DB  ")
+print(f"   : {datetime.now().strftime('%Y-%m-%d %H:%M')}")
+print(f"   : 2026-04-17 (14 )")
 print()
-print("▶ python start_paper.py")
+print(" python start_paper.py")

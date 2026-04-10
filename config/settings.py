@@ -1,7 +1,5 @@
-﻿"""
-APEX BOT - ?ㅼ젙 ?뚯씪
-Pydantic + YAML ?ㅼ젙 ?쒖뒪??
-"""
+﻿"""APEX BOT - ? ?
+Pydantic + YAML ? ???"""
 import os
 from pathlib import Path
 from dataclasses import dataclass, field
@@ -15,7 +13,7 @@ BASE_DIR = Path(__file__).parent.parent
 
 @dataclass
 class APIConfig:
-    """?낅퉬??API ?ㅼ젙"""
+    """???API ?"""
     access_key: str = field(default_factory=lambda: os.getenv("UPBIT_ACCESS_KEY", ""))
     secret_key: str = field(default_factory=lambda: os.getenv("UPBIT_SECRET_KEY", ""))
     base_url: str = "https://api.upbit.com/v1"
@@ -27,7 +25,7 @@ class APIConfig:
 
 @dataclass
 class TradingConfig:
-    """嫄곕옒 ?ㅼ젙"""
+    """?"""
     target_markets: List[str] = field(default_factory=lambda: [
         "KRW-BTC", "KRW-ETH", "KRW-XRP", "KRW-SOL", "KRW-ADA",
         "KRW-DOGE", "KRW-AVAX", "KRW-DOT", "KRW-LINK", "KRW-ATOM"
@@ -48,7 +46,7 @@ class TradingConfig:
 
 @dataclass
 class RiskConfig:
-    """由ъ뒪??愿由??ㅼ젙"""
+    """ъ????"""
     max_risk_per_trade: float = 0.02
     kelly_fraction: float = 0.25
     min_position_size: float = 5000
@@ -66,7 +64,7 @@ class RiskConfig:
 
 @dataclass
 class MLConfig:
-    """ML 紐⑤뜽 ?ㅼ젙"""
+    """ML ⑤ ?"""
     use_gpu: bool = True
     device: str = "cuda"
     mixed_precision: bool = True
@@ -90,7 +88,7 @@ class MLConfig:
 
 @dataclass
 class StrategyConfig:
-    """?꾨왂 ?ㅼ젙"""
+    """? ?"""
     enabled_strategies: List[str] = field(default_factory=lambda: [
         "Williams_R",
         "MACD_Cross",
@@ -111,7 +109,7 @@ class StrategyConfig:
 
 @dataclass
 class MonitoringConfig:
-    """紐⑤땲?곕쭅 ?ㅼ젙"""
+    """⑤? ?"""
     dashboard_host: str = "0.0.0.0"
     dashboard_port: int = 8888
     telegram_token: str = field(
@@ -129,7 +127,7 @@ class MonitoringConfig:
 
 @dataclass
 class DatabaseConfig:
-    """?곗씠?곕쿋?댁뒪 ?ㅼ젙"""
+    """??? ?"""
     db_path: Path = BASE_DIR / "database" / "apex_bot.db"
     cache_max_candles: int = 2000
     cache_max_ticks: int = 10000
@@ -137,7 +135,7 @@ class DatabaseConfig:
 
 @dataclass
 class Settings:
-    """?꾩껜 ?ㅼ젙"""
+    """? ?"""
     api: APIConfig = field(default_factory=APIConfig)
     trading: TradingConfig = field(default_factory=TradingConfig)
     risk: RiskConfig = field(default_factory=RiskConfig)
@@ -161,10 +159,10 @@ class Settings:
             if confirm != "yes":
                 raise RuntimeError(
                     "\n" + "=" * 55 + "\n"
-                    "  寃쎄퀬: ?ㅺ굅??紐⑤뱶???섍꼍 蹂???뺤씤 ?꾩슂\n"
-                    "  ?섍꼍蹂?섏뿉 ?ㅼ젙?섏꽭??\n"
+                    "  : ???⑤??? ??? ?\n"
+                    "  ?? ????\n"
                     "  APEX_LIVE_CONFIRM=yes\n"
-                    "  (?ㅺ굅?섏쓽 ?꾪뿕?깆쓣 .env??紐낆떆)\n"
+                    "  (?? ?? .env??)\n"
                     + "=" * 55
                 )
             assert self.api.access_key, "UPBIT_ACCESS_KEY ?꾩닔"

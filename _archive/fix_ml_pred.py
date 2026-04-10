@@ -8,11 +8,11 @@ func_start = None
 for i, line in enumerate(lines):
     if '_get_ml_prediction' in line and 'def ' in line:
         func_start = i
-        print(f"함수 발견: L{i+1}")
+        print(f" : L{i+1}")
         break
 
 if func_start is None:
-    print("ERROR: _get_ml_prediction 함수를 찾지 못했습니다")
+    print("ERROR: _get_ml_prediction   ")
     exit(1)
 
 # 함수 내부에서 잘못된 순서의 블록 탐지
@@ -27,10 +27,10 @@ for i in range(func_start, func_start + 100):
     # 할당보다 먼저 나오는 참조 탐지
     if '_ml_pred_data' in stripped and '= {' in stripped and assign_line is None:
         assign_line = i
-        print(f"_ml_pred_data 할당 위치: L{i+1}")
+        print(f"_ml_pred_data  : L{i+1}")
     elif '_ml_pred_data' in stripped and assign_line is None and first_ref is None:
         first_ref = i
-        print(f"_ml_pred_data 최초 참조 위치(할당 전): L{i+1} → {stripped}")
+        print(f"_ml_pred_data   ( ): L{i+1} → {stripped}")
 
 # 핵심 수정: if result: 블록 시작 찾아서 블록 전체 재작성
 if_result_line = None
@@ -39,11 +39,11 @@ for i in range(func_start, func_start + 50):
         break
     if lines[i].strip() == 'if result:':
         if_result_line = i
-        print(f"if result: 위치: L{i+1}")
+        print(f"if result: : L{i+1}")
         break
 
 if if_result_line is None:
-    print("ERROR: 'if result:' 라인을 찾지 못했습니다")
+    print("ERROR: 'if result:'   ")
     exit(1)
 
 # if result: 블록의 들여쓰기 파악
@@ -66,7 +66,7 @@ for i in range(if_result_line + 1, func_start + 100):
         break
     block_end = i + 1
 
-print(f"if result: 블록 범위: L{if_result_line+1} ~ L{block_end}")
+print(f"if result:  : L{if_result_line+1} ~ L{block_end}")
 
 # 올바른 순서로 새 블록 작성
 new_block = (
@@ -107,12 +107,12 @@ new_block = (
 # 백업 후 교체
 import shutil
 shutil.copy('core/engine.py', 'core/engine.py.bak_mlpred')
-print("백업 완료: core/engine.py.bak_mlpred")
+print(" : core/engine.py.bak_mlpred")
 
 new_lines = lines[:if_result_line] + [new_block] + lines[block_end:]
 
 with open('core/engine.py', 'w', encoding='utf-8') as f:
     f.writelines(new_lines)
 
-print(f"✅ 수정 완료: L{if_result_line+1}~L{block_end} → 재작성됨")
-print("수정 내용: _ml_pred_data를 dashboard_state 참조 이전에 먼저 초기화")
+print(f"  : L{if_result_line+1}~L{block_end} → ")
+print(" : _ml_pred_data dashboard_state    ")

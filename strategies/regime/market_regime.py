@@ -1,7 +1,5 @@
-"""
-Market Regime Detection (시장 국면 분류)
-v2.1.0 추가
-"""
+"""Market Regime Detection (  )
+v2.1.0"""
 import pandas as pd
 import numpy as np
 from typing import Dict
@@ -9,7 +7,7 @@ from .base_strategy import BaseStrategy
 
 
 class MarketRegimeDetector(BaseStrategy):
-    """Bull/Bear/Range/Volatile 4가지 국면 감지"""
+    """Bull/Bear/Range/Volatile 4"""
     
     def __init__(self):
         super().__init__()
@@ -17,12 +15,10 @@ class MarketRegimeDetector(BaseStrategy):
         self.timeframe = "1h"
         
     def analyze(self, df: pd.DataFrame, market: str) -> Dict:
-        """
-        1. Bull Trend: SMA20 > SMA50, ATR 낮음
-        2. Bear Trend: SMA20 < SMA50, ATR 낮음
-        3. Range: SMA20 ≈ SMA50, ATR 낮음
-        4. Volatile: ATR 높음
-        """
+        """1. Bull Trend: SMA20 > SMA50, ATR 
+        2. Bear Trend: SMA20 < SMA50, ATR 
+        3. Range: SMA20 ≈ SMA50, ATR 
+        4. Volatile: ATR"""
         if len(df) < 50:
             return {"signal": 0, "confidence": 0.0, "regime": "unknown"}
         

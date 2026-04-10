@@ -1,7 +1,5 @@
-"""
-Apex Bot - 텔레그램 설정 가이드 + 명령어 인터페이스 (M6)
-python monitoring/telegram_setup.py 로 실행
-"""
+"""Apex Bot -    +   (M6)
+python monitoring/telegram_setup.py"""
 import os, pathlib, asyncio
 from loguru import logger
 
@@ -9,31 +7,25 @@ ENV_PATH = pathlib.Path(".env")
 
 
 def setup_telegram():
-    """텔레그램 토큰/채팅ID .env 설정 가이드"""
-    print("""
-╔══════════════════════════════════════════════╗
-║     텔레그램 봇 설정 가이드                  ║
-╚══════════════════════════════════════════════╝
+    """/ID .env"""
+    print("""[Step 1]   
+  1.  @BotFather 
+  2. /newbot  
+  3.    (: ApexTradingBot)
+  4.    (: apex_trading_bot)
+  5.    (: 1234567890:ABCdefGHI...)
 
-[Step 1] 봇 토큰 발급
-  1. 텔레그램에서 @BotFather 검색
-  2. /newbot 명령어 입력
-  3. 봇 이름 입력 (예: ApexTradingBot)
-  4. 봇 사용자명 입력 (예: apex_trading_bot)
-  5. 발급된 토큰 복사 (예: 1234567890:ABCdefGHI...)
-
-[Step 2] 채팅 ID 확인
-  1. 방금 만든 봇에게 아무 메시지 전송
-  2. 브라우저에서 아래 주소 접속:
-     https://api.telegram.org/bot<토큰>/getUpdates
-  3. "chat":{"id": 숫자} 에서 숫자 복사
-""")
+[Step 2]  ID 
+  1.      
+  2.    :
+     https://api.telegram.org/bot<>/getUpdates
+  3. "chat":{"id": }""")
 
     token   = input("텔레그램 봇 토큰 입력 (없으면 Enter 스킵): ").strip()
     chat_id = input("텔레그램 채팅 ID 입력 (없으면 Enter 스킵): ").strip()
 
     if not token or not chat_id:
-        print("⚠️  스킵 — 나중에 .env 파일에 직접 추가하세요:")
+        print("   —  .env   :")
         print("   TELEGRAM_TOKEN=your_token")
         print("   TELEGRAM_CHAT_ID=your_chat_id")
         return False
@@ -53,13 +45,13 @@ def setup_telegram():
             env_content += f"\n{key}={val}"
 
     ENV_PATH.write_text(env_content.strip() + "\n", encoding="utf-8")
-    print(f"\n✅ .env 저장 완료: {ENV_PATH.absolute()}")
-    print("   봇 재시작 시 텔레그램 알림이 활성화됩니다.")
+    print(f"\n .env  : {ENV_PATH.absolute()}")
+    print("        .")
     return True
 
 
 async def test_telegram(token: str, chat_id: str):
-    """텔레그램 연결 테스트"""
+    """docstring"""
     try:
         import aiohttp
         url  = f"https://api.telegram.org/bot{token}/sendMessage"
@@ -67,13 +59,13 @@ async def test_telegram(token: str, chat_id: str):
         async with aiohttp.ClientSession() as sess:
             async with sess.post(url, json=data) as resp:
                 if resp.status == 200:
-                    print("✅ 텔레그램 메시지 전송 성공!")
+                    print("    !")
                     return True
                 else:
-                    print(f"❌ 전송 실패: {resp.status}")
+                    print(f"  : {resp.status}")
                     return False
     except Exception as e:
-        print(f"❌ 오류: {e}")
+        print(f" : {e}")
         return False
 
 

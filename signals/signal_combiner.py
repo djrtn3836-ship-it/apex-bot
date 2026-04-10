@@ -1,14 +1,12 @@
-"""
-APEX BOT - 신호 결합기
-멀티 전략 신호 → 앙상블 최종 신호 생성
+"""APEX BOT -  
+   →    
 
-수정 이력:
-  v1.1 - _filter_by_regime() Signal 생성 인수 불일치 수정
+ :
+  v1.1 - _filter_by_regime() Signal    
          (signal_type= → signal=, strength= → score=)
-       - 부스트 신호 생성 헬퍼 _boost_signal() 추가
-  v1.2 - RSI_Divergence 가중치 0.0 → REGIME_PREFERRED 에서 제거
-         (가중치 0.0 전략을 레짐 부스트해도 0.0 × 1.2 = 0.0 이므로 의미 없음)
-"""
+       -     _boost_signal() 
+  v1.2 - RSI_Divergence  0.0 → REGIME_PREFERRED  
+         ( 0.0    0.0 × 1.2 = 0.0   )"""
 import asyncio
 from typing import Dict, List, Optional, Tuple
 from dataclasses import dataclass, field
@@ -22,7 +20,7 @@ from config.settings import get_settings
 
 @dataclass
 class CombinedSignal:
-    """앙상블 결합 최종 신호"""
+    """docstring"""
     market: str
     signal_type: SignalType
     score: float
@@ -36,18 +34,14 @@ class CombinedSignal:
 
 
 class SignalCombiner:
-    """
-    멀티 전략 신호 결합 엔진
-
-    가중치 체계:
-    - ML 앙상블 (LSTM+TFT+CNN): 가중치 3.0
-    - 역추세 반전 (BEAR_REVERSAL): 2.0
-    - 모멘텀 (MACD/Supertrend): 1.3~1.8
-    - 평균회귀 (VWAP/BB): 1.0~1.2
-    - 변동성 돌파 (ATR/볼린저): 0.4~1.0
-    - 시장구조 (OB/SMC): 0.3
-    - RSI_Divergence: 0.0 (백테스트 -10.0% → 완전 비활성화)
-    """
+    """:
+    - ML  (LSTM+TFT+CNN):  3.0
+    -   (BEAR_REVERSAL): 2.0
+    -  (MACD/Supertrend): 1.3~1.8
+    -  (VWAP/BB): 1.0~1.2
+    -   (ATR/): 0.4~1.0
+    -  (OB/SMC): 0.3
+    - RSI_Divergence: 0.0 ( -10.0% →  )"""
 
     STRATEGY_WEIGHTS = {
         # ── 모멘텀 전략 ──────────────────────────────────────
@@ -117,7 +111,7 @@ class SignalCombiner:
         ml_prediction: Optional[Dict] = None,
         regime: str = "UNKNOWN",
     ) -> Optional[CombinedSignal]:
-        """다중 신호 결합 → 최종 신호 반환"""
+        """→"""
         if not signals and not ml_prediction:
             return None
 
@@ -226,14 +220,12 @@ class SignalCombiner:
     def _filter_by_regime(
         self, signals: List[Signal], regime: str
     ) -> List[Signal]:
-        """
-        시장 레짐에 맞는 전략만 필터링 + 선호 전략 1.2배 부스트
+        """+   1.2 
 
-        ✅ FIX v1.1: Signal 생성 시 signal= (not signal_type=),
-                     score= (not strength=) 사용
-        ✅ FIX v1.2: RSI_Divergence는 REGIME_PREFERRED에서 제거됐으므로
-                     preferred 집합에 포함되지 않아 자동으로 부스트 제외
-        """
+         FIX v1.1: Signal   signal= (not signal_type=),
+                     score= (not strength=) 
+         FIX v1.2: RSI_Divergence REGIME_PREFERRED 
+                     preferred"""
         preferred = self.REGIME_PREFERRED.get(regime.upper(), None)
         if preferred is None:
             return signals  # 알 수 없는 레짐 → 필터 없음
@@ -258,9 +250,7 @@ class SignalCombiner:
         score_mult: float = 1.0,
         reason_suffix: str = "",
     ) -> Signal:
-        """
-        ✅ FIX v1.1: StrategySignal 실제 필드명(signal, score)으로 새 신호 생성
-        """
+        """FIX v1.1: StrategySignal  (signal, score)"""
         from strategies.base_strategy import StrategySignal
         return StrategySignal(
             strategy_name=sig.strategy_name,
@@ -278,7 +268,7 @@ class SignalCombiner:
         )
 
     def get_score_breakdown(self, signals: List[Signal]) -> Dict:
-        """신호 점수 상세 내역"""
+        """docstring"""
         breakdown = {}
         for sig in signals:
             weight = self.STRATEGY_WEIGHTS.get(sig.strategy_name, 1.0)

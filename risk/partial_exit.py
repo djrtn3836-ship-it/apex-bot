@@ -1,13 +1,11 @@
-"""
-APEX BOT - 부분 청산 (Partial Exit) 관리자
-목표가 도달 시 포지션 일부 익절 → 나머지는 트레일링으로 수익 극대화
+"""APEX BOT -   (Partial Exit) 
+      →    
 
-청산 단계:
-  Step 1: 목표가 50% 도달 → 25% 청산 (수익 확정)
-  Step 2: 목표가 100% 도달 → 50% 청산 (익절)
-  Step 3: 목표가 150% 도달 → 25% 청산 (추가 익절)
-  나머지: 트레일링 스탑으로 계속 추적
-"""
+ :
+  Step 1:  50%  → 25%  ( )
+  Step 2:  100%  → 50%  ()
+  Step 3:  150%  → 25%  ( )
+  :"""
 from __future__ import annotations
 
 from dataclasses import dataclass, field
@@ -17,7 +15,7 @@ from loguru import logger
 
 @dataclass
 class PartialExitLevel:
-    """개별 청산 단계"""
+    """docstring"""
     profit_pct: float     # 익절 발동 수익률 (예: 0.05 = 5%)
     exit_ratio: float     # 청산 비율 (예: 0.25 = 25%)
     executed: bool = False
@@ -25,7 +23,7 @@ class PartialExitLevel:
 
 @dataclass
 class PartialExitState:
-    """포지션별 부분 청산 상태"""
+    """docstring"""
     market: str
     entry_price: float
     initial_volume: float
@@ -60,21 +58,17 @@ class PartialExitState:
 
 
 class PartialExitManager:
-    """
-    부분 청산 관리자
-
-    엔진 연동 방법:
-        # 포지션 진입 시
+    """:
+        #   
         partial_exit.add_position(market, entry_price, volume, take_profit)
 
-        # 가격 업데이트 시 (매 분)
+        #    ( )
         exit_vol = partial_exit.check(market, current_price)
         if exit_vol > 0:
             await executor.execute(sell partial exit_vol)
 
-        # 포지션 종료 시
-        partial_exit.remove_position(market)
-    """
+        #   
+        partial_exit.remove_position(market)"""
 
     def __init__(self):
         self._positions: Dict[str, PartialExitState] = {}
@@ -89,16 +83,12 @@ class PartialExitManager:
         take_profit: float,
         custom_levels: Optional[List[Tuple[float, float]]] = None,
     ):
-        """
-        포지션 추가
-
-        Args:
-            market:       마켓 코드 (예: KRW-BTC)
-            entry_price:  진입가
-            volume:       매수 수량
-            take_profit:  목표가 (100% 달성 기준)
-            custom_levels: [(수익률, 청산비율), ...] 커스텀 단계
-        """
+        """Args:
+            market:         (: KRW-BTC)
+            entry_price:  
+            volume:        
+            take_profit:   (100%  )
+            custom_levels: [(, ), ...]"""
         if entry_price <= 0 or volume <= 0:
             return
 
@@ -118,17 +108,15 @@ class PartialExitManager:
 
         self._positions[market] = state
         logger.debug(
-            f"📊 부분청산 설정 | {market} | 진입={entry_price:,.0f} | "
-            f"목표={take_profit:,.0f} | {len(state.levels)}단계"
+            f"   | {market} | ={entry_price:,.0f} | "
+            f"={take_profit:,.0f} | {len(state.levels)}단계"
         )
 
     def check(self, market: str, current_price: float) -> float:
-        """
-        가격 업데이트 → 청산 수량 반환
+        """→   
 
         Returns:
-            청산할 코인 수량 (0이면 청산 없음)
-        """
+               (0  )"""
         state = self._positions.get(market)
         if not state or state.remaining_volume <= 0:
             return 0.0
@@ -157,9 +145,9 @@ class PartialExitManager:
                 state.total_exited_ratio += level.exit_ratio
 
                 logger.info(
-                    f"💰 부분 청산 발동 | {market} | "
-                    f"수익률={current_return:.2%} ≥ 목표={level.profit_pct:.2%} | "
-                    f"청산={exit_volume:.6f} ({level.exit_ratio:.0%}) | "
+                    f"    | {market} | "
+                    f"={current_return:.2%} ≥ ={level.profit_pct:.2%} | "
+                    f"={exit_volume:.6f} ({level.exit_ratio:.0%}) | "
                     f"잔량={state.remaining_volume:.6f}"
                 )
                 return exit_volume
@@ -167,24 +155,22 @@ class PartialExitManager:
         return 0.0
 
     def get_remaining_volume(self, market: str) -> float:
-        """남은 포지션 수량"""
+        """docstring"""
         state = self._positions.get(market)
         return state.remaining_volume if state else 0.0
 
     def get_exited_ratio(self, market: str) -> float:
-        """누적 청산 비율"""
+        """docstring"""
         state = self._positions.get(market)
         return state.total_exited_ratio if state else 0.0
 
     def remove_position(self, market: str):
-        """포지션 제거"""
+        """docstring"""
         self._positions.pop(market, None)
 
     def restore_executed_levels(self, market: str, exited_ratio: float):
-        """
-        DB 복원 시: 이미 실행된 부분청산 레벨을 executed=True 로 표시
-        exited_ratio: DB의 누적 청산 비율 (예: 0.25 → 1단계 완료)
-        """
+        """DB  :     executed=True  
+        exited_ratio: DB    (: 0.25 → 1 )"""
         state = self._positions.get(market)
         if not state:
             return
@@ -203,7 +189,7 @@ class PartialExitManager:
         return self._positions.copy()
 
     def pending_levels(self, market: str) -> int:
-        """미실행 청산 단계 수"""
+        """docstring"""
         state = self._positions.get(market)
         if not state:
             return 0

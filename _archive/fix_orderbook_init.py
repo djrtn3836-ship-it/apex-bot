@@ -1,8 +1,6 @@
-"""
-fix_orderbook_init.py
- - self.orderbook_analyzer 초기화를 engine.py __init__에 삽입
- - 피라미딩 경로에서 덤핑 감지 bypass 조건 추가
-"""
+"""fix_orderbook_init.py
+ - self.orderbook_analyzer  engine.py __init__ 
+ -     bypass"""
 import shutil, py_compile, re
 from pathlib import Path
 
@@ -19,10 +17,10 @@ ob_init_block = (
     "        try:\n"
     "            from data.processors.orderbook_analyzer import OrderBookAnalyzer\n"
     "            self.orderbook_analyzer = OrderBookAnalyzer()\n"
-    "            logger.info('✅ OrderBookAnalyzer 초기화 완료')\n"
+    "            logger.info(' OrderBookAnalyzer  ')\n"
     "        except Exception as _e:\n"
     "            self.orderbook_analyzer = None\n"
-    "            logger.warning(f'⚠️ OrderBookAnalyzer 초기화 실패: {_e}')\n"
+    "            logger.warning(f' OrderBookAnalyzer  : {_e}')\n"
 )
 
 fix1_done = False
@@ -35,11 +33,11 @@ for i, line in enumerate(lines):
         fix1_done = True
 
 if not fix1_done:
-    print("⚠️ FIX-1: volume_spike 초기화 라인을 찾지 못했습니다.")
-    print("  → 다음 명령으로 수동 확인:")
+    print(" FIX-1: volume_spike    .")
+    print("  →    :")
     print("    Select-String -Path core\\engine.py -Pattern 'volume_spike' | Select-Object LineNumber, Line")
 else:
-    print("✅ FIX-1: orderbook_analyzer 초기화 블록 삽입 완료")
+    print(" FIX-1: orderbook_analyzer    ")
 
 # ── FIX 2: 피라미딩 전용 덤핑 bypass ─────────────────────────────────────
 # _check_position_exits 내 피라미딩 실행 직전에 덤핑 override 플래그 삽입
@@ -61,7 +59,7 @@ DUMP_BLOCK_NEW = (
 text2 = "\n".join(new_lines)
 if DUMP_BLOCK_OLD in text2:
     text2 = text2.replace(DUMP_BLOCK_OLD, DUMP_BLOCK_NEW, 1)
-    print("✅ FIX-2: 피라미딩 덤핑 bypass 조건 삽입 완료")
+    print(" FIX-2:   bypass   ")
 else:
     # 인코딩 깨진 경우를 고려한 라인 번호 기반 패치
     line_list = text2.splitlines()
@@ -74,10 +72,10 @@ else:
                 f"{sp}if is_dumping and not _is_bear_rev and not _in_pyramid:"
             )
             text2 = "\n".join(line_list)
-            print("✅ FIX-2 (fallback): 덤핑 bypass 조건 삽입 완료")
+            print(" FIX-2 (fallback): 덤핑 bypass 조건 삽입 완료")
             break
     else:
-        print("⚠️ FIX-2: 대상 라인을 찾지 못했습니다 – 수동 확인 필요")
+        print(" FIX-2:     –   ")
 
 # ── FIX 3: _check_position_exits 내 피라미딩 진입 시 마커 설정 ──────────
 # ExecutionRequest 생성 직전에 self._current_pyramid_market = market 삽입
@@ -92,18 +90,18 @@ for idx, ln in enumerate(out_lines):
         pyr_found = True
         break
 if pyr_found:
-    print("✅ FIX-3: 피라미딩 마커(self._current_pyramid_market) 삽입 완료")
+    print(" FIX-3:  (self._current_pyramid_market) 삽입 완료")
     text2 = "\n".join(out_lines)
 else:
-    print("⚠️ FIX-3: 피라미딩 reason 라인을 찾지 못했습니다")
+    print(" FIX-3:  reason   ")
 
 # ── 저장 및 컴파일 검증 ───────────────────────────────────────────────────
 engine_path.write_text(text2, encoding="utf-8")
 try:
     py_compile.compile(str(engine_path), doraise=True)
-    print("\n✅ engine.py 문법 OK – 수정 완료")
-    print("   다음: python start_paper.py")
+    print("\n engine.py  OK –  ")
+    print("   : python start_paper.py")
 except py_compile.PyCompileError as e:
-    print(f"\n❌ 문법 오류: {e}")
+    print(f"\n  : {e}")
     shutil.copy("core/engine.py.bak_ob", engine_path)
-    print("🔄 원본 복구 완료")
+    print("   ")

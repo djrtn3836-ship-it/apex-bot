@@ -1,7 +1,5 @@
-"""
-Apex Bot - 멀티 타임프레임 신호 합산기 (M3)
-6개 TF 신호를 가중 합산하여 최종 방향 결정
-"""
+"""Apex Bot -     (M3)
+6 TF"""
 import pandas as pd
 import numpy as np
 from dataclasses import dataclass, field
@@ -51,17 +49,15 @@ TF_WEIGHTS: Dict[str, float] = {
 
 
 class MTFSignalMerger:
-    """멀티 타임프레임 신호 합산기"""
+    """docstring"""
 
     def __init__(self, weights: Dict[str, float] = None):
         self.weights = weights or TF_WEIGHTS
-        logger.info(f"✅ MTFSignalMerger 초기화 | TF: {list(self.weights.keys())}")
+        logger.info(f" MTFSignalMerger  | TF: {list(self.weights.keys())}")
 
     def analyze(self, tf_dataframes: Dict[str, pd.DataFrame]) -> MTFResult:
-        """
-        tf_dataframes: {"1d": df_daily, "4h": df_4h, ...}
-        각 df는 최소 close, ema_20, ema_50, ema_200, rsi 컬럼 필요
-        """
+        """tf_dataframes: {"1d": df_daily, "4h": df_4h, ...}
+         df  close, ema_20, ema_50, ema_200, rsi"""
         tf_signals = []
 
         for tf, df in tf_dataframes.items():

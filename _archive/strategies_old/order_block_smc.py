@@ -7,7 +7,7 @@ from signals.signal_combiner import CombinedSignal, SignalType
 
 
 class OrderBlockSMC(BaseStrategy):
-    """오더 블록 + SMC(Smart Money Concept) 전략"""
+    """+ SMC(Smart Money Concept)"""
 
     def __init__(self, settings: dict = None):
         super().__init__("OrderBlockSMC", settings)
@@ -72,7 +72,7 @@ class OrderBlockSMC(BaseStrategy):
     def _find_bullish_order_blocks(
         self, open_p, high, low, close, lookback
     ) -> List[Tuple[float, float, float]]:
-        """강세 오더 블록: 큰 양봉 직전의 음봉 캔들"""
+        """:"""
         obs = []
         data_len = len(close)
         for i in range(max(1, data_len - lookback), data_len - 2):
@@ -90,7 +90,7 @@ class OrderBlockSMC(BaseStrategy):
     def _find_bearish_order_blocks(
         self, open_p, high, low, close, lookback
     ) -> List[Tuple[float, float, float]]:
-        """약세 오더 블록: 큰 음봉 직전의 양봉 캔들"""
+        """:"""
         obs = []
         data_len = len(close)
         for i in range(max(1, data_len - lookback), data_len - 2):

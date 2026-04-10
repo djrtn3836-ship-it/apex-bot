@@ -1,12 +1,10 @@
-"""
-news_sentiment.py 파일 상단 import 블록에 os 추가 패치
-"""
+"""news_sentiment.py   import  os"""
 
 def patch_news_sentiment(path: str = "signals/filters/news_sentiment.py"):
     from pathlib import Path
     p = Path(path)
     if not p.exists():
-        print(f"  ⚠️  {path} 없음")
+        print(f"    {path} ")
         return
     code = p.read_text(encoding="utf-8")
     # 하단의 단독 import os 제거, 상단에 추가
@@ -18,8 +16,8 @@ def patch_news_sentiment(path: str = "signals/filters/news_sentiment.py"):
         # 하단 단독 import os 제거
         code = code.replace("\n\nimport os\n\n_global", "\n\n_global")
         p.write_text(code, encoding="utf-8")
-        print(f"  ✅ news_sentiment.py import os 위치 수정")
+        print(f"   news_sentiment.py import os  ")
     else:
-        print("  ⏩ 이미 수정됨")
+        print("    ")
 
 patch_news_sentiment()

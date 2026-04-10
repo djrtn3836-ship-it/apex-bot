@@ -1,7 +1,5 @@
-"""
-APEX BOT - 거래량 프로파일 분석
-POC(Point of Control), HVN/LVN, Value Area 계산
-"""
+"""APEX BOT -   
+POC(Point of Control), HVN/LVN, Value Area"""
 import numpy as np
 import pandas as pd
 from typing import Dict, Optional, Tuple
@@ -20,20 +18,17 @@ class VolumeProfileResult:
     
 
 class VolumeProfileAnalyzer:
-    """
-    거래량 프로파일 분석
-    - POC: 가장 많이 거래된 가격대 (강한 지지/저항)
-    - Value Area: 전체 거래량의 70% 집중 구간
-    - HVN: 거래량 밀집 구간 (저항/지지 강함)
-    - LVN: 거래량 희박 구간 (가격 빠르게 통과)
-    """
+    """- POC:     ( /)
+    - Value Area:   70%  
+    - HVN:    (/ )
+    - LVN:    (  )"""
     
     def __init__(self, bins: int = 50, value_area_pct: float = 0.70):
         self.bins = bins
         self.value_area_pct = value_area_pct
     
     def analyze(self, df: pd.DataFrame) -> Optional[VolumeProfileResult]:
-        """거래량 프로파일 계산"""
+        """docstring"""
         try:
             if len(df) < 20:
                 return None
@@ -128,11 +123,11 @@ class VolumeProfileAnalyzer:
             )
             
         except Exception as e:
-            logger.debug(f"거래량 프로파일 오류: {e}")
+            logger.debug(f"  : {e}")
             return None
     
     def get_nearest_support_resistance(self, df: pd.DataFrame, current_price: float) -> Dict:
-        """현재가 기준 가장 가까운 지지/저항 반환"""
+        """/"""
         result = self.analyze(df)
         if not result:
             return {}

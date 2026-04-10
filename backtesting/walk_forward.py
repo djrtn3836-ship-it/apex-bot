@@ -1,11 +1,9 @@
-"""
-APEX BOT - Walk-Forward 자동화 엔진 v1.1
-매주 파라미터 최적화 → OOS 검증 → 자동 적용
+"""APEX BOT - Walk-Forward   v1.1
+   → OOS  →  
 
-수정 이력:
-  v1.1 - f-string 중첩 따옴표 오류 수정 (line 389)
-         중첩 f-string → .format() 또는 변수 분리 방식으로 변환
-"""
+ :
+  v1.1 - f-string     (line 389)
+          f-string → .format()"""
 from __future__ import annotations
 
 import json
@@ -25,7 +23,7 @@ try:
     OPTUNA_OK = True
 except ImportError:
     OPTUNA_OK = False
-    logger.warning("Optuna 미설치 -> Walk-Forward 파라미터 탐색 비활성화")
+    logger.warning("Optuna  -> Walk-Forward   ")
 
 PARAM_FILE = Path("config/optimized_params.json")
 REPORT_DIR = Path("reports/walk_forward")
@@ -33,7 +31,7 @@ REPORT_DIR = Path("reports/walk_forward")
 
 @dataclass
 class WFResult:
-    """Walk-Forward 단일 전략 결과"""
+    """Walk-Forward"""
     strategy_name:  str
     is_sample_days: int
     oos_sample_days: int
@@ -51,16 +49,14 @@ class WFResult:
 
 
 class WalkForwardRunner:
-    """
-    Walk-Forward 자동 최적화 실행기
+    """Walk-Forward   
 
-    프로세스:
-      1. In-Sample (90일): Optuna 파라미터 최적화
-      2. Out-of-Sample (30일): 최적 파라미터로 검증
-      3. OOS 샤프 >= 0.5 -> 적용 / < 0.5 -> 비활성화
-      4. config/optimized_params.json 저장
-      5. engine.py 재시작 없이 자동 로드
-    """
+    :
+      1. In-Sample (90): Optuna  
+      2. Out-of-Sample (30):   
+      3. OOS  >= 0.5 ->  / < 0.5 -> 
+      4. config/optimized_params.json 
+      5. engine.py"""
 
     STRATEGIES = [
         "MACD_Cross",
@@ -90,17 +86,17 @@ class WalkForwardRunner:
     # ── 메인 실행 ───────────────────────────────────────────────
 
     async def run_all_strategies(self) -> Dict[str, WFResult]:
-        """모든 전략 Walk-Forward 최적화 실행"""
+        """Walk-Forward"""
         logger.info(
-            "Walk-Forward 시작 | "
-            "IS={} | OOS={} | 시도={}/전략".format(
+            "Walk-Forward  | "
+            "IS={} | OOS={} | ={}/".format(
                 self.in_sample_days, self.out_sample_days, self.n_trials
             )
         )
 
         dfs = await self._fetch_data()
         if not dfs:
-            logger.error("Walk-Forward: 데이터 수집 실패")
+            logger.error("Walk-Forward:   ")
             return {}
 
         results: Dict[str, WFResult] = {}
@@ -110,7 +106,7 @@ class WalkForwardRunner:
                 results[strategy_name] = result
                 status = "적용" if result.is_profitable else "제외"
                 logger.info(
-                    "  {:<22s} | 샤프={:+.3f} | 승률={:.1f}% | "
+                    "  {:<22s} | ={:+.3f} | ={:.1f}% | "
                     "PnL={:+.2f}% | {}".format(
                         strategy_name,
                         result.oos_sharpe,
@@ -120,7 +116,7 @@ class WalkForwardRunner:
                     )
                 )
             except Exception as e:
-                logger.error("  {} WF 실패: {}".format(strategy_name, e))
+                logger.error("  {} WF : {}".format(strategy_name, e))
 
         self._save_report(results)
         return results
@@ -128,7 +124,7 @@ class WalkForwardRunner:
     # ── 데이터 수집 ─────────────────────────────────────────────
 
     async def _fetch_data(self) -> Dict[str, pd.DataFrame]:
-        """업비트 REST API로 OHLCV 수집"""
+        """REST API OHLCV"""
         from data.collectors.rest_collector import RestCollector
         from data.processors.candle_processor import CandleProcessor
 
@@ -151,11 +147,11 @@ class WalkForwardRunner:
                     if df is not None and not df.empty:
                         dfs[market] = df
                         logger.debug(
-                            "데이터 수집: {} | {}봉".format(market, len(df))
+                            " : {} | {}".format(market, len(df))
                         )
                 await asyncio.sleep(0.3)
             except Exception as e:
-                logger.warning("데이터 수집 실패 ({}): {}".format(market, e))
+                logger.warning("   ({}): {}".format(market, e))
 
         return dfs
 
@@ -164,7 +160,7 @@ class WalkForwardRunner:
     async def _run_strategy_wf(
         self, strategy_name: str, dfs: Dict[str, pd.DataFrame]
     ) -> WFResult:
-        """단일 전략 Walk-Forward"""
+        """Walk-Forward"""
         ratio = self.in_sample_days / (
             self.in_sample_days + self.out_sample_days
         )
@@ -211,7 +207,7 @@ class WalkForwardRunner:
     async def _optimize(
         self, strategy_name: str, dfs: Dict[str, pd.DataFrame]
     ) -> Dict:
-        """Optuna 파라미터 최적화"""
+        """Optuna"""
         if not OPTUNA_OK or not dfs:
             return self._default_params(strategy_name)
 
@@ -234,7 +230,7 @@ class WalkForwardRunner:
             )
             return study.best_params
         except Exception as e:
-            logger.debug("Optuna 실패 ({}): {}".format(strategy_name, e))
+            logger.debug("Optuna  ({}): {}".format(strategy_name, e))
             return self._default_params(strategy_name)
 
     # ── 성과 평가 ────────────────────────────────────────────────
@@ -245,7 +241,7 @@ class WalkForwardRunner:
         dfs: Dict[str, pd.DataFrame],
         params: Dict,
     ) -> Dict:
-        """전략 성과 평가 (간소화 백테스트)"""
+        """( )"""
         all_returns: List[float] = []
 
         try:
@@ -275,7 +271,7 @@ class WalkForwardRunner:
 
         except Exception as e:
             logger.debug(
-                "평가 실패 ({}): {}".format(strategy_name, e)
+                "  ({}): {}".format(strategy_name, e)
             )
 
         if not all_returns:
@@ -307,7 +303,7 @@ class WalkForwardRunner:
     # ── 전략 동적 로드 ───────────────────────────────────────────
 
     def _load_strategy(self, strategy_name: str, params: Dict):
-        """전략 클래스 동적 로드"""
+        """docstring"""
         mapping = {
             "MACD_Cross": (
                 "strategies.momentum.macd_cross",
@@ -354,14 +350,14 @@ class WalkForwardRunner:
             return cls(params=params)
         except Exception as e:
             logger.debug(
-                "전략 로드 실패 ({}): {}".format(strategy_name, e)
+                "   ({}): {}".format(strategy_name, e)
             )
             return None
 
     # ── 파라미터 제안 ────────────────────────────────────────────
 
     def _suggest_params(self, trial, strategy_name: str) -> Dict:
-        """Optuna 파라미터 제안"""
+        """Optuna"""
         mapping = {
             "MACD_Cross": {
                 "fast":   trial.suggest_int("fast",   8, 16),
@@ -415,7 +411,7 @@ class WalkForwardRunner:
         return mapping.get(strategy_name, {})
 
     def _default_params(self, strategy_name: str) -> Dict:
-        """기본 파라미터 (Optuna 실패 시 fallback)"""
+        """(Optuna   fallback)"""
         defaults = {
             "MACD_Cross": {
                 "fast": 12, "slow": 26, "signal": 9,
@@ -449,7 +445,7 @@ class WalkForwardRunner:
     # ── 파라미터 저장/로드 ───────────────────────────────────────
 
     def apply_best_params(self, results: Dict[str, WFResult]):
-        """최적 파라미터를 JSON으로 저장"""
+        """JSON"""
         output = {
             "updated_at":      datetime.now().isoformat(),
             "in_sample_days":  self.in_sample_days,
@@ -482,7 +478,7 @@ class WalkForwardRunner:
 
     @staticmethod
     def load_optimized_params() -> Optional[Dict]:
-        """저장된 최적 파라미터 로드 (엔진 시작 시 호출)"""
+        """(   )"""
         if not PARAM_FILE.exists():
             return None
         try:
@@ -494,18 +490,18 @@ class WalkForwardRunner:
                 age = 0
             if age > 14:
                 logger.warning(
-                    "Walk-Forward 파라미터가 {}일 전 것 "
-                    "-> 재최적화 권장".format(age)
+                    "Walk-Forward  {}   "
+                    "->  ".format(age)
                 )
             return data.get("strategies", {})
         except Exception as e:
-            logger.error("파라미터 로드 실패: {}".format(e))
+            logger.error("  : {}".format(e))
             return None
 
     # ── 리포트 저장 ─────────────────────────────────────────────
 
     def _save_report(self, results: Dict[str, WFResult]):
-        """Walk-Forward 결과 JSON 리포트"""
+        """Walk-Forward  JSON"""
         ts   = datetime.now().strftime("%Y%m%d_%H%M%S")
         path = REPORT_DIR / ("wf_report_" + ts + ".json")
         data = {
@@ -516,13 +512,13 @@ class WalkForwardRunner:
             json.dumps(data, ensure_ascii=False, indent=2),
             encoding="utf-8",
         )
-        logger.info("Walk-Forward 리포트: {}".format(path))
+        logger.info("Walk-Forward : {}".format(path))
 
 
 # ── 엔진 스케줄러에서 호출하는 래퍼 ────────────────────────────
 
 async def run_weekly_walk_forward() -> Dict[str, WFResult]:
-    """매주 월요일 02:00 스케줄러에서 호출"""
+    """02:00"""
     from config.settings import get_settings
     settings = get_settings()
 

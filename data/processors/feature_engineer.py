@@ -1,8 +1,6 @@
-"""
-APEX BOT - ML 피처 엔지니어링
-120개 피처를 추출하여 ML 모델 입력 준비
-RTX 5060 GPU 가속을 위한 최적화
-"""
+"""APEX BOT - ML  
+120   ML   
+RTX 5060 GPU"""
 import numpy as np
 import pandas as pd
 from typing import Tuple, List, Optional
@@ -13,11 +11,9 @@ logger = logging.getLogger(__name__)
 
 
 class FeatureEngineer:
-    """
-    ML 모델을 위한 피처 엔지니어링
-    총 120개 피처 생성
-    RobustScaler로 이상치 영향 최소화
-    """
+    """ML    
+     120  
+    RobustScaler"""
 
     def __init__(self):
         self.scaler = RobustScaler()
@@ -29,13 +25,11 @@ class FeatureEngineer:
         df: pd.DataFrame,
         fit_scaler: bool = True,
     ) -> Tuple[Optional[np.ndarray], List[str]]:
-        """
-        DataFrame에서 피처 추출
+        """DataFrame  
         
         Returns:
             (features_array, feature_names)
-            features_array: (n_samples, n_features)
-        """
+            features_array: (n_samples, n_features)"""
         try:
             features_df = self._build_features(df)
             features_df = features_df.dropna()
@@ -52,22 +46,22 @@ class FeatureEngineer:
                 self._fitted = True
             else:
                 if not self._fitted:
-                    raise ValueError("스케일러가 학습되지 않았습니다. fit_scaler=True로 먼저 실행하세요.")
+                    raise ValueError("  . fit_scaler=True  .")
                 scaled = self.scaler.transform(features_df.values)
 
             # NaN/Inf 정리
             scaled = np.nan_to_num(scaled, nan=0.0, posinf=3.0, neginf=-3.0)
             scaled = np.clip(scaled, -10.0, 10.0)  # 이상치 클리핑
 
-            logger.info(f"✅ 피처 추출 완료: {scaled.shape[0]}행 × {scaled.shape[1]}피처")
+            logger.info(f"   : {scaled.shape[0]} × {scaled.shape[1]}")
             return scaled, feature_names
 
         except Exception as e:
-            logger.error(f"❌ 피처 추출 오류: {e}")
+            logger.error(f"   : {e}")
             return None, []
 
     def _build_features(self, df: pd.DataFrame) -> pd.DataFrame:
-        """피처 빌더 (120개 피처 생성)"""
+        """(120  )"""
         feat = pd.DataFrame(index=df.index)
         c = df["close"]
         h = df["high"]
@@ -199,11 +193,11 @@ class FeatureEngineer:
         # 최종 정리
         feat = feat.replace([np.inf, -np.inf], np.nan)
 
-        logger.debug(f"생성된 피처: {len(feat.columns)}개")
+        logger.debug(f" : {len(feat.columns)}개")
         return feat
 
     def transform(self, df: pd.DataFrame) -> Optional[np.ndarray]:
-        """새 데이터 변환 (학습된 스케일러 적용)"""
+        """(  )"""
         features_df = self._build_features(df)
         features_df = features_df.dropna()
 
@@ -221,7 +215,7 @@ class FeatureEngineer:
         return np.clip(scaled, -10.0, 10.0)
 
     def get_latest_features(self, df: pd.DataFrame, sequence_length: int = 60) -> Optional[np.ndarray]:
-        """실시간 추론용 최신 시퀀스 추출"""
+        """docstring"""
         features = self.transform(df)
         if features is None or len(features) < sequence_length:
             return None

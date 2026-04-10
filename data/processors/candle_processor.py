@@ -1,12 +1,10 @@
-"""
-APEX BOT - 캔들 데이터 프로세서
-원시 OHLCV → 기술지표 통합 + 멀티 타임프레임 정렬
+"""APEX BOT -   
+ OHLCV →   +   
 
-수정 이력:
-  v1.1 - _calc_supertrend() pandas CoW(Copy-on-Write) 경고 수정
-         .iloc[i] = 직접 할당 → 명시적 .copy() + .at[] 방식으로 변경
-       - 기타 iloc 할당 방어 처리
-"""
+ :
+  v1.1 - _calc_supertrend() pandas CoW(Copy-on-Write)  
+         .iloc[i] =   →  .copy() + .at[]  
+       -  iloc"""
 import asyncio
 from typing import Dict, Optional, List
 import pandas as pd
@@ -17,12 +15,9 @@ from config.settings import get_settings
 
 
 class CandleProcessor:
-    """
-    멀티 타임프레임 캔들 데이터 전처리기
-    - 업비트 OHLCV 데이터 정규화
-    - 기술지표 일괄 계산
-    - 타임프레임 동기화
-    """
+    """-  OHLCV  
+    -   
+    -"""
 
     TIMEFRAME_MAP = {
         "1": "minute1", "5": "minute5", "15": "minute15",
@@ -37,15 +32,15 @@ class CandleProcessor:
         try:
             import pandas_ta as ta
             self._ta = ta
-            logger.info("✅ pandas_ta 로드 성공")
+            logger.info(" pandas_ta  ")
         except ImportError:
             self._ta = None
-            logger.warning("⚠️ pandas_ta 미설치 - 기본 지표만 사용")
+            logger.warning(" pandas_ta  -   ")
 
     async def process(
         self, market: str, raw_df: pd.DataFrame, timeframe: str = "60"
     ) -> Optional[pd.DataFrame]:
-        """원시 캔들 → 지표 포함 DataFrame 반환"""
+        """→   DataFrame"""
         if raw_df is None or raw_df.empty:
             return None
         try:
@@ -63,7 +58,7 @@ class CandleProcessor:
 
             return df
         except Exception as e:
-            logger.error(f"캔들 처리 실패 ({market}/{timeframe}): {e}")
+            logger.error(f"   ({market}/{timeframe}): {e}")
             return None
 
     def get_cached(
@@ -76,7 +71,7 @@ class CandleProcessor:
     def _normalize(self, df: pd.DataFrame) -> pd.DataFrame:
         for col in ["open", "high", "low", "close", "volume"]:
             if col not in df.columns:
-                raise ValueError(f"필수 컬럼 누락: {col}")
+                raise ValueError(f"  : {col}")
         df = df.sort_index()
         df = df.astype({
             "open": float, "high": float, "low": float,
@@ -218,10 +213,8 @@ class CandleProcessor:
     def _calc_supertrend(
         df: pd.DataFrame, period: int = 10, multiplier: float = 3.0
     ):
-        """
-        ✅ FIX: pandas CoW 경고 없는 슈퍼트렌드 계산
-        .iloc[i] = 직접 할당 제거 → numpy 배열 기반으로 재구현
-        """
+        """FIX: pandas CoW    
+        .iloc[i] =    → numpy"""
         atr = df["atr"]
         hl2 = (df["high"] + df["low"]) / 2
 

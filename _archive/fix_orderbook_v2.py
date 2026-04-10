@@ -1,10 +1,8 @@
-"""
-fix_orderbook_v2.py
- FIX-1 : engine.__init__에 OrderBookAnalyzer 초기화 삽입
- FIX-2 : 덤핑 감지 bypass (_in_pyramid 조건)
- FIX-3 : 피라미딩 마커를 ExecutionRequest() 생성 직전 독립 줄에 삽입
-          (f-string 내부 삽입 방지 – 삽입 대상 줄이 실제 statement인지 검증)
-"""
+"""fix_orderbook_v2.py
+ FIX-1 : engine.__init__ OrderBookAnalyzer  
+ FIX-2 :   bypass (_in_pyramid )
+ FIX-3 :   ExecutionRequest()     
+          (f-string    –     statement )"""
 import shutil, py_compile
 from pathlib import Path
 
@@ -21,10 +19,10 @@ ob_block = [
     "        try:",
     "            from data.processors.orderbook_analyzer import OrderBookAnalyzer",
     "            self.orderbook_analyzer = OrderBookAnalyzer()",
-    "            logger.info('✅ OrderBookAnalyzer 초기화 완료')",
+    "            logger.info(' OrderBookAnalyzer  ')",
     "        except Exception as _ob_err:",
     "            self.orderbook_analyzer = None",
-    "            logger.warning(f'⚠️ OrderBookAnalyzer 초기화 실패: {_ob_err}')",
+    "            logger.warning(f' OrderBookAnalyzer  : {_ob_err}')",
 ]
 
 fix1_done = False
@@ -41,7 +39,7 @@ for ln in lines:
         fix1_done = True
 
 if fix1_done:
-    print("✅ FIX-1: OrderBookAnalyzer 초기화 삽입 완료")
+    print(" FIX-1: OrderBookAnalyzer   ")
 else:
     # fallback: VolumeSpikeDetector 없이 volume_spike = 로 재시도
     out1 = []
@@ -56,9 +54,9 @@ else:
             out1.extend(ob_block)
             fix1_done = True
     if fix1_done:
-        print("✅ FIX-1 (fallback): OrderBookAnalyzer 초기화 삽입 완료")
+        print(" FIX-1 (fallback): OrderBookAnalyzer 초기화 삽입 완료")
     else:
-        print("⚠️ FIX-1: volume_spike 초기화 줄을 찾지 못함 – 수동 삽입 필요")
+        print(" FIX-1: volume_spike     –   ")
 
 # ─────────────────────────────────────────────────────────────
 # FIX-2 : 덤핑 bypass – _in_pyramid 조건 추가
@@ -87,9 +85,9 @@ while i < len(out1):
     i += 1
 
 if fix2_done:
-    print("✅ FIX-2: 피라미딩 덤핑 bypass 조건 삽입 완료")
+    print(" FIX-2:   bypass   ")
 else:
-    print("⚠️ FIX-2: 대상 줄을 찾지 못했습니다")
+    print(" FIX-2:    ")
 
 # ─────────────────────────────────────────────────────────────
 # FIX-3 : 피라미딩 마커 – ExecutionRequest( 생성 줄 바로 앞
@@ -122,7 +120,7 @@ while i < len(out2):
     i += 1
 
 if fix3_done:
-    print("✅ FIX-3: 피라미딩 마커 삽입 완료")
+    print(" FIX-3:    ")
 else:
     # fallback: _check_position_exits 내 await self.executor.execute 직전
     out3_fb = []
@@ -144,9 +142,9 @@ else:
         i += 1
     if fix3_done:
         out3 = out3_fb
-        print("✅ FIX-3 (fallback): 피라미딩 마커 삽입 완료")
+        print(" FIX-3 (fallback): 피라미딩 마커 삽입 완료")
     else:
-        print("⚠️ FIX-3: 삽입 위치를 찾지 못함 – FIX-1/2만 적용됩니다")
+        print(" FIX-3:     – FIX-1/2 ")
 
 # ─────────────────────────────────────────────────────────────
 # 저장 및 컴파일 검증
@@ -156,10 +154,10 @@ engine_path.write_text(final_text, encoding="utf-8")
 
 try:
     py_compile.compile(str(engine_path), doraise=True)
-    print("\n✅ engine.py 문법 OK – 모든 수정 완료")
-    print("   다음: python start_paper.py")
+    print("\n engine.py  OK –   ")
+    print("   : python start_paper.py")
 except py_compile.PyCompileError as e:
-    print(f"\n❌ 문법 오류: {e}")
+    print(f"\n  : {e}")
     # 오류 주변 출력
     err_lines = final_text.splitlines()
     import re
@@ -169,4 +167,4 @@ except py_compile.PyCompileError as e:
         for j in range(max(0, n-3), min(len(err_lines), n+3)):
             print(f"  L{j+1}: {err_lines[j]}")
     shutil.copy("core/engine.py.bak_ob2", engine_path)
-    print("🔄 원본 복구 완료")
+    print("   ")

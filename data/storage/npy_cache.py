@@ -1,20 +1,18 @@
-"""
-APEX BOT - NVMe mmap 캔들 캐시 (신규)
-Crucial E100 M.2 NVMe 1TB 고속 저장 활용
+"""APEX BOT - NVMe mmap   ()
+Crucial E100 M.2 NVMe 1TB   
 
-기존: SQLite → 캔들 로드 ~50ms
-신규: .npy mmap → 캔들 로드 ~5ms (10배 향상)
+: SQLite →   ~50ms
+: .npy mmap →   ~5ms (10 )
 
-Crucial E100 사양:
-  읽기: ~6,000 MB/s
-  쓰기: ~5,000 MB/s
-  DDR5-5600 32GB 보다 느리지만 용량 무제한
+Crucial E100 :
+  : ~6,000 MB/s
+  : ~5,000 MB/s
+  DDR5-5600 32GB    
 
-사용 방법:
+ :
   cache = NpyCache()
   cache.save(market, timeframe, df)
-  df = cache.load(market, timeframe)
-"""
+  df = cache.load(market, timeframe)"""
 from __future__ import annotations
 
 import os
@@ -46,21 +44,19 @@ CANDLE_COLUMNS = [
 
 
 class NpyCache:
-    """
-    numpy .npy 파일 기반 캔들 캐시
-    메모리 맵(mmap)으로 즉시 로드
+    """numpy .npy    
+     (mmap)  
 
-    장점:
-      - SQLite 대비 ~10배 빠른 로드
-      - NVMe 6GB/s 속도 활용
-      - 인덱스(timestamp) 별도 .npy 저장
-    """
+    :
+      - SQLite  ~10  
+      - NVMe 6GB/s  
+      - (timestamp)  .npy"""
 
     def __init__(self, cache_root: Path = CACHE_ROOT):
         self.root = Path(cache_root)
         self.root.mkdir(parents=True, exist_ok=True)
         self._meta: Dict[str, Dict] = {}   # 캐시 메타 정보
-        logger.info(f"✅ NpyCache 초기화: {self.root}")
+        logger.info(f" NpyCache : {self.root}")
 
     # ── 저장 ──────────────────────────────────────────────────────
 
@@ -71,14 +67,12 @@ class NpyCache:
         df: pd.DataFrame,
         max_rows: int = 2000,
     ) -> bool:
-        """
-        DataFrame → .npy 파일 저장
+        """DataFrame → .npy  
 
-        파일 구조:
-          {cache_root}/{market}/{timeframe}/data.npy      ← OHLCV + 지표
-          {cache_root}/{market}/{timeframe}/timestamps.npy ← 타임스탬프
-          {cache_root}/{market}/{timeframe}/meta.json      ← 메타 정보
-        """
+         :
+          {cache_root}/{market}/{timeframe}/data.npy      ← OHLCV + 
+          {cache_root}/{market}/{timeframe}/timestamps.npy ← 
+          {cache_root}/{market}/{timeframe}/meta.json      ←"""
         if df is None or df.empty:
             return False
         try:
@@ -121,12 +115,12 @@ class NpyCache:
             key = f"{market}_{timeframe}"
             self._meta[key] = meta
             logger.debug(
-                f"💾 NpyCache 저장: {market}/{timeframe} | {len(df_tail)}행"
+                f" NpyCache : {market}/{timeframe} | {len(df_tail)}행"
             )
             return True
 
         except Exception as e:
-            logger.error(f"NpyCache 저장 실패 ({market}/{timeframe}): {e}")
+            logger.error(f"NpyCache   ({market}/{timeframe}): {e}")
             return False
 
     # ── 로드 ──────────────────────────────────────────────────────
@@ -137,12 +131,10 @@ class NpyCache:
         timeframe: str,
         use_mmap: bool = True,
     ) -> Optional[pd.DataFrame]:
-        """
-        .npy 파일 → DataFrame (mmap 즉시 로드)
+        """.npy  → DataFrame (mmap  )
 
-        use_mmap=True: 메모리 맵으로 로드 (최고속, 파일 수정 시 자동 반영)
-        use_mmap=False: 전체 복사 (안전)
-        """
+        use_mmap=True:    (,     )
+        use_mmap=False:   ()"""
         folder = self._get_folder(market, timeframe)
         data_path = folder / "data.npy"
         ts_path   = folder / "timestamps.npy"
@@ -169,13 +161,13 @@ class NpyCache:
 
             elapsed = (time.perf_counter() - t_start) * 1000
             logger.debug(
-                f"⚡ NpyCache 로드: {market}/{timeframe} | "
+                f" NpyCache : {market}/{timeframe} | "
                 f"{len(df)}행 | {elapsed:.1f}ms"
             )
             return df
 
         except Exception as e:
-            logger.error(f"NpyCache 로드 실패 ({market}/{timeframe}): {e}")
+            logger.error(f"NpyCache   ({market}/{timeframe}): {e}")
             return None
 
     # ── 유효성 체크 ───────────────────────────────────────────────
@@ -186,7 +178,7 @@ class NpyCache:
         timeframe: str,
         max_age_seconds: float = 300,
     ) -> bool:
-        """캐시가 max_age_seconds 이내인지 확인"""
+        """max_age_seconds"""
         folder   = self._get_folder(market, timeframe)
         meta_path = folder / "meta.json"
         if not meta_path.exists():
@@ -200,7 +192,7 @@ class NpyCache:
             return False
 
     def get_age_seconds(self, market: str, timeframe: str) -> float:
-        """캐시 경과 시간(초) 반환"""
+        """()"""
         folder    = self._get_folder(market, timeframe)
         meta_path = folder / "meta.json"
         if not meta_path.exists():
@@ -213,7 +205,7 @@ class NpyCache:
             return float("inf")
 
     def get_cache_size_mb(self) -> float:
-        """전체 캐시 크기 (MB)"""
+        """(MB)"""
         total = sum(
             f.stat().st_size for f in self.root.rglob("*.npy")
         )
@@ -226,7 +218,7 @@ class NpyCache:
         return self.root / safe_market / f"tf_{timeframe}"
 
     def list_cached(self) -> List[Dict]:
-        """캐시된 마켓/타임프레임 목록"""
+        """/"""
         result = []
         import json
         for meta_path in self.root.rglob("meta.json"):
@@ -238,7 +230,7 @@ class NpyCache:
         return result
 
     def clear(self, market: str = None, timeframe: str = None):
-        """캐시 삭제"""
+        """docstring"""
         import shutil
         if market and timeframe:
             folder = self._get_folder(market, timeframe)
@@ -252,7 +244,7 @@ class NpyCache:
             if self.root.exists():
                 shutil.rmtree(self.root)
                 self.root.mkdir(parents=True, exist_ok=True)
-        logger.info(f"🗑️  NpyCache 삭제: market={market}, tf={timeframe}")
+        logger.info(f"  NpyCache : market={market}, tf={timeframe}")
 
 
 # ── 글로벌 싱글톤 ──────────────────────────────────────────────

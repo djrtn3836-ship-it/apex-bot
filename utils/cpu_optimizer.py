@@ -1,17 +1,15 @@
-"""
-APEX BOT - CPU 최적화 유틸리티 (신규)
-Intel Ultra 5 225F 전용 코어 핀닝 + ProcessPool 최적화
+"""APEX BOT - CPU   ()
+Intel Ultra 5 225F    + ProcessPool 
 
-Ultra 5 225F 구조:
-  P코어 (Performance) : 6개  [빠름, 고전력]
-  E코어 (Efficient)   : 8개  [느림, 저전력]
-  총 14코어
+Ultra 5 225F :
+  P (Performance) : 6  [, ]
+  E (Efficient)   : 8  [, ]
+   14
 
-최적 배치:
-  P코어 0-1 : 이벤트 루프 + 주문 실행 (레이턴시 최우선)
-  P코어 2-5 : ProcessPoolExecutor 전략 병렬 (4개로 증가)
-  E코어 0-7 : asyncio ThreadPool 데이터 수집 (IO bound)
-"""
+ :
+  P 0-1 :   +   ( )
+  P 2-5 : ProcessPoolExecutor   (4 )
+  E 0-7 : asyncio ThreadPool   (IO bound)"""
 from __future__ import annotations
 
 import os
@@ -36,7 +34,7 @@ IO_WORKERS = 8
 
 
 def get_cpu_info() -> dict:
-    """CPU 코어 정보 반환"""
+    """CPU"""
     try:
         import psutil
         logical  = psutil.cpu_count(logical=True)
@@ -51,17 +49,15 @@ def get_cpu_info() -> dict:
 
 
 def create_strategy_pool() -> ProcessPoolExecutor:
-    """
-    ✅ Step 2: 전략 실행용 ProcessPoolExecutor
-    기존 max_workers=2 → 4로 증가 (P코어 2-5 사용)
-    """
+    """Step 2:   ProcessPoolExecutor
+     max_workers=2 → 4  (P 2-5 )"""
     info = get_cpu_info()
     # 물리 코어의 절반을 전략에 배정 (최소 2, 최대 6)
     workers = max(2, min(6, info["physical"] // 2))
 
     logger.info(
-        f"⚙️  전략 ProcessPool: {workers}개 워커 "
-        f"(P코어 활용, 기존 2→{workers})"
+        f"   ProcessPool: {workers}  "
+        f"(P ,  2→{workers})"
     )
     pool = ProcessPoolExecutor(
         max_workers=workers,
@@ -71,15 +67,13 @@ def create_strategy_pool() -> ProcessPoolExecutor:
 
 
 def create_io_thread_pool() -> ThreadPoolExecutor:
-    """
-    ✅ Step 2: 데이터 수집용 ThreadPoolExecutor
-    E코어 8개 → IO bound 작업 전담
-    """
+    """Step 2:   ThreadPoolExecutor
+    E 8 → IO bound"""
     info    = get_cpu_info()
     workers = max(4, min(16, info["logical"] - info["physical"]))
 
     logger.info(
-        f"⚙️  IO ThreadPool: {workers}개 워커 (E코어 활용)"
+        f"  IO ThreadPool: {workers}  (E )"
     )
     return ThreadPoolExecutor(
         max_workers=workers,
@@ -88,10 +82,8 @@ def create_io_thread_pool() -> ThreadPoolExecutor:
 
 
 def _worker_init():
-    """
-    ✅ Step 2: ProcessPool 워커 초기화
-    각 워커 프로세스를 P코어에 고정 시도
-    """
+    """Step 2: ProcessPool  
+       P"""
     try:
         import psutil
         proc  = psutil.Process()
@@ -105,49 +97,44 @@ def _worker_init():
 
 
 def pin_main_thread_to_pcores():
-    """
-    ✅ Step 2: 메인 스레드(이벤트 루프)를 P코어 0-1에 핀닝
-    주문 실행 레이턴시 최소화
-    """
+    """Step 2:  ( ) P 0-1"""
     try:
         import psutil
         proc    = psutil.Process()
         p_cores = [0, 1]  # P코어 0-1: 이벤트 루프 전담
         proc.cpu_affinity(p_cores)
-        logger.info(f"📌 메인 스레드 → P코어 {p_cores} 핀닝 완료")
+        logger.info(f"   → P {p_cores}  ")
         return True
     except ImportError:
-        logger.debug("psutil 미설치 → 코어 핀닝 스킵")
+        logger.debug("psutil  →   ")
         return False
     except Exception as e:
-        logger.debug(f"코어 핀닝 실패 (무시): {e}")
+        logger.debug(f"   (): {e}")
         return False
 
 
 def optimize_asyncio_event_loop():
-    """
-    ✅ Step 2: asyncio 이벤트 루프 최적화
-    Windows: ProactorEventLoop (IOCP 기반, 더 빠름)
-    """
+    """Step 2: asyncio   
+    Windows: ProactorEventLoop (IOCP ,  )"""
     import platform
     if platform.system() == "Windows":
         try:
             loop = asyncio.ProactorEventLoop()
             asyncio.set_event_loop(loop)
-            logger.info("⚡ asyncio ProactorEventLoop 적용 (Windows IOCP)")
+            logger.info(" asyncio ProactorEventLoop  (Windows IOCP)")
         except Exception as e:
-            logger.debug(f"ProactorEventLoop 설정 실패: {e}")
+            logger.debug(f"ProactorEventLoop  : {e}")
 
 
 def log_cpu_status():
-    """CPU 사용 현황 로그"""
+    """CPU"""
     try:
         import psutil
         usage = psutil.cpu_percent(percpu=True, interval=0.1)
         avg   = sum(usage) / len(usage)
         logger.info(
-            f"🖥️  CPU | 평균={avg:.1f}% | "
-            f"코어별={[f'{u:.0f}%' for u in usage[:6]]}(P) "
+            f"  CPU | ={avg:.1f}% | "
+            f"={[f'{u:.0f}%' for u in usage[:6]]}(P) "
             f"{[f'{u:.0f}%' for u in usage[6:]]}(E)"
         )
     except Exception:

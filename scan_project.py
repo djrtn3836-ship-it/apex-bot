@@ -1,7 +1,5 @@
-"""
-핵심 파일만 압축 스캔 - 주석/빈줄 제거로 용량 최소화
-목표: 전체 내용을 한 번에 Claude에게 붙여넣기 가능한 크기로
-"""
+"""- /   
+:     Claude"""
 from pathlib import Path
 import re
 
@@ -55,7 +53,7 @@ CORE_FILES = [
 ]
 
 def strip_code(src: str) -> str:
-    """주석·docstring·빈줄 제거로 용량 압축"""
+    """·docstring·"""
     # 한줄 주석 제거
     src = re.sub(r'#[^\n]*', '', src)
     # 빈줄 압축
@@ -110,14 +108,14 @@ out_lines.append("=" * 60)
 result = '\n'.join(out_lines)
 Path(OUTPUT).write_text(result, encoding="utf-8")
 
-print(f"✅ 스캔 완료 → {OUTPUT}")
-print(f"   원본: {total_orig:.1f}KB → 압축: {total_comp:.1f}KB")
-print(f"   압축률: {(1 - total_comp/max(total_orig,1))*100:.0f}%")
-print(f"   총 줄 수: {len(out_lines):,}")
+print(f"   → {OUTPUT}")
+print(f"   : {total_orig:.1f}KB → : {total_comp:.1f}KB")
+print(f"   : {(1 - total_comp/max(total_orig,1))*100:.0f}%")
+print(f"     : {len(out_lines):,}")
 
 if total_comp < 200:
-    print("✅ 붙여넣기 가능한 크기입니다!")
+    print("   !")
 else:
-    print(f"⚠️  {total_comp:.0f}KB - 분할 필요할 수 있음")
-    print("   아래 명령으로 분할해서 붙여넣으세요:")
+    print(f"  {total_comp:.0f}KB -    ")
+    print("      :")
     print('   Get-Content "core_scan.txt" -Encoding UTF8 | Select-Object -First 1000')

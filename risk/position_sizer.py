@@ -1,11 +1,9 @@
 ﻿# risk/position_sizer.py  — Kelly Criterion 동적 포지션 사이징
-"""
-Half-Kelly Criterion 기반 동적 포지션 사이징
-- 승률(W)과 손익비(R)를 DB 실거래 데이터에서 자동 계산
-- 초기(데이터 부족) 구간은 고정 비율 fallback
-- 최대 리스크 캡: 총자산의 5% (단일 포지션)
-- 최소 주문금액: 5,000 KRW (업비트 제한)
-"""
+"""Half-Kelly Criterion    
+- (W) (R) DB    
+- ( )    fallback
+-   :  5% ( )
+-  : 5,000 KRW ( )"""
 
 import sqlite3
 from pathlib import Path
@@ -14,11 +12,9 @@ from utils.logger import logger
 
 
 class KellyPositionSizer:
-    """
-    Half-Kelly Criterion 포지션 사이저
-    - min_trades 이상 데이터 있을 때 Kelly 활성화
-    - 그 이전엔 fixed_ratio 고정 비율 사용
-    """
+    """Half-Kelly Criterion  
+    - min_trades     Kelly 
+    -   fixed_ratio"""
 
     MIN_TRADES       = 20        # Kelly 활성화 최소 거래 수
     HALF_KELLY       = 0.5       # Half-Kelly 안전 계수
@@ -51,9 +47,7 @@ class KellyPositionSizer:
         market: str = "",
         confidence: float = 0.5,
     ) -> float:
-        """
-        Returns: 매수 금액 (KRW), 최소 MIN_ORDER_KRW 보장
-        """
+        """Returns:   (KRW),  MIN_ORDER_KRW"""
         kelly_f = self._get_kelly_fraction(strategy)
         base_amount = total_capital * kelly_f
 
@@ -81,7 +75,7 @@ class KellyPositionSizer:
 
     # ── DB에서 승률/손익비 계산 ───────────────────────────────
     def _get_kelly_fraction(self, strategy: str) -> float:
-        """DB 거래 이력 기반 Half-Kelly f* 계산"""
+        """DB    Half-Kelly f*"""
         # 캐시: 20거래마다 갱신
         self._cache_count += 1
         if strategy in self._cache and self._cache_count % 20 != 0:
@@ -91,8 +85,8 @@ class KellyPositionSizer:
             stats = self._query_stats(strategy)
             if stats is None or stats["total"] < self.MIN_TRADES:
                 logger.debug(
-                    f"[Kelly] {strategy}: 데이터 부족 "
-                    f"({stats['total'] if stats else 0}건) "
+                    f"[Kelly] {strategy}:   "
+                    f"({stats['total'] if stats else 0}) "
                     f"→ 고정 {self.FIXED_RATIO*100:.0f}%"
                 )
                 return self.FIXED_RATIO
@@ -114,11 +108,11 @@ class KellyPositionSizer:
             return capped
 
         except Exception as e:
-            logger.warning(f"[Kelly] 계산 실패({strategy}): {e}")
+            logger.warning(f"[Kelly]  ({strategy}): {e}")
             return self.FIXED_RATIO
 
     def _query_stats(self, strategy: str) -> Optional[dict]:
-        """SQLite trade_history에서 승률·손익비 계산"""
+        """SQLite trade_history ·"""
         if not self.db_path.exists():
             return None
 
@@ -162,7 +156,7 @@ class KellyPositionSizer:
         return {"total": total, "win_rate": W, "rr_ratio": R}
 
     def get_summary(self) -> str:
-        """현재 Kelly 계수 요약 출력"""
+        """Kelly"""
         lines = ["[Kelly Criterion 현황]"]
         for strat, f in self._cache.items():
             lines.append(f"  {strat}: {f*100:.2f}%")

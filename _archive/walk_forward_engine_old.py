@@ -1,7 +1,5 @@
-"""
-Apex Bot - Walk-Forward 검증 엔진 (M1-B)
-6개월 학습 / 1개월 검증 롤링 윈도우
-"""
+"""Apex Bot - Walk-Forward   (M1-B)
+6  / 1"""
 import pandas as pd
 import numpy as np
 from dataclasses import dataclass, field
@@ -41,12 +39,12 @@ class WFReport:
 
 
 class WalkForwardEngine:
-    """Walk-Forward 검증 엔진"""
+    """Walk-Forward"""
 
     def __init__(self, wf_config: WFConfig = None, bt_config: BacktestConfig = None):
         self.wf_cfg = wf_config or WFConfig()
         self.bt_cfg = bt_config or BacktestConfig()
-        logger.info("✅ WalkForwardEngine 초기화")
+        logger.info(" WalkForwardEngine ")
 
     def run(
         self,
@@ -54,13 +52,11 @@ class WalkForwardEngine:
         signal_fn: Callable[[pd.DataFrame], pd.Series],
         market: str = "KRW-BTC",
     ) -> WFReport:
-        """
-        Walk-Forward 전체 실행
-        signal_fn: df를 받아 signals Series를 반환하는 함수
-        """
+        """Walk-Forward  
+        signal_fn: df  signals Series"""
         report  = WFReport()
         windows = self._split_windows(df)
-        logger.info(f"Walk-Forward 시작: {len(windows)}개 윈도우")
+        logger.info(f"Walk-Forward : {len(windows)}개 윈도우")
 
         for w in windows:
             train_df = df[w.train_start:w.train_end]
@@ -79,9 +75,9 @@ class WalkForwardEngine:
 
             report.windows.append(w)
             logger.info(
-                f"  윈도우 {w.window_id}: "
-                f"학습 수익={w.train_result.total_return:.2%} | "
-                f"검증 수익={w.test_result.total_return:.2%}"
+                f"   {w.window_id}: "
+                f" ={w.train_result.total_return:.2%} | "
+                f" ={w.test_result.total_return:.2%}"
             )
 
         report = self._calc_report(report)

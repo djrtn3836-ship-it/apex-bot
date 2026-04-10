@@ -1,8 +1,6 @@
-"""
-realtime_pnl.py
-trade_history 기반 미결 포지션 동적 손절/익절 거리 표시
-실행: python realtime_pnl.py
-"""
+"""realtime_pnl.py
+trade_history     /  
+: python realtime_pnl.py"""
 import sqlite3, pathlib, sys, requests
 from datetime import datetime
 
@@ -11,7 +9,7 @@ SL_PCT = 0.97   # 매수가 × 0.97  (-3%)
 TP_PCT = 1.05   # 매수가 × 1.05  (+5%)
 
 if not DB.exists():
-    print("❌ DB 없음:", DB); sys.exit(1)
+    print(" DB :", DB); sys.exit(1)
 
 def get_price(market: str) -> float:
     try:
@@ -56,13 +54,13 @@ rows = cur.fetchall()
 con.close()
 
 if not rows:
-    print("\n미결 포지션 없음 (DB에 BUY 기록 없거나 전량 SELL 완료)")
+    print("\n   (DB BUY    SELL )")
     sys.exit(0)
 
 print(f"\n{'='*72}")
-print(f"  포지션 현황  ({datetime.now():%Y-%m-%d %H:%M:%S})")
+print(f"     ({datetime.now():%Y-%m-%d %H:%M:%S})")
 print(f"{'='*72}")
-print(f"  {'마켓':<14} {'매수가':>12} {'현재가':>12} {'수익%':>7}  {'P&L':>10}  상태")
+print(f"  {'':<14} {'':>12} {'':>12} {'%':>7}  {'P&L':>10}  ")
 print(f"  {'-'*66}")
 
 total_invested = total_pnl = 0.0
@@ -93,11 +91,11 @@ for r in rows:
 total_pct  = total_pnl / total_invested * 100 if total_invested else 0
 total_sign = "+" if total_pct >= 0 else ""
 print(f"  {'-'*66}")
-print(f"  {'합계':<14} {'':>25} {total_sign}{total_pct:.2f}%  {total_pnl:>+10,.0f}")
+print(f"  {'':<14} {'':>25} {total_sign}{total_pct:.2f}%  {total_pnl:>+10,.0f}")
 
-print(f"\n{'─'*72}")
-print("  손절/익절까지 남은 거리 [현재가 기준 동적 계산]")
-print(f"{'─'*72}")
+print(f"\n{''*72}")
+print("  /   [   ]")
+print(f"{''*72}")
 for market, buy_price, cur_price, qty in details:
     sl      = buy_price * SL_PCT
     tp      = buy_price * TP_PCT
@@ -105,8 +103,8 @@ for market, buy_price, cur_price, qty in details:
     tp_dist = (tp - cur_price) / cur_price * 100
     sl_sign = "+" if sl_dist >= 0 else ""
     tp_sign = "+" if tp_dist >= 0 else ""
-    print(f"  {market:<14}  손절 {sl:>12,.0f} (현재가 대비 {sl_sign}{sl_dist:.1f}%)  "
+    print(f"  {market:<14}   {sl:>12,.0f} (  {sl_sign}{sl_dist:.1f}%)  "
           f"| 익절 {tp:>12,.0f} (현재가 대비 {tp_sign}{tp_dist:.1f}%)")
 
-print(f"\n  ※ 손절선 = 매수가 × {SL_PCT}  |  익절선 = 매수가 × {TP_PCT}")
+print(f"\n  ※  =  × {SL_PCT}  |   =  × {TP_PCT}")
 print(f"{'='*72}\n")

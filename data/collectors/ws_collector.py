@@ -1,10 +1,8 @@
-"""
-APEX BOT - 업비트 WebSocket 실시간 데이터 수집기
-업비트 공식 WebSocket API 완전 구현
-- 실시간 캔들 / 체결 / 호가 수신
-- 자동 재연결 + Heartbeat
-- Rate Limit 준수 (초당 5회 연결, 최대 5개 동시)
-"""
+"""APEX BOT -  WebSocket   
+  WebSocket API  
+-   /  /  
+-   + Heartbeat
+- Rate Limit  ( 5 ,  5 )"""
 import asyncio
 import json
 import uuid
@@ -19,22 +17,18 @@ logger = logging.getLogger(__name__)
 
 
 class UpbitWebSocketCollector:
-    """
-    업비트 WebSocket 수집기
-    wss://api.upbit.com/websocket/v1 연결
-    """
+    """WebSocket 
+    wss://api.upbit.com/websocket/v1"""
     WS_URL = "wss://api.upbit.com/websocket/v1"
     PING_INTERVAL = 30          # 30초마다 PING (업비트 권장)
     RECONNECT_DELAY = 5         # 재연결 대기 시간 (초)
     MAX_RECONNECT_ATTEMPTS = 10 # 최대 재연결 시도 횟수
 
     def __init__(self, markets: List[str], on_message: Callable, on_error: Optional[Callable] = None):
-        """
-        Args:
-            markets: 구독할 마켓 리스트 (예: ["KRW-BTC", "KRW-ETH"])
-            on_message: 메시지 수신 콜백 (async)
-            on_error: 에러 콜백 (async)
-        """
+        """Args:
+            markets:    (: ["KRW-BTC", "KRW-ETH"])
+            on_message:    (async)
+            on_error:   (async)"""
         self.markets = markets
         self.on_message = on_message
         self.on_error = on_error
@@ -47,22 +41,22 @@ class UpbitWebSocketCollector:
         self._need_resubscribe: bool = False
 
     def subscribe_ticker(self) -> "UpbitWebSocketCollector":
-        """현재가(ticker) 구독"""
+        """(ticker)"""
         self._subscription_types.append("ticker")
         return self
 
     def subscribe_trade(self) -> "UpbitWebSocketCollector":
-        """체결(trade) 구독"""
+        """(trade)"""
         self._subscription_types.append("trade")
         return self
 
     def subscribe_orderbook(self) -> "UpbitWebSocketCollector":
-        """호가(orderbook) 구독"""
+        """(orderbook)"""
         self._subscription_types.append("orderbook")
         return self
 
     def add_markets(self, new_markets: list) -> bool:
-        """동적 마켓 추가 — 재구독 필요 플래그 설정"""
+        """—"""
         added = []
         for m in new_markets:
             if m not in self.markets:
@@ -70,23 +64,23 @@ class UpbitWebSocketCollector:
                 added.append(m)
         if added:
             self._need_resubscribe = True
-            logger.info(f"📡 WebSocket 동적 마켓 추가: {added} (재구독 예정)")
+            logger.info(f" WebSocket   : {added} ( )")
             return True
         return False
 
     async def resubscribe(self):
-        """마켓 변경 시 재구독 (연결 유지하며 새 구독 메시지 전송)"""
+        """(     )"""
         if self._ws and not self._ws.closed:
             try:
                 subscribe_msg = self._build_subscribe_message()
                 await self._ws.send(subscribe_msg)
                 self._need_resubscribe = False
-                logger.info(f"✅ WebSocket 재구독 완료 | 총 {len(self.markets)}개 코인")
+                logger.info(f" WebSocket   |  {len(self.markets)}개 코인")
             except Exception as e:
-                logger.warning(f"⚠️ WebSocket 재구독 실패: {e}")
+                logger.warning(f" WebSocket  : {e}")
 
     def _build_subscribe_message(self) -> str:
-        """업비트 WebSocket 구독 메시지 생성"""
+        """WebSocket"""
         ticket = str(uuid.uuid4())
         message = [{"ticket": ticket}]
 
@@ -101,7 +95,7 @@ class UpbitWebSocketCollector:
         return json.dumps(message)
 
     async def connect(self):
-        """WebSocket 연결 및 구독"""
+        """WebSocket"""
         subscribe_msg = self._build_subscribe_message()
 
         async with websockets.connect(
@@ -114,11 +108,11 @@ class UpbitWebSocketCollector:
         ) as ws:
             self._ws = ws
             self._reconnect_count = 0
-            logger.info(f"✅ WebSocket 연결 성공 | 마켓: {len(self.markets)}개")
+            logger.info(f" WebSocket   | : {len(self.markets)}개")
 
             # 구독 메시지 전송
             await ws.send(subscribe_msg)
-            logger.info(f"📡 구독 시작: {self._subscription_types}")
+            logger.info(f"  : {self._subscription_types}")
 
             # 메시지 수신 루프
             async for raw_message in ws:
@@ -137,16 +131,16 @@ class UpbitWebSocketCollector:
                     await self.on_message(data)
 
                 except json.JSONDecodeError as e:
-                    logger.warning(f"⚠️ JSON 파싱 오류: {e}")
+                    logger.warning(f" JSON  : {e}")
                 except Exception as e:
-                    logger.error(f"❌ 메시지 처리 오류: {e}")
+                    logger.error(f"   : {e}")
                     if self.on_error:
                         await self.on_error(e)
 
     async def run(self):
-        """자동 재연결을 포함한 실행 루프"""
+        """docstring"""
         self._running = True
-        logger.info("🚀 WebSocket 수집기 시작")
+        logger.info(" WebSocket  ")
 
         while self._running:
             try:
@@ -154,36 +148,36 @@ class UpbitWebSocketCollector:
             except ConnectionClosed as e:
                 if not self._running:
                     break
-                logger.warning(f"⚠️ WebSocket 연결 끊김: {e} | 재연결 중...")
+                logger.warning(f" WebSocket  : {e} |  ...")
             except WebSocketException as e:
-                logger.error(f"❌ WebSocket 오류: {e}")
+                logger.error(f" WebSocket : {e}")
             except Exception as e:
-                logger.error(f"❌ 예상치 못한 오류: {e}")
+                logger.error(f"   : {e}")
 
             if not self._running:
                 break
 
             self._reconnect_count += 1
             if self._reconnect_count > self.MAX_RECONNECT_ATTEMPTS:
-                logger.critical("🚨 최대 재연결 시도 초과!")
+                logger.critical("    !")
                 if self.on_error:
                     await self.on_error(Exception("Max reconnect attempts exceeded"))
                 break
 
             delay = min(self.RECONNECT_DELAY * (2 ** min(self._reconnect_count - 1, 5)), 60)
-            logger.info(f"🔄 {delay}초 후 재연결 시도 ({self._reconnect_count}/{self.MAX_RECONNECT_ATTEMPTS})")
+            logger.info(f" {delay}    ({self._reconnect_count}/{self.MAX_RECONNECT_ATTEMPTS})")
             await asyncio.sleep(delay)
 
     async def stop(self):
-        """수집기 중지"""
+        """docstring"""
         self._running = False
         if self._ws:
             await self._ws.close()
-        logger.info(f"🛑 WebSocket 수집기 중지 (수신 메시지: {self._message_count}개)")
+        logger.info(f" WebSocket   ( : {self._message_count})")
 
     @property
     def is_healthy(self) -> bool:
-        """연결 상태 확인 (60초 내 메시지 수신 여부)"""
+        """(60    )"""
         return (time.time() - self._last_message_time) < 60
 
     @property
@@ -199,11 +193,8 @@ class UpbitWebSocketCollector:
 
 
 class MultiStreamCollector:
-    """
-    다중 스트림 수집기
-    업비트 제한(최대 5개 동시 연결)을 준수하며
-    많은 코인을 여러 WebSocket으로 분산 처리
-    """
+    """( 5  ) 
+       WebSocket"""
     MAX_MARKETS_PER_STREAM = 20  # 스트림당 최대 20개 코인
 
     def __init__(self, all_markets: List[str], on_candle: Callable,
@@ -216,14 +207,14 @@ class MultiStreamCollector:
         self._tasks: List[asyncio.Task] = []
 
     def _chunk_markets(self) -> List[List[str]]:
-        """마켓 리스트를 청크로 분할"""
+        """docstring"""
         chunks = []
         for i in range(0, len(self.all_markets), self.MAX_MARKETS_PER_STREAM):
             chunks.append(self.all_markets[i:i + self.MAX_MARKETS_PER_STREAM])
         return chunks
 
     async def _message_router(self, data: dict):
-        """수신 메시지를 타입에 따라 라우팅"""
+        """docstring"""
         msg_type = data.get("ty", data.get("type", ""))
 
         if msg_type == "ticker":
@@ -234,9 +225,9 @@ class MultiStreamCollector:
             await self.on_orderbook(data)
 
     async def start(self):
-        """모든 스트림 시작"""
+        """docstring"""
         chunks = self._chunk_markets()
-        logger.info(f"📡 {len(chunks)}개 스트림으로 {len(self.all_markets)}개 마켓 수집 시작")
+        logger.info(f" {len(chunks)}개 스트림으로 {len(self.all_markets)}개 마켓 수집 시작")
 
         for i, chunk in enumerate(chunks):
             collector = (
@@ -252,7 +243,7 @@ class MultiStreamCollector:
             await asyncio.sleep(0.3)
 
     async def stop(self):
-        """모든 스트림 중지"""
+        """docstring"""
         for collector in self._collectors:
             await collector.stop()
         for task in self._tasks:

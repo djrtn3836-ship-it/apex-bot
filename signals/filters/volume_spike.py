@@ -1,13 +1,11 @@
-"""
-APEX BOT - 거래량 스파이크 감지 (Volume Spike Detector)
-이상 거래량 발생 전후 신호 포착 → 선행 진입 or 이탈 경고
+"""APEX BOT -    (Volume Spike Detector)
+      →   or  
 
-감지 로직:
-  1. 거래량이 20봉 평균 대비 N배 초과 → 스파이크 감지
-  2. 스파이크 + 가격 상승 → 강한 매수 신호 보정
-  3. 스파이크 + 가격 하락 → 덤핑 경고 (매수 차단)
-  4. 연속 스파이크 (2봉 이상) → 추세 전환 신호
-"""
+ :
+  1.  20   N  →  
+  2.  +   →    
+  3.  +   →   ( )
+  4.   (2 ) →"""
 from __future__ import annotations
 
 from dataclasses import dataclass
@@ -19,7 +17,7 @@ from loguru import logger
 
 @dataclass
 class VolumeSpike:
-    """감지된 거래량 스파이크"""
+    """docstring"""
     market: str
     ratio: float         # 평균 대비 배수
     direction: str       # "UP" / "DOWN" / "NEUTRAL"
@@ -28,18 +26,14 @@ class VolumeSpike:
 
 
 class VolumeSpikeDetector:
-    """
-    거래량 스파이크 감지 및 신호 보정기
-
-    사용법:
+    """:
         vsd = VolumeSpikeDetector()
 
-        # 전략 신호 생성 후
+        #    
         spike = vsd.detect(df, market)
         if spike:
             adj = vsd.get_confidence_adjustment(spike)
-            signal.confidence += adj
-    """
+            signal.confidence += adj"""
 
     # 스파이크 임계값
     SPIKE_THRESHOLD  = 2.0   # 평균 × 2.0 이상 → 스파이크
@@ -62,17 +56,15 @@ class VolumeSpikeDetector:
         market: str,
         lookback: int = 3,
     ) -> Optional[VolumeSpike]:
-        """
-        DataFrame에서 최근 N봉 스파이크 감지
+        """DataFrame  N  
 
         Args:
-            df:       OHLCV DataFrame (volume 컬럼 필요)
-            market:   마켓 코드
-            lookback: 최근 N봉 스캔
+            df:       OHLCV DataFrame (volume  )
+            market:    
+            lookback:  N 
 
         Returns:
-            VolumeSpike 또는 None
-        """
+            VolumeSpike  None"""
         if df is None or len(df) < self._ma_period + lookback:
             return None
 
@@ -123,21 +115,17 @@ class VolumeSpikeDetector:
                     self._spike_history[market] = self._spike_history[market][-10:]
 
                 logger.debug(
-                    f"⚡ 거래량 스파이크 | {market} | "
-                    f"비율={ratio:.1f}x | 방향={direction} | "
-                    f"가격변화={price_change:.2%}"
+                    f"   | {market} | "
+                    f"={ratio:.1f}x | ={direction} | "
+                    f"={price_change:.2%}"
                 )
                 return spike
 
         return None
 
     def get_confidence_adjustment(self, spike: Optional[VolumeSpike]) -> float:
-        """
-        스파이크 기반 신뢰도 보정값 반환
-
-        Returns:
-            -0.20 ~ +0.20 범위
-        """
+        """Returns:
+            -0.20 ~ +0.20"""
         if spike is None:
             return 0.0
 
@@ -154,12 +142,10 @@ class VolumeSpikeDetector:
             return base * 0.3
 
     def is_dumping(self, df: pd.DataFrame, market: str) -> Tuple[bool, str]:
-        """
-        덤핑(대량 매도) 감지
+        """( ) 
 
         Returns:
-            (덤핑 여부, 사유)
-        """
+            ( , )"""
         spike = self.detect(df, market, lookback=2)
         if spike and spike.direction == "DOWN":
             if spike.ratio >= self.STRONG_THRESHOLD:
@@ -170,12 +156,10 @@ class VolumeSpikeDetector:
         return False, "OK"
 
     def is_breakout(self, df: pd.DataFrame, market: str) -> Tuple[bool, float]:
-        """
-        거래량 돌파 감지 (매수 신호 보강)
+        """(  )
 
         Returns:
-            (돌파 여부, 신뢰도 보정값)
-        """
+            ( ,  )"""
         spike = self.detect(df, market, lookback=2)
         if spike and spike.direction == "UP":
             adj = self.get_confidence_adjustment(spike)
@@ -183,7 +167,7 @@ class VolumeSpikeDetector:
         return False, 0.0
 
     def get_volume_ratio(self, df: pd.DataFrame) -> float:
-        """현재 거래량 / 평균 거래량 비율"""
+        """/"""
         if df is None or len(df) < self._ma_period + 1:
             return 1.0
         vol = df["volume"].values

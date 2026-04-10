@@ -1,14 +1,12 @@
-"""
-Volume Spike Detection (거래량 급등 감지)
-v2.1.0 강화
-"""
+"""Volume Spike Detection (  )
+v2.1.0"""
 import pandas as pd
 from typing import Dict
 from ..base_strategy import BaseStrategy
 
 
 class VolumeSpikeDetector(BaseStrategy):
-    """거래량 3배 이상 급등 포착"""
+    """3"""
     
     def __init__(self):
         super().__init__()
@@ -16,9 +14,7 @@ class VolumeSpikeDetector(BaseStrategy):
         self.timeframe = "5m"
         
     def analyze(self, df: pd.DataFrame, market: str) -> Dict:
-        """
-        거래량 > 20일 평균 × 3.0 + 가격 상승 = 매수
-        """
+        """> 20  × 3.0 +   ="""
         if len(df) < 20:
             return {"signal": 0, "confidence": 0.0}
         

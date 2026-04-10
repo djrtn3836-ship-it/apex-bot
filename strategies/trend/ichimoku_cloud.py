@@ -1,14 +1,12 @@
-"""
-Ichimoku Cloud (일목균형표) 전략
-v2.1.0 추가
-"""
+"""Ichimoku Cloud () 
+v2.1.0"""
 import pandas as pd
 from typing import Dict, Optional
 from .base_strategy import BaseStrategy
 
 
 class IchimokuCloudStrategy(BaseStrategy):
-    """일목균형표 구름대 돌파 전략"""
+    """docstring"""
     
     def __init__(self):
         super().__init__()
@@ -16,10 +14,8 @@ class IchimokuCloudStrategy(BaseStrategy):
         self.timeframe = "1h"
         
     def analyze(self, df: pd.DataFrame, market: str) -> Dict:
-        """
-        구름대 상향 돌파 = 매수
-        구름대 하향 이탈 = 매도
-        """
+        """= 
+           ="""
         if len(df) < 52:
             return {"signal": 0, "confidence": 0.0}
         

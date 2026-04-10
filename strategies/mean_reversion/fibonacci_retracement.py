@@ -1,7 +1,5 @@
-"""
-Fibonacci Retracement (피보나치 되돌림) 전략
-v2.1.0 추가
-"""
+"""Fibonacci Retracement ( ) 
+v2.1.0"""
 import pandas as pd
 import numpy as np
 from typing import Dict
@@ -9,7 +7,7 @@ from .base_strategy import BaseStrategy
 
 
 class FibonacciRetracementStrategy(BaseStrategy):
-    """피보나치 되돌림 레벨 반등 전략"""
+    """docstring"""
     
     def __init__(self):
         super().__init__()
@@ -17,10 +15,8 @@ class FibonacciRetracementStrategy(BaseStrategy):
         self.timeframe = "4h"
         
     def analyze(self, df: pd.DataFrame, market: str) -> Dict:
-        """
-        하락 후 38.2% 되돌림 = 매수
-        상승 후 61.8% 되돌림 = 매도
-        """
+        """38.2%  = 
+          61.8%  ="""
         if len(df) < 50:
             return {"signal": 0, "confidence": 0.0}
         

@@ -1,7 +1,5 @@
-"""
-APEX BOT - 통합 알림 관리자
-텔레그램 + 로그 파일 + 대시보드 알림 통합
-"""
+"""APEX BOT -   
+ +   +"""
 import asyncio
 import time
 from typing import Dict, List, Optional, Callable
@@ -19,7 +17,7 @@ class AlertLevel(Enum):
 
 @dataclass
 class Alert:
-    """알림 객체"""
+    """docstring"""
     level: AlertLevel
     category: str       # TRADE / RISK / SYSTEM / PERFORMANCE
     title: str
@@ -40,14 +38,10 @@ class Alert:
 
 
 class AlertManager:
-    """
-    통합 알림 관리자
-
-    - 알림 중복 방지 (쿨다운)
-    - 레벨별 채널 라우팅
-    - 알림 이력 관리
-    - 배치 발송 (스팸 방지)
-    """
+    """-    ()
+    -   
+    -   
+    -   ( )"""
 
     # 카테고리별 쿨다운 (초)
     COOLDOWN = {
@@ -66,11 +60,11 @@ class AlertManager:
         self._running = False
 
     def add_handler(self, handler: Callable):
-        """커스텀 알림 핸들러 추가"""
+        """docstring"""
         self._handlers.append(handler)
 
     async def start(self):
-        """알림 처리 루프 시작"""
+        """docstring"""
         self._running = True
         asyncio.create_task(self._process_loop())
 
@@ -80,7 +74,7 @@ class AlertManager:
     # ── 알림 생성 메서드 ──────────────────────────────────────────
     async def trade(self, action: str, market: str, price: float,
                     amount: float, profit_rate: float = None, strategy: str = ""):
-        """거래 알림"""
+        """docstring"""
         sign = "+" if (profit_rate or 0) >= 0 else ""
         profit_str = f" | 수익률={sign}{profit_rate:.2f}%" if profit_rate is not None else ""
         alert = Alert(
@@ -93,7 +87,7 @@ class AlertManager:
         await self._enqueue(alert)
 
     async def risk_warning(self, event: str, detail: str, market: str = ""):
-        """리스크 경고"""
+        """docstring"""
         alert = Alert(
             level=AlertLevel.WARNING,
             category="RISK",
@@ -104,7 +98,7 @@ class AlertManager:
         await self._enqueue(alert)
 
     async def circuit_breaker(self, level: int, reason: str, duration_h: float):
-        """서킷브레이커 발동"""
+        """docstring"""
         alert = Alert(
             level=AlertLevel.CRITICAL,
             category="RISK",
@@ -114,7 +108,7 @@ class AlertManager:
         await self._enqueue(alert)
 
     async def system_error(self, error: str, context: str = ""):
-        """시스템 오류"""
+        """docstring"""
         alert = Alert(
             level=AlertLevel.CRITICAL,
             category="SYSTEM",
@@ -124,7 +118,7 @@ class AlertManager:
         await self._enqueue(alert)
 
     async def performance_update(self, stats: Dict):
-        """성과 업데이트"""
+        """docstring"""
         pnl = stats.get("daily_pnl", 0)
         alert = Alert(
             level=AlertLevel.INFO,
@@ -140,14 +134,14 @@ class AlertManager:
 
     # ── 내부 처리 ─────────────────────────────────────────────────
     async def _enqueue(self, alert: Alert):
-        """알림 큐에 추가"""
+        """docstring"""
         try:
             await self._queue.put_nowait(alert)
         except asyncio.QueueFull:
-            logger.warning("알림 큐 가득 참 - 알림 드롭")
+            logger.warning("    -  ")
 
     async def _process_loop(self):
-        """알림 처리 루프"""
+        """docstring"""
         while self._running:
             try:
                 alert = await asyncio.wait_for(self._queue.get(), timeout=1.0)
@@ -158,10 +152,10 @@ class AlertManager:
             except asyncio.TimeoutError:
                 continue
             except Exception as e:
-                logger.error(f"알림 처리 오류: {e}")
+                logger.error(f"  : {e}")
 
     async def _dispatch(self, alert: Alert):
-        """알림 발송 (중복 방지 + 채널 라우팅)"""
+        """(  +  )"""
         # 쿨다운 체크
         cooldown_key = f"{alert.category}_{alert.title}"
         cooldown = self.COOLDOWN.get(alert.category, 60)
@@ -199,25 +193,25 @@ class AlertManager:
                         f"*{alert.title}*\n{alert.message}"
                     )
             except Exception as e:
-                logger.error(f"텔레그램 발송 실패: {e}")
+                logger.error(f"  : {e}")
 
         # 커스텀 핸들러
         for handler in self._handlers:
             try:
                 await handler(alert)
             except Exception as e:
-                logger.error(f"커스텀 핸들러 오류: {e}")
+                logger.error(f"  : {e}")
 
     def get_recent_alerts(self, n: int = 20,
                            category: str = None) -> List[Dict]:
-        """최근 알림 이력"""
+        """docstring"""
         alerts = self._alert_history
         if category:
             alerts = [a for a in alerts if a.category == category]
         return [a.to_dict() for a in alerts[-n:]]
 
     def get_alert_stats(self) -> Dict:
-        """알림 통계"""
+        """docstring"""
         by_level = {}
         by_category = {}
         for a in self._alert_history:

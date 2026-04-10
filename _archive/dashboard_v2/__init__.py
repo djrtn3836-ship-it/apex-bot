@@ -1,1 +1,1 @@
-"""Dashboard v2 패키지"""
+"""Dashboard v2"""

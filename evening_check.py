@@ -1,15 +1,13 @@
-"""
-evening_check.py  v3
-오늘 거래 요약 + 미결 포지션
-profit_rate DB 저장값 = 소수 (0.01 = 1%)
-실행: python evening_check.py
-"""
+"""evening_check.py  v3
+   +  
+profit_rate DB  =  (0.01 = 1%)
+: python evening_check.py"""
 import sqlite3, pathlib, sys
 from datetime import date
 
 DB = pathlib.Path("database/apex_bot.db")
 if not DB.exists():
-    print("❌ DB 없음:", DB); sys.exit(1)
+    print(" DB :", DB); sys.exit(1)
 
 con = sqlite3.connect(DB)
 con.row_factory = sqlite3.Row
@@ -17,7 +15,7 @@ cur = con.cursor()
 today = date.today().isoformat()
 
 print("=" * 62)
-print(f"📊 오늘({today}) 거래 요약")
+print(f" ({today}) 거래 요약")
 print("=" * 62)
 
 # 오늘 거래 집계
@@ -32,15 +30,15 @@ cur.execute("""
 """, (today,))
 rows = cur.fetchall()
 if not rows:
-    print("  오늘 거래 기록 없음")
+    print("     ")
 else:
     for r in rows:
         sign = "+" if (r["avg_pct"] or 0) >= 0 else ""
-        print(f"  {r['side']:4s} | {r['cnt']}건 | "
-              f"₩{r['total_krw']:>12,.0f} | 평균수익 {sign}{r['avg_pct']:.2f}%")
+        print(f"  {r['side']:4s} | {r['cnt']} | "
+              f"₩{r['total_krw']:>12,.0f} |  {sign}{r['avg_pct']:.2f}%")
 
 # SELL 상세
-print("\n── SELL 상세 ──────────────────────────────────────────────")
+print("\n SELL  ")
 cur.execute("""
     SELECT timestamp, market, price, volume,
            profit_rate, reason
@@ -52,7 +50,7 @@ cur.execute("""
 """, (today,))
 sells = cur.fetchall()
 if not sells:
-    print("  오늘 SELL 기록 없음")
+    print("   SELL  ")
 else:
     for s in sells:
         pct  = (s["profit_rate"] or 0) * 100
@@ -61,7 +59,7 @@ else:
               f"₩{s['price']:>12,.0f}  {sign}{pct:.2f}%  [{s['reason']}]")
 
 # 미결 포지션
-print("\n── 미결 포지션 ────────────────────────────────────────────")
+print("\n   ")
 cur.execute("""
     SELECT b.market,
            b.price      AS buy_price,
@@ -80,18 +78,18 @@ cur.execute("""
 """)
 pos = cur.fetchall()
 if not pos:
-    print("  미결 포지션 없음")
+    print("    ")
 else:
     total = 0.0
     for p in pos:
-        print(f"  {p['market']:<14}  매수가 ₩{p['buy_price']:>12,.0f}  "
-              f"수량 {p['quantity']:.6f}  투자 ₩{p['invested']:>10,.0f}  "
+        print(f"  {p['market']:<14}   ₩{p['buy_price']:>12,.0f}  "
+              f" {p['quantity']:.6f}   ₩{p['invested']:>10,.0f}  "
               f"[{p['strategy']}]")
         total += float(p["invested"])
-    print(f"\n  {'투자 합계':14}  {'':<36}  ₩{total:>10,.0f}")
+    print(f"\n  {' ':14}  {'':<36}  ₩{total:>10,.0f}")
 
 # 전체 누적 통계
-print("\n── 전체 누적 통계 ─────────────────────────────────────────")
+print("\n    ")
 cur.execute("""
     SELECT COUNT(*)                     AS total,
            SUM(CASE WHEN profit_rate > 0 THEN 1 ELSE 0 END) AS wins,
@@ -104,12 +102,12 @@ stat = cur.fetchone()
 if stat and stat["total"]:
     wr   = (stat["wins"] or 0) / stat["total"] * 100
     sign = "+" if (stat["avg_pct"] or 0) >= 0 else ""
-    print(f"  전체 SELL : {stat['total']}건 | "
-          f"승률 {wr:.1f}% | "
-          f"평균수익 {sign}{stat['avg_pct']:.2f}% | "
-          f"누적 P&L ₩{stat['total_pnl']:,.0f}")
+    print(f"   SELL : {stat['total']} | "
+          f" {wr:.1f}% | "
+          f" {sign}{stat['avg_pct']:.2f}% | "
+          f" P&L ₩{stat['total_pnl']:,.0f}")
 else:
-    print("  SELL 기록 없음")
+    print("  SELL  ")
 
 con.close()
 print("=" * 62)

@@ -30,7 +30,7 @@ NEW = (
 
 if OLD in text:
     text = text.replace(OLD, NEW, 1)
-    print("✅ scheduler → self.scheduler 수정 완료")
+    print(" scheduler → self.scheduler  ")
 else:
     # fallback: 전체에서 hourly 블록 주변 scheduler. 패턴 교체
     import re
@@ -47,9 +47,9 @@ else:
             break
     if fixed:
         text = "\n".join(lines)
-        print("✅ fallback: scheduler → self.scheduler 수정 완료")
+        print(" fallback: scheduler → self.scheduler  ")
     else:
-        print("⚠️ 패턴을 찾지 못했습니다 – 현재 hourly 블록:")
+        print("    –  hourly :")
         for i, ln in enumerate(lines):
             if "hourly" in ln:
                 for j in range(max(0,i-3), min(len(lines),i+6)):
@@ -59,9 +59,9 @@ else:
 p.write_text(text, encoding="utf-8")
 try:
     py_compile.compile(str(p), doraise=True)
-    print("✅ engine.py 문법 OK")
-    print("   다음: python start_paper.py")
+    print(" engine.py  OK")
+    print("   : python start_paper.py")
 except py_compile.PyCompileError as e:
-    print(f"❌ 문법 오류: {e}")
+    print(f"  : {e}")
     shutil.copy("core/engine.py.bak_sched2", p)
-    print("🔄 원본 복구")
+    print("  ")

@@ -1,7 +1,5 @@
-"""
-APEX BOT - 주문 관리자
-주문 생성/추적/취소 + 스마트 주문 라우팅
-"""
+"""APEX BOT -  
+ // +"""
 import asyncio
 import uuid
 from dataclasses import dataclass, field
@@ -33,7 +31,7 @@ class OrderSide(Enum):
 
 @dataclass
 class Order:
-    """주문 데이터"""
+    """docstring"""
     order_id: str = field(default_factory=lambda: str(uuid.uuid4()))
     market: str = ""
     side: OrderSide = OrderSide.BUY
@@ -73,7 +71,7 @@ class Order:
 
 
 class Position:
-    """포지션 관리"""
+    """docstring"""
 
     def __init__(
         self,
@@ -118,10 +116,8 @@ class Position:
         return self.entry_price * self.volume
 
     def update_price(self, current_price: float) -> Optional[str]:
-        """
-        현재가 업데이트 + 청산 조건 체크
-        Returns: 청산 사유 (None이면 계속 보유)
-        """
+        """+   
+        Returns:   (None  )"""
         self.current_price = current_price
 
         # 고점 업데이트
@@ -133,8 +129,8 @@ class Position:
             self.trailing_active = True
             self.trailing_stop_price = current_price * (1 - self.trailing_distance)
             logger.info(
-                f"🔄 트레일링 스탑 활성 | {self.market} | "
-                f"수익: {self.pnl_pct:.2%} | 스탑가: {self.trailing_stop_price:,.0f}"
+                f"    | {self.market} | "
+                f": {self.pnl_pct:.2%} | : {self.trailing_stop_price:,.0f}"
             )
 
         # 트레일링 스탑 업데이트
@@ -178,12 +174,9 @@ class Position:
 
 
 class OrderManager:
-    """
-    주문 관리자
-    - 주문 생성/실행/추적
-    - 포지션 생명주기 관리
-    - 미체결 주문 자동 취소
-    """
+    """-  //
+    -   
+    -"""
 
     def __init__(self, rest_client: UpbitRestCollector, event_bus: EventBus,
                  fee_rate: float = 0.0005, is_paper: bool = False):
@@ -208,7 +201,7 @@ class OrderManager:
         strategy: str = "",
         signal_score: float = 0.0,
     ) -> Optional[Order]:
-        """매수 주문"""
+        """docstring"""
         volume = amount_krw / price
         order = Order(
             market=market,
@@ -238,7 +231,7 @@ class OrderManager:
                 source="order_manager",
                 priority=3
             ))
-            logger.info(f"✅ 매수 완료 | {market} | {volume:.8f} @ {price:,.0f}")
+            logger.info(f"   | {market} | {volume:.8f} @ {price:,.0f}")
 
         return order
 
@@ -249,7 +242,7 @@ class OrderManager:
         volume: float,
         reason: str = "signal",
     ) -> Optional[Order]:
-        """매도 주문"""
+        """docstring"""
         order = Order(
             market=market,
             side=OrderSide.SELL,
@@ -270,13 +263,13 @@ class OrderManager:
                     priority=3
                 ))
                 logger.info(
-                    f"{'✅' if final_pnl > 0 else '❌'} 매도 완료 | {market} | "
+                    f"{'' if final_pnl > 0 else ''}   | {market} | "
                     f"PnL: {final_pnl:+,.0f} KRW ({pos.pnl_pct:+.2%}) | 사유: {reason}"
                 )
         return order
 
     async def _execute_order(self, order: Order) -> bool:
-        """실제 주문 실행"""
+        """docstring"""
         self._orders[order.order_id] = order
 
         if self.is_paper:
@@ -287,7 +280,7 @@ class OrderManager:
             order.fee = (order.filled_price * order.filled_volume) * self.fee_rate
             order.filled_at = datetime.now()
             order.upbit_uuid = f"paper_{order.order_id}"
-            logger.info(f"📝 [페이퍼] 주문 체결 | {order.market} {order.side.name}")
+            logger.info(f" []   | {order.market} {order.side.name}")
             return True
 
         try:
@@ -312,7 +305,7 @@ class OrderManager:
         except Exception as e:
             order.status = OrderStatus.FAILED
             order.error_message = str(e)
-            logger.error(f"❌ 주문 실패 | {order.market}: {e}")
+            logger.error(f"   | {order.market}: {e}")
             await self.event_bus.publish(Event(
                 type=EventType.ORDER_FAILED,
                 data={"order_id": order.order_id, "error": str(e)},
@@ -322,7 +315,7 @@ class OrderManager:
             return False
 
     async def update_positions(self, prices: Dict[str, float]):
-        """전체 포지션 현재가 업데이트 + 청산 조건 체크"""
+        """+"""
         for market, pos in list(self._positions.items()):
             if not pos.is_open:
                 continue
@@ -333,7 +326,7 @@ class OrderManager:
 
             close_reason = pos.update_price(current_price)
             if close_reason:
-                logger.info(f"🎯 청산 조건 감지 | {market} | 사유: {close_reason}")
+                logger.info(f"    | {market} | : {close_reason}")
                 if close_reason == "stop_loss":
                     await self.event_bus.publish(Event(
                         type=EventType.STOP_LOSS_HIT,

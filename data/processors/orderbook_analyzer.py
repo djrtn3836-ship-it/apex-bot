@@ -1,9 +1,7 @@
 # data/processors/orderbook_analyzer.py
-"""
-실시간 호가창 분석기 (OrderBook Analyzer)
-– 매수벽/매도벽 감지, 스푸핑 감지, 호가 불균형, 유동성 스윕
-– 외부 의존성 없이 단독 작동
-"""
+"""(OrderBook Analyzer)
+– / ,  ,  ,  
+–"""
 from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import Optional
@@ -25,7 +23,7 @@ class OrderBookSignal:
 
 
 class OrderBookAnalyzer:
-    """호가창 실시간 분석 – 외부 의존성 없음"""
+    """–"""
 
     def __init__(
         self,
@@ -38,7 +36,7 @@ class OrderBookAnalyzer:
         self.spoof_ratio = spoof_ratio
         self._prev_walls: dict[str, float] = {}
         logger.info(
-            f"✅ OrderBookAnalyzer 초기화 | "
+            f" OrderBookAnalyzer  | "
             f"wall_thr={wall_threshold} imbalance_thr={imbalance_threshold}"
         )
 
@@ -117,14 +115,14 @@ class OrderBookAnalyzer:
 
             sig.reason = sig.reason.strip() or "ok"
             logger.debug(
-                f"📊 호가창 분석 | {market} | "
+                f"   | {market} | "
                 f"imbalance={sig.imbalance:.2f} | pressure={sig.pressure} | "
                 f"spread={sig.spread_pct:.3f}% | wall_b={sig.buy_wall_price:.0f}"
             )
 
         except Exception as e:
             sig.reason = f"error:{e}"
-            logger.warning(f"⚠️ OrderBook 분석 오류 ({market}): {e}")
+            logger.warning(f" OrderBook   ({market}): {e}")
 
         return sig
 

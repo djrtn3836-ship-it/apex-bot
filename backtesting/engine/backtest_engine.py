@@ -1,7 +1,5 @@
-"""
-Apex Bot - 벡터화 백테스트 엔진 (M1-A)
-pandas 기반 고속 백테스트 + GPU 가속 지원
-"""
+"""Apex Bot -    (M1-A)
+pandas    + GPU"""
 import pandas as pd
 import numpy as np
 from dataclasses import dataclass, field
@@ -54,14 +52,14 @@ class BacktestResult:
 
 
 class BacktestEngine:
-    """벡터화 백테스트 엔진"""
+    """docstring"""
 
     VERSION = "3.0.0"
 
     def __init__(self, config: BacktestConfig = None):
         self.config = config or BacktestConfig()
         self.results: List[BacktestResult] = []
-        logger.info(f"✅ BacktestEngine v{self.VERSION} 초기화")
+        logger.info(f" BacktestEngine v{self.VERSION} ")
 
     def run(
         self,
@@ -70,11 +68,8 @@ class BacktestEngine:
         market: str = "KRW-BTC",
         strategy: str = "default",
     ) -> BacktestResult:
-        """
-        단일 마켓 백테스트 실행
-        df      : OHLCV DataFrame (open/high/low/close/volume)
-        signals : +1=BUY, -1=SELL, 0=HOLD 시리즈 (df와 인덱스 동일)
-        """
+        """df      : OHLCV DataFrame (open/high/low/close/volume)
+        signals : +1=BUY, -1=SELL, 0=HOLD  (df  )"""
         result = BacktestResult(config=self.config)
         capital = self.config.initial_capital
         position = None
@@ -153,7 +148,7 @@ class BacktestEngine:
         return result
 
     def _calc_metrics(self, result: BacktestResult) -> BacktestResult:
-        """성과 지표 계산"""
+        """docstring"""
         trades = result.trades
         eq     = result.equity_curve
         cfg    = self.config

@@ -1,7 +1,5 @@
-"""
-Apex Bot - 대시보드 v2 (M5)
-FastAPI + Plotly 실시간 모니터링
-"""
+"""Apex Bot -  v2 (M5)
+FastAPI + Plotly"""
 from fastapi import FastAPI
 from fastapi.responses import HTMLResponse
 from fastapi.staticfiles import StaticFiles
@@ -16,7 +14,7 @@ try:
     PLOTLY_OK = True
 except ImportError:
     PLOTLY_OK = False
-    logger.warning("plotly 미설치 — pip install plotly")
+    logger.warning("plotly  — pip install plotly")
 
 
 def create_app(engine_ref=None) -> FastAPI:
@@ -78,7 +76,7 @@ def create_app(engine_ref=None) -> FastAPI:
         except Exception:
             return []
 
-    logger.info("✅ Dashboard v2 앱 생성 완료")
+    logger.info(" Dashboard v2   ")
     return app
 
 
@@ -104,25 +102,25 @@ def _render_dashboard(engine_ref) -> str:
 </style>
 </head>
 <body>
-<h1>⚡ Apex Bot Dashboard v2</h1>
+<h1> Apex Bot Dashboard v2</h1>
 <div class="card">
   <div class="grid">
-    <div class="stat"><div class="val" id="pos">-</div><div class="lbl">포지션</div></div>
-    <div class="stat"><div class="val" id="asset">-</div><div class="lbl">총 자산</div></div>
-    <div class="stat"><div class="val" id="cash">-</div><div class="lbl">현금</div></div>
-    <div class="stat"><div class="val" id="status">-</div><div class="lbl">상태</div></div>
+    <div class="stat"><div class="val" id="pos">-</div><div class="lbl"></div></div>
+    <div class="stat"><div class="val" id="asset">-</div><div class="lbl"> </div></div>
+    <div class="stat"><div class="val" id="cash">-</div><div class="lbl"></div></div>
+    <div class="stat"><div class="val" id="status">-</div><div class="lbl"></div></div>
   </div>
 </div>
 <div class="card">
-  <h3>📋 포지션 현황</h3>
+  <h3>  </h3>
   <table><thead><tr>
-    <th>코인</th><th>진입가</th><th>금액</th><th>손절</th><th>익절</th><th>전략</th>
+    <th></th><th></th><th></th><th></th><th></th><th></th>
   </tr></thead><tbody id="pos-table"></tbody></table>
 </div>
 <div class="card">
-  <h3>📈 최근 거래</h3>
+  <h3>  </h3>
   <table><thead><tr>
-    <th>시각</th><th>코인</th><th>방향</th><th>금액</th><th>수익률</th><th>전략</th>
+    <th></th><th></th><th></th><th></th><th></th><th></th>
   </tr></thead><tbody id="trade-table"></tbody></table>
 </div>
 <script>

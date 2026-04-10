@@ -1,29 +1,20 @@
-"""
-APEX BOT - 호가창 필터
-호가창 분석 결과를 매수/매도 신호 필터로 활용
-"""
+"""APEX BOT -  
+   /"""
 from typing import Optional
 from loguru import logger
 from data.processors.orderbook_analyzer import OrderBookAnalyzer, OrderBookSignal
 
 
 class OrderBookFilter:
-    """
-    호가창 기반 매매 필터
-    
-    - 매수 차단: 강한 매도벽 존재, 매도 스푸핑 감지
-    - 매수 허용: 매수벽 지지, 호가 불균형 매수 우세
-    - 매도 신호: 매수벽 붕괴, 매도 스푸핑
-    """
+    """-  :   ,   
+    -  :  ,    
+    -  :  ,"""
     
     def __init__(self, analyzer: OrderBookAnalyzer = None):
         self.analyzer = analyzer or OrderBookAnalyzer()
     
     def can_buy(self, market: str, orderbook: dict = None) -> tuple:
-        """
-        매수 가능 여부 판단
-        Returns: (can_buy: bool, reason: str, signal: OrderBookSignal)
-        """
+        """Returns: (can_buy: bool, reason: str, signal: OrderBookSignal)"""
         if orderbook:
             sig = self.analyzer.analyze(market, orderbook)
         else:
@@ -51,10 +42,7 @@ class OrderBookFilter:
         return True, "호가창 중립", sig
     
     def get_confidence_boost(self, market: str) -> float:
-        """
-        호가창 기반 신뢰도 보정
-        Returns: -0.2 ~ +0.2 범위의 신뢰도 조정값
-        """
+        """Returns: -0.2 ~ +0.2"""
         sig = self.analyzer.get_signal(market)
         if not sig:
             return 0.0

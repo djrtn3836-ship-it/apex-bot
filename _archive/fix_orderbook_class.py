@@ -1,18 +1,14 @@
-"""
-fix_orderbook_class.py
-– OrderBookAnalyzer를 의존성 없는 완전판으로 교체
-– engine.py __init__ 초기화 오류 로그 추가
-"""
+"""fix_orderbook_class.py
+– OrderBookAnalyzer    
+– engine.py __init__"""
 from pathlib import Path
 import shutil, py_compile
 
 # ── 1. OrderBookAnalyzer 완전판 작성 ─────────────────────────────────────
 OB_CODE = '''# data/processors/orderbook_analyzer.py
-"""
-실시간 호가창 분석기 (OrderBook Analyzer)
-– 매수벽/매도벽 감지, 스푸핑 감지, 호가 불균형, 유동성 스윕
-– 외부 의존성 없이 단독 작동
-"""
+"""(OrderBook Analyzer)
+– / ,  ,  ,  
+–"""
 from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import Optional
@@ -36,7 +32,7 @@ class OrderBookSignal:
 
 
 class OrderBookAnalyzer:
-    """호가창 실시간 분석 – 외부 의존성 없음"""
+    """–"""
 
     def __init__(
         self,
@@ -49,7 +45,7 @@ class OrderBookAnalyzer:
         self.spoof_ratio = spoof_ratio
         self._prev_walls: dict[str, float] = {}
         logger.info(
-            f"✅ OrderBookAnalyzer 초기화 | "
+            f" OrderBookAnalyzer  | "
             f"wall_thr={wall_threshold} imbalance_thr={imbalance_threshold}"
         )
 
@@ -128,14 +124,14 @@ class OrderBookAnalyzer:
 
             sig.reason = sig.reason.strip() or "ok"
             logger.debug(
-                f"📊 호가창 분석 | {market} | "
+                f"   | {market} | "
                 f"imbalance={sig.imbalance:.2f} | pressure={sig.pressure} | "
                 f"spread={sig.spread_pct:.3f}% | wall_b={sig.buy_wall_price:.0f}"
             )
 
         except Exception as e:
             sig.reason = f"error:{e}"
-            logger.warning(f"⚠️ OrderBook 분석 오류 ({market}): {e}")
+            logger.warning(f" OrderBook   ({market}): {e}")
 
         return sig
 
@@ -162,9 +158,9 @@ shutil.copy(ob_path, "data/processors/orderbook_analyzer.py.bak") if ob_path.exi
 ob_path.write_text(OB_CODE, encoding="utf-8")
 try:
     py_compile.compile(str(ob_path), doraise=True)
-    print(f"✅ orderbook_analyzer.py 재작성 완료 ({len(OB_CODE.splitlines())}줄)")
+    print(f" orderbook_analyzer.py   ({len(OB_CODE.splitlines())}줄)")
 except py_compile.PyCompileError as e:
-    print(f"❌ 문법 오류: {e}")
+    print(f"  : {e}")
 
 # ── 2. engine.py 초기화 오류 로그 강화 ──────────────────────────────────
 engine_path = Path("core/engine.py")
@@ -174,13 +170,13 @@ text = engine_path.read_text(encoding="utf-8", errors="ignore")
 OLD_EXCEPT = (
     "        except Exception as _ob_err:\n"
     "            self.orderbook_analyzer = None\n"
-    "            logger.warning(f'⚠️ OrderBookAnalyzer 초기화 실패: {_ob_err}')"
+    "            logger.warning(f' OrderBookAnalyzer  : {_ob_err}')"
 )
 NEW_EXCEPT = (
     "        except Exception as _ob_err:\n"
     "            self.orderbook_analyzer = None\n"
     "            import traceback\n"
-    "            logger.error(f'❌ OrderBookAnalyzer 초기화 실패: {_ob_err}')\n"
+    "            logger.error(f' OrderBookAnalyzer  : {_ob_err}')\n"
     "            logger.error(traceback.format_exc())"
 )
 
@@ -189,16 +185,16 @@ if OLD_EXCEPT in text:
     engine_path.write_text(text, encoding="utf-8")
     try:
         py_compile.compile(str(engine_path), doraise=True)
-        print("✅ engine.py 오류 로그 강화 완료")
+        print(" engine.py    ")
     except py_compile.PyCompileError as e:
-        print(f"❌ engine.py 문법 오류: {e}")
+        print(f" engine.py  : {e}")
         shutil.copy("core/engine.py.bak_ob3", engine_path)
-        print("🔄 원본 복구")
+        print("  ")
 else:
-    print("⚠️ except 블록 패턴 불일치 – engine.py 수동 확인 필요")
+    print(" except    – engine.py   ")
     # 현재 except 블록 출력
     for i, ln in enumerate(text.splitlines()):
         if "_ob_err" in ln or "OrderBookAnalyzer" in ln:
             print(f"  L{i+1}: {ln}")
 
-print("\n다음: python start_paper.py")
+print("\n: python start_paper.py")

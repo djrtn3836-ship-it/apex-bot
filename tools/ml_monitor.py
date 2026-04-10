@@ -1,12 +1,10 @@
-"""
-APEX BOT - ML 실시간 예측 모니터
-봇이 실행 중일 때 ML 추론 결과를 실시간으로 확인하는 CLI 도구
+"""APEX BOT - ML   
+    ML     CLI 
 
-사용법:
-  python tools/ml_monitor.py           # 전체 코인 ML 예측 1회 출력
-  python tools/ml_monitor.py --watch   # 60초마다 자동 갱신
-  python tools/ml_monitor.py --coin BTC  # 특정 코인만
-"""
+:
+  python tools/ml_monitor.py           #   ML  1 
+  python tools/ml_monitor.py --watch   # 60  
+  python tools/ml_monitor.py --coin BTC  #"""
 
 import sys
 import os
@@ -53,7 +51,7 @@ SIGNAL_STYLE = {
 
 
 async def fetch_ohlcv(market: str, count: int = 80):
-    """Upbit REST API로 60분봉 데이터 수집"""
+    """Upbit REST API 60"""
     try:
         from data.collectors.rest_collector import RestDataCollector
         collector = RestDataCollector()
@@ -64,7 +62,7 @@ async def fetch_ohlcv(market: str, count: int = 80):
 
 
 async def run_ml_predict(market: str, df):
-    """ML 앙상블 예측 실행"""
+    """ML"""
     if df is None or len(df) < 60:
         return None
     try:
@@ -90,7 +88,7 @@ async def run_ml_predict(market: str, df):
 
 
 def make_signal_bar(buy: float, hold: float, sell: float, width: int = 20) -> str:
-    """확률 막대 시각화"""
+    """docstring"""
     b = int(buy * width)
     h = int(hold * width)
     s = width - b - h
@@ -98,7 +96,7 @@ def make_signal_bar(buy: float, hold: float, sell: float, width: int = 20) -> st
 
 
 async def predict_all(target_coins: list) -> list:
-    """모든 코인 예측 수행"""
+    """docstring"""
     results = []
     for market in target_coins:
         coin = market.replace("KRW-", "")
@@ -140,7 +138,7 @@ async def predict_all(target_coins: list) -> list:
 
 
 def print_results_rich(results: list, model_loaded: bool):
-    """Rich 테이블로 결과 출력"""
+    """Rich"""
     now = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
 
     # ── 헤더 패널 ──
@@ -246,20 +244,20 @@ def print_results_rich(results: list, model_loaded: bool):
     # ── 경고 ──
     if not model_loaded:
         console.print(Panel(
-            "[yellow]⚠️  저장된 모델이 없습니다!\n"
-            "봇을 실행하면 10분 후 PPO 자동 훈련, 24시간 후 ML 재학습이 시작됩니다.\n"
-            "현재 예측값은 [bold]랜덤 초기화 모델[/bold]이므로 실제 매매 판단에 사용하지 마세요.[/yellow]",
-            title="[bold yellow]주의[/bold yellow]",
+            "[yellow]    !\n"
+            "  10  PPO  , 24  ML  .\n"
+            "  [bold]  [/bold]     .[/yellow]",
+            title="[bold yellow][/bold yellow]",
             box=box.ROUNDED,
         ))
 
 
 def print_results_plain(results: list):
-    """Rich 없을 때 일반 텍스트 출력"""
+    """Rich"""
     print(f"\n{'='*60}")
-    print(f"  APEX BOT ML 예측 결과  {datetime.now().strftime('%H:%M:%S')}")
+    print(f"  APEX BOT ML    {datetime.now().strftime('%H:%M:%S')}")
     print(f"{'='*60}")
-    print(f"{'코인':<8} {'신호':<6} {'신뢰도':<8} {'BUY':>6} {'HOLD':>6} {'SELL':>6} {'동의율':>7}")
+    print(f"{'':<8} {'':<6} {'':<8} {'BUY':>6} {'HOLD':>6} {'SELL':>6} {'':>7}")
     print("-"*60)
     for r in results:
         signal = r.get("signal","?")
@@ -294,9 +292,9 @@ async def main():
     model_loaded = model_path.exists()
 
     if RICH_OK:
-        console.print(f"\n[cyan]🔍 ML 예측 수행 중... ({len(target)}개 코인)[/cyan]")
+        console.print(f"\n[cyan] ML   ... ({len(target)}개 코인)[/cyan]")
     else:
-        print(f"\n ML 예측 수행 중... ({len(target)}개 코인)")
+        print(f"\n ML   ... ({len(target)}개 코인)")
 
     if not args.watch:
         # 1회 실행
@@ -308,23 +306,23 @@ async def main():
     else:
         # 반복 실행
         if RICH_OK:
-            console.print(f"[dim]⏱  {args.interval}초마다 자동 갱신 | Ctrl+C 로 종료[/dim]\n")
+            console.print(f"[dim]⏱  {args.interval}   | Ctrl+C  [/dim]\n")
         try:
             while True:
                 results = await predict_all(target)
                 if RICH_OK:
                     console.clear()
                     print_results_rich(results, model_loaded)
-                    console.print(f"\n[dim]다음 갱신까지 {args.interval}초 대기... (Ctrl+C 종료)[/dim]")
+                    console.print(f"\n[dim]  {args.interval} ... (Ctrl+C )[/dim]")
                 else:
                     print_results_plain(results)
-                    print(f"  → {args.interval}초 후 갱신 (Ctrl+C 종료)")
+                    print(f"  → {args.interval}   (Ctrl+C )")
                 await asyncio.sleep(args.interval)
         except KeyboardInterrupt:
             if RICH_OK:
-                console.print("\n[yellow]모니터 종료[/yellow]")
+                console.print("\n[yellow] [/yellow]")
             else:
-                print("\n종료")
+                print("\n")
 
 
 if __name__ == "__main__":

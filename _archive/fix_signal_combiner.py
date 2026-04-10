@@ -2,7 +2,7 @@
 import shutil
 
 shutil.copy('signals/signal_combiner.py', 'signals/signal_combiner.py.bak_sc')
-print("백업 완료: signals/signal_combiner.py.bak_sc")
+print(" : signals/signal_combiner.py.bak_sc")
 
 with open('signals/signal_combiner.py', 'r', encoding='utf-8') as f:
     content = f.read()
@@ -45,9 +45,9 @@ new_weights = '''    STRATEGY_WEIGHTS = {
 
 if old_weights in content:
     content = content.replace(old_weights, new_weights, 1)
-    print("✅ 수정 1: STRATEGY_WEIGHTS 중복/불필요 항목 정리 완료")
+    print("  1: STRATEGY_WEIGHTS /   ")
 else:
-    print("⚠️  수정 1: 패턴 미발견 - 수동 확인 필요")
+    print("   1:   -   ")
 
 # ── 수정 2: buy_signal_threshold 적정값으로 조정 ─────────────────────
 # ML_Ensemble(2.5) × confidence(0.45) = 1.125
@@ -61,10 +61,10 @@ with open('config/settings.py', 'r', encoding='utf-8') as f:
 
 if old_threshold in settings_content:
     settings_content = settings_content.replace(old_threshold, new_threshold, 1)
-    print("✅ 수정 2: buy_signal_threshold 0.20 → 1.50 조정 완료")
-    print("   (ML_Ensemble 단독으로는 매수 불가, 최소 전략 1개 동의 필요)")
+    print("  2: buy_signal_threshold 0.20 → 1.50  ")
+    print("   (ML_Ensemble   ,   1  )")
 else:
-    print("⚠️  수정 2: threshold 패턴 미발견 - 수동 확인 필요")
+    print("   2: threshold   -   ")
 
 with open('config/settings.py', 'w', encoding='utf-8') as f:
     f.write(settings_content)
@@ -86,25 +86,25 @@ new_sell = '''        elif net_score <= self.sell_threshold:
 
 if old_sell in content:
     content = content.replace(old_sell, new_sell, 1)
-    print("✅ 수정 3: SELL 신호 min_agreement 필터 복원 완료")
-    print("   (agreement_rate < 0.20 이고 ML SELL 미확인 시 HOLD 유지)")
+    print("  3: SELL  min_agreement   ")
+    print("   (agreement_rate < 0.20  ML SELL   HOLD )")
 else:
-    print("⚠️  수정 3: SELL 패턴 미발견 - 수동 확인 필요")
+    print("   3: SELL   -   ")
 
 with open('signals/signal_combiner.py', 'w', encoding='utf-8') as f:
     f.write(content)
 
-print("\n── 최종 검증 ─────────────────────────────────────────")
+print("\n   ")
 with open('signals/signal_combiner.py', 'r', encoding='utf-8') as f:
     final = f.read()
 weight_count = final.count('"OrderBlock_SMC"')
-print(f"OrderBlock_SMC 키 개수: {weight_count}개 (정상=1)")
-print(f"fear_greed 잔존 여부: {'있음 ⚠️' if '\"fear_greed\"' in final else '없음 ✅'}")
-print(f"news_sentiment 잔존 여부: {'있음 ⚠️' if '\"news_sentiment\"' in final else '없음 ✅'}")
+print(f"OrderBlock_SMC  : {weight_count} (=1)")
+print(f"fear_greed  : {' ' if '\"fear_greed\"' in final else ' '}")
+print(f"news_sentiment  : {' ' if '\"news_sentiment\"' in final else ' '}")
 
 with open('config/settings.py', 'r', encoding='utf-8') as f:
     s = f.read()
 import re
 m = re.search(r'buy_signal_threshold.*', s)
 print(f"buy_signal_threshold: {m.group() if m else '미발견'}")
-print("\n✅ fix_signal_combiner.py 완료")
+print("\n fix_signal_combiner.py ")

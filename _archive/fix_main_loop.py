@@ -1,10 +1,8 @@
-"""
-fix_main_loop.py
-핵심 수정 3가지:
-1. 기존 포지션도 _analyze_market 실행 (ML 재평가 + 익절 신호)
-2. 1시간 텔레그램 자동 요약 스케줄 등록
-3. 상관관계 필터 최대 포지션 수 동적 조정
-"""
+"""fix_main_loop.py
+  3:
+1.   _analyze_market  (ML  +  )
+2. 1     
+3."""
 import shutil, py_compile, re
 from pathlib import Path
 
@@ -47,7 +45,7 @@ NEW_ANALYSIS = (
 
 if OLD_ANALYSIS in text:
     text = text.replace(OLD_ANALYSIS, NEW_ANALYSIS, 1)
-    print("✅ FIX-1: 기존 포지션 분석 추가 완료")
+    print(" FIX-1:     ")
 else:
     # 인코딩 깨진 경우 라인 번호 기반 패치
     fixed = False
@@ -84,15 +82,15 @@ else:
     if fixed:
         text = "\n".join(out)
         lines = text.splitlines()
-        print("✅ FIX-1 (fallback): 기존 포지션 분석 추가 완료")
+        print(" FIX-1 (fallback): 기존 포지션 분석 추가 완료")
     else:
-        print("⚠️ FIX-1: 수동 확인 필요")
+        print(" FIX-1:   ")
 
 # ── FIX-2: _analyze_existing_position 메서드 추가 ────────────────────────
 # _analyze_market 함수 정의 바로 앞에 삽입
 NEW_METHOD = '''
     async def _analyze_existing_position(self, market: str):
-        """기존 포지션 코인 ML 재평가 – 익절/추가매수 기회 탐색"""
+        """ML  – /"""
         try:
             df = self.cache_manager.get_candles(market, "1h")
             if df is None or len(df) < 10:
@@ -110,17 +108,17 @@ NEW_METHOD = '''
             current  = self._market_prices.get(market, entry)
             pnl_pct  = (current - entry) / entry * 100 if entry > 0 else 0
             logger.debug(
-                f"📊 포지션 재평가 | {market} | "
+                f"   | {market} | "
                 f"ML={signal}({conf:.2f}) | PnL={pnl_pct:+.2f}%"
             )
             # ML이 SELL 신호 + 신뢰도 높으면 익절 검토
             if signal == "SELL" and conf > 0.75 and pnl_pct > 1.0:
                 logger.info(
-                    f"🎯 ML 익절 신호 | {market} | "
-                    f"신뢰도={conf:.2f} | 수익={pnl_pct:+.2f}%"
+                    f" ML   | {market} | "
+                    f"={conf:.2f} | ={pnl_pct:+.2f}%"
                 )
         except Exception as e:
-            logger.debug(f"포지션 재평가 오류 ({market}): {e}")
+            logger.debug(f"   ({market}): {e}")
 
 '''
 
@@ -135,9 +133,9 @@ for idx, ln in enumerate(out_lines):
 
 if insert_done:
     text = "\n".join(out_lines)
-    print("✅ FIX-2: _analyze_existing_position 메서드 추가 완료")
+    print(" FIX-2: _analyze_existing_position   ")
 else:
-    print("⚠️ FIX-2: _analyze_market 위치를 찾지 못함")
+    print(" FIX-2: _analyze_market   ")
 
 # ── FIX-3: 1시간 텔레그램 자동 요약 스케줄 등록 ─────────────────────────
 SCHEDULE_MARKER = "✅ 스케줄러 등록 완료"
@@ -162,18 +160,18 @@ for ln in text.splitlines():
 
 if fix3_done:
     text = "\n".join(out2)
-    print("✅ FIX-3: 1시간 텔레그램 요약 스케줄 등록 완료")
+    print(" FIX-3: 1     ")
 else:
-    print("⚠️ FIX-3: 스케줄러 마커를 찾지 못함")
+    print(" FIX-3:    ")
 
 # ── 저장 및 컴파일 ───────────────────────────────────────────────────────
 engine_path.write_text(text, encoding="utf-8")
 try:
     py_compile.compile(str(engine_path), doraise=True)
-    print("\n✅ engine.py 문법 OK – 전체 수정 완료")
-    print("   다음: python start_paper.py")
+    print("\n engine.py  OK –   ")
+    print("   : python start_paper.py")
 except py_compile.PyCompileError as e:
-    print(f"\n❌ 문법 오류: {e}")
+    print(f"\n  : {e}")
     m = re.search(r"line (\d+)", str(e))
     if m:
         n = int(m.group(1))
@@ -181,4 +179,4 @@ except py_compile.PyCompileError as e:
         for j in range(max(0, n-4), min(len(err_lines), n+4)):
             print(f"  L{j+1}: {err_lines[j]}")
     shutil.copy("core/engine.py.bak_loop", engine_path)
-    print("🔄 원본 복구 완료")
+    print("   ")

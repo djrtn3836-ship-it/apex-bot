@@ -1,7 +1,5 @@
-"""
-APEX BOT Backtester - 성과 리포트 생성기
-JSON + HTML(Plotly) + 콘솔 요약 출력
-"""
+"""APEX BOT Backtester -   
+JSON + HTML(Plotly) +"""
 import json
 from pathlib import Path
 from typing import List, Optional, Dict
@@ -14,14 +12,14 @@ from backtesting.backtester import BacktestResult
 
 
 class PerformanceReporter:
-    """백테스트 성과 리포트 생성"""
+    """docstring"""
 
     def __init__(self, output_dir: str = "./reports/backtest"):
         self.output_dir = Path(output_dir)
         self.output_dir.mkdir(parents=True, exist_ok=True)
 
     def generate(self, result: BacktestResult, strategy_name: str = "") -> Dict:
-        """단일 결과 리포트 생성 (JSON + HTML)"""
+        """(JSON + HTML)"""
         name   = strategy_name or result.strategy
         report = self._build_report(result, name)
         ts     = datetime.now().strftime("%Y%m%d_%H%M%S")
@@ -29,7 +27,7 @@ class PerformanceReporter:
         json_path = self.output_dir / f"report_{result.market}_{name}_{ts}.json"
         with open(json_path, "w", encoding="utf-8") as f:
             json.dump(report, f, ensure_ascii=False, indent=2, default=str)
-        logger.info(f"📄 JSON 리포트 저장: {json_path}")
+        logger.info(f" JSON  : {json_path}")
 
         html_path = self.output_dir / f"report_{result.market}_{name}_{ts}.html"
         self._generate_html(result, report, html_path, name)
@@ -42,7 +40,7 @@ class PerformanceReporter:
         results: List[BacktestResult],
         strategy_names: List[str] = None,
     ) -> Dict:
-        """전략 비교 리포트 생성"""
+        """docstring"""
         comparison = {
             "generated_at": datetime.now().isoformat(),
             "strategies": [],
@@ -53,7 +51,7 @@ class PerformanceReporter:
 
         # 비교 랭킹 출력
         print("\n" + "="*65)
-        print("  📊 전략 비교 리포트")
+        print("     ")
         print("="*65)
         header = f"  {'전략':<25} {'수익률':>8} {'샤프':>7} {'승률':>7} {'낙폭':>8} {'거래수':>6}"
         print(header)
@@ -79,7 +77,7 @@ class PerformanceReporter:
         path = self.output_dir / f"comparison_{ts}.json"
         with open(path, "w", encoding="utf-8") as f:
             json.dump(comparison, f, ensure_ascii=False, indent=2, default=str)
-        logger.info(f"📄 비교 리포트 저장: {path}")
+        logger.info(f"   : {path}")
 
         return comparison
 
@@ -126,7 +124,7 @@ class PerformanceReporter:
         path: Path,
         name: str,
     ):
-        """Plotly 없이도 동작하는 순수 HTML 리포트"""
+        """Plotly    HTML"""
         equity_labels = [str(ts.date()) for ts in result.equity_curve.index[::max(1, len(result.equity_curve)//100)]]
         equity_values = [round(v, 2) for v in result.equity_curve.values[::max(1, len(result.equity_curve)//100)]]
 
@@ -149,7 +147,7 @@ class PerformanceReporter:
 <html lang="ko">
 <head>
   <meta charset="UTF-8">
-  <title>APEX BOT 백테스트: {name} / {result.market}</title>
+  <title>APEX BOT : {name} / {result.market}</title>
   <style>
     body{{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:#0f1117;color:#e0e0e0;margin:0;padding:20px}}
     h1{{color:#f0b429;text-align:center}}
@@ -166,24 +164,24 @@ class PerformanceReporter:
   </style>
 </head>
 <body>
-<h1>📊 APEX BOT 백테스트 리포트</h1>
+<h1> APEX BOT  </h1>
 <h2 style="text-align:center;color:#8892a4">{name} &nbsp;|&nbsp; {result.market} &nbsp;|&nbsp; {result.start_date} ~ {result.end_date}</h2>
 <div class="kpi">
-  <div class="card"><div class="lbl">총 수익률</div>
+  <div class="card"><div class="lbl"> </div>
     <div class="val {'pos' if report['total_return']>=0 else 'neg'}">{report['total_return']:+.2f}%</div></div>
-  <div class="card"><div class="lbl">샤프 비율</div>
+  <div class="card"><div class="lbl"> </div>
     <div class="val neu">{report['sharpe_ratio']:.3f}</div></div>
-  <div class="card"><div class="lbl">최대 낙폭</div>
+  <div class="card"><div class="lbl"> </div>
     <div class="val neg">-{report['max_drawdown']:.2f}%</div></div>
-  <div class="card"><div class="lbl">승률</div>
+  <div class="card"><div class="lbl"></div>
     <div class="val {'pos' if report['win_rate']>=50 else 'neg'}">{report['win_rate']:.1f}%</div></div>
-  <div class="card"><div class="lbl">연환산 수익률</div>
+  <div class="card"><div class="lbl"> </div>
     <div class="val {'pos' if report['annual_return']>=0 else 'neg'}">{report['annual_return']:+.2f}%</div></div>
-  <div class="card"><div class="lbl">손익비율</div>
+  <div class="card"><div class="lbl"></div>
     <div class="val neu">{report['profit_factor']:.2f}</div></div>
-  <div class="card"><div class="lbl">총 거래수</div>
+  <div class="card"><div class="lbl"> </div>
     <div class="val neu">{report['total_trades']}</div></div>
-  <div class="card"><div class="lbl">총 수수료</div>
+  <div class="card"><div class="lbl"> </div>
     <div class="val neg">-₩{report['total_fees']:,.0f}</div></div>
 </div>
 
@@ -210,12 +208,12 @@ ctx.fillText('₩'+min.toLocaleString(),4,H-4);
 ctx.fillText('₩'+max.toLocaleString(),4,14);
 </script>
 
-<h3>최근 거래 내역 (최대 50건)</h3>
+<h3>   ( 50)</h3>
 <table>
-  <thead><tr><th>진입시각</th><th>청산시각</th><th>진입가</th><th>청산가</th><th>수익률</th><th>손익</th><th>청산사유</th></tr></thead>
+  <thead><tr><th></th><th></th><th></th><th></th><th></th><th></th><th></th></tr></thead>
   <tbody>{trades_rows}</tbody>
 </table>
 </body></html>"""
 
         path.write_text(html, encoding="utf-8")
-        logger.info(f"🌐 HTML 리포트 저장: {path}")
+        logger.info(f" HTML  : {path}")

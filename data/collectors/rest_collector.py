@@ -1,8 +1,6 @@
-"""
-APEX BOT - REST API 데이터 수집기
-업비트 REST API → OHLCV + 호가 + 체결 데이터
-레이트 리밋 준수 + 자동 재시도
-"""
+"""APEX BOT - REST API  
+ REST API → OHLCV +  +  
+   +"""
 import asyncio
 import time
 from typing import Optional, Dict, List
@@ -21,13 +19,11 @@ from utils.helpers import RateLimiter, async_retry
 
 
 class RestCollector:
-    """
-    업비트 REST API 데이터 수집기
-    - OHLCV (분봉/일봉/주봉)
-    - 현재가 / 호가 / 체결내역
-    - 자동 레이트 리밋 (초당 10회)
-    - pyupbit fallback → aiohttp 직접 호출
-    """
+    """REST API  
+    - OHLCV (//)
+    -  /  / 
+    -    ( 10)
+    - pyupbit fallback → aiohttp"""
 
     BASE_URL = "https://api.upbit.com/v1"
 
@@ -41,14 +37,12 @@ class RestCollector:
         self, market: str, interval: str = "minute60",
         count: int = 200
     ) -> Optional[pd.DataFrame]:
-        """
-        OHLCV 캔들 데이터 조회
+        """OHLCV   
 
         Args:
             market: 'KRW-BTC'
             interval: 'minute1'|'minute5'|'minute15'|'minute60'|'minute240'|'day'|'week'
-            count: 최대 200개 (업비트 제한)
-        """
+            count:  200 ( )"""
         await self._limiter.acquire()
 
         cache_key = f"{market}_{interval}_{count}"
@@ -68,14 +62,14 @@ class RestCollector:
                     self._cache[cache_key] = {"ts": time.time(), "data": df}
                     return df
             except Exception as e:
-                logger.warning(f"pyupbit OHLCV 오류 ({market}): {e}")
+                logger.warning(f"pyupbit OHLCV  ({market}): {e}")
 
         # aiohttp 직접 호출 (fallback)
         return await self._fetch_ohlcv_api(market, interval, count)
 
     @async_retry(max_attempts=3, delay=1.0)
     async def _fetch_ohlcv_api(self, market: str, interval: str, count: int) -> Optional[pd.DataFrame]:
-        """aiohttp 직접 OHLCV 조회"""
+        """aiohttp  OHLCV"""
         try:
             import aiohttp
             endpoint, params = self._build_candle_request(market, interval, count)
@@ -88,7 +82,7 @@ class RestCollector:
                         await asyncio.sleep(1.0)
                         return None
                     if resp.status != 200:
-                        logger.error(f"API 오류 ({resp.status}): {market}")
+                        logger.error(f"API  ({resp.status}): {market}")
                         return None
                     data = await resp.json()
 
@@ -110,11 +104,11 @@ class RestCollector:
             return df
 
         except Exception as e:
-            logger.error(f"OHLCV API 직접 호출 실패 ({market}): {e}")
+            logger.error(f"OHLCV API    ({market}): {e}")
             return None
 
     def _build_candle_request(self, market: str, interval: str, count: int):
-        """업비트 API 엔드포인트 빌드"""
+        """API"""
         params = {"market": market, "count": min(count, 200)}
         if interval.startswith("minute"):
             unit = interval.replace("minute", "")
@@ -128,7 +122,7 @@ class RestCollector:
         return endpoint, params
 
     async def get_ticker(self, markets: List[str]) -> Optional[List[Dict]]:
-        """현재가 (다중 코인)"""
+        """( )"""
         await self._limiter.acquire()
         if PYUPBIT_OK:
             try:
@@ -151,11 +145,11 @@ class RestCollector:
                     if resp.status == 200:
                         return await resp.json()
         except Exception as e:
-            logger.error(f"티커 조회 실패: {e}")
+            logger.error(f"  : {e}")
         return None
 
     async def get_orderbook(self, market: str) -> Optional[Dict]:
-        """호가창 조회"""
+        """docstring"""
         await self._limiter.acquire()
         try:
             import aiohttp
@@ -166,13 +160,13 @@ class RestCollector:
                         data = await resp.json()
                         return data[0] if data else None
         except Exception as e:
-            logger.error(f"호가 조회 실패 ({market}): {e}")
+            logger.error(f"   ({market}): {e}")
         return None
 
     async def get_multiple_ohlcv(
         self, markets: List[str], interval: str = "minute60", count: int = 200
     ) -> Dict[str, pd.DataFrame]:
-        """다중 코인 OHLCV 병렬 수집"""
+        """OHLCV"""
         tasks = [self.get_ohlcv(m, interval, count) for m in markets]
         results = await asyncio.gather(*tasks, return_exceptions=True)
         return {
@@ -183,7 +177,7 @@ class RestCollector:
 
     @staticmethod
     def _normalize_df(df: pd.DataFrame) -> pd.DataFrame:
-        """pyupbit DataFrame 정규화"""
+        """pyupbit DataFrame"""
         df.index = pd.to_datetime(df.index)
         df.index.name = "datetime"
         for col in ["open", "high", "low", "close", "volume"]:

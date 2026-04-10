@@ -7,7 +7,7 @@ from signals.signal_combiner import CombinedSignal, SignalType
 
 
 class VolumeSpike(BaseStrategy):
-    """거래량 급등 전략 - 비정상적 거래량 + 가격 방향 확인"""
+    """-   +"""
 
     def __init__(self, settings: dict = None):
         super().__init__("VolumeSpike", settings)

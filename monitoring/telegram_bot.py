@@ -1,7 +1,5 @@
-"""
-APEX BOT – 텔레그램 알림 모듈
-자동 푸시 알림: 매수/매도/피라미딩/손절/트레일/시간별 현황
-"""
+"""APEX BOT –   
+  : /////"""
 import asyncio
 import os
 from typing import Optional, Dict
@@ -41,7 +39,7 @@ class TelegramNotifier:
         self._token                      = os.getenv("TELEGRAM_TOKEN", "")
         self._enabled                    = bool(self._token and self._chat_id)
         if not self._enabled:
-            logger.warning("텔레그램 알림 비활성화 (토큰/채팅ID 없음)")
+            logger.warning("   (/ID )")
 
     # ── 초기화 ──────────────────────────────────────────────────────────
     async def initialize(self, engine_ref=None):
@@ -66,7 +64,7 @@ class TelegramNotifier:
             await self._app.start()
             await self._app.updater.start_polling(drop_pending_updates=True)
             me = await self._bot.get_me()
-            logger.info(f"✅ 텔레그램 봇 연결: @{me.username}")
+            logger.info(f"   : @{me.username}")
             # 시작 알림
             await self.send_message(
                 f"✅ *APEX BOT 시작*\n"
@@ -74,7 +72,7 @@ class TelegramNotifier:
                 f"/help 로 명령어 확인"
             )
         except Exception as e:
-            logger.error(f"텔레그램 초기화 실패: {e}")
+            logger.error(f"  : {e}")
             self._enabled = False
 
     # ── 기본 전송 ────────────────────────────────────────────────────────
@@ -88,7 +86,7 @@ class TelegramNotifier:
                 parse_mode = parse_mode,
             )
         except Exception as e:
-            logger.warning(f"텔레그램 전송 실패: {e}")
+            logger.warning(f"  : {e}")
 
     # ── 매수 체결 알림 ───────────────────────────────────────────────────
     async def notify_buy(self, market: str, price: float, amount_krw: float,
@@ -205,7 +203,7 @@ class TelegramNotifier:
             )
             await self.send_message(msg)
         except Exception as e:
-            logger.warning(f"시간별 요약 전송 실패: {e}")
+            logger.warning(f"   : {e}")
 
     # ── 일일 리포트 ──────────────────────────────────────────────────────
     async def send_daily_report(self, stats: Dict):

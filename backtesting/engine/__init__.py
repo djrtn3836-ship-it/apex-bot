@@ -1,4 +1,4 @@
-"""Backtest Engine 패키지"""
+"""Backtest Engine"""
 from .backtest_engine import BacktestEngine, BacktestConfig, BacktestResult
 from .walk_forward    import WalkForwardEngine, WFConfig
 from .monte_carlo     import MonteCarloSimulator

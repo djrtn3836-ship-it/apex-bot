@@ -1,13 +1,11 @@
-"""
-APEX BOT - 인메모리 캐시 관리자 v2.0
-DDR5-5600 32GB 최적화
+"""APEX BOT -    v2.0
+DDR5-5600 32GB 
 
-Step 2 최적화:
-  - 코인별 OHLCV 전량 RAM 상주 (10코인 × 2000봉 ≈ 800MB)
-  - NpyCache 연동: 부팅 시 NVMe → RAM 워밍업
-  - get_*() 호출 시 NVMe fallback 자동
-  - 메모리 사용량 실시간 모니터링
-"""
+Step 2 :
+  -  OHLCV  RAM  (10 × 2000 ≈ 800MB)
+  - NpyCache :   NVMe → RAM 
+  - get_*()   NVMe fallback 
+  -"""
 import time
 from typing import Any, Dict, Optional, List, Tuple
 from collections import defaultdict, deque
@@ -18,15 +16,12 @@ from config.settings import get_settings
 
 
 class CacheManager:
-    """
-    고속 인메모리 캐시 관리자
-    DDR5-5600 32GB 전략적 활용
+    """DDR5-5600 32GB  
 
-    캐시 계층:
-      L1: Python dict (ns 접근)   ← 현재가, 최신 신호
-      L2: numpy array (μs 접근)  ← OHLCV + 지표 전량
-      L3: NvMe mmap (ms 접근)    ← 장기 보관 캔들
-    """
+     :
+      L1: Python dict (ns )   ← ,  
+      L2: numpy array (μs )  ← OHLCV +  
+      L3: NvMe mmap (ms )    ←"""
 
     def __init__(self):
         self.settings     = get_settings()
@@ -55,15 +50,15 @@ class CacheManager:
         try:
             from data.storage.npy_cache import get_npy_cache
             self._npy_cache = get_npy_cache()
-            logger.info("✅ NpyCache 연동 완료 (NVMe L3 캐시)")
+            logger.info(" NpyCache   (NVMe L3 )")
         except Exception as e:
             self._npy_cache = None
-            logger.debug(f"NpyCache 연동 실패 (무시): {e}")
+            logger.debug(f"NpyCache   (): {e}")
 
         logger.info(
-            f"✅ CacheManager 초기화 | "
-            f"캔들={max_candles}/코인 | 틱={max_ticks}/코인 | "
-            f"추정 메모리≈{self._estimate_memory_mb():.0f}MB"
+            f" CacheManager  | "
+            f"={max_candles}/ | ={max_ticks}/ | "
+            f" ≈{self._estimate_memory_mb():.0f}MB"
         )
 
     # ── 가격 캐시 ─────────────────────────────────────────────────
@@ -164,10 +159,8 @@ class CacheManager:
     # ── NpyCache 연동 (L3 → L2 워밍업) ──────────────────────────
 
     def warmup_from_npy(self, markets: List[str], timeframes: List[str] = None):
-        """
-        ✅ Step 2: 부팅 시 NVMe 캐시 → RAM 워밍업
-        Crucial E100 NVMe → DDR5 RAM 전송
-        """
+        """Step 2:   NVMe  → RAM 
+        Crucial E100 NVMe → DDR5 RAM"""
         if self._npy_cache is None:
             return
         if timeframes is None:
@@ -183,27 +176,27 @@ class CacheManager:
                             self.candle_cache[market][tf].append(row.to_dict())
                         loaded += 1
                         logger.debug(
-                            f"⚡ NVMe→RAM 워밍업: {market}/{tf} | {len(df)}행"
+                            f" NVMe→RAM : {market}/{tf} | {len(df)}행"
                         )
 
         if loaded > 0:
             logger.info(
-                f"✅ NVMe 캐시 워밍업 완료: {loaded}개 마켓/타임프레임 로드"
+                f" NVMe   : {loaded} / "
             )
 
     def save_to_npy(self, market: str, timeframe: str, df):
-        """pandas DataFrame을 NpyCache에 비동기 저장"""
+        """pandas DataFrame NpyCache"""
         if self._npy_cache is None or df is None:
             return
         try:
             self._npy_cache.save(market, timeframe, df)
         except Exception as e:
-            logger.debug(f"NpyCache 저장 실패 ({market}/{timeframe}): {e}")
+            logger.debug(f"NpyCache   ({market}/{timeframe}): {e}")
 
     # ── 메모리 모니터링 ───────────────────────────────────────────
 
     def _estimate_memory_mb(self) -> float:
-        """캐시 예상 메모리 사용량 (MB) 추정"""
+        """(MB)"""
         max_c       = self.settings.database.cache_max_candles
         markets     = len(self.settings.trading.target_markets)
         # 캔들 1개 ≈ 200바이트 (지표 포함)
@@ -213,7 +206,7 @@ class CacheManager:
         return candle_mb + tick_mb
 
     def get_memory_usage_mb(self) -> float:
-        """실제 메모리 사용량 (MB)"""
+        """(MB)"""
         try:
             import psutil, os
             proc = psutil.Process(os.getpid())
@@ -226,7 +219,7 @@ class CacheManager:
 
     # ── OHLCV 래퍼 (NpyCache 위임) ─────────────────────────────────
     def get_ohlcv(self, market: str, interval: str = "1h"):
-        """NpyCache에서 OHLCV DataFrame 반환. 없으면 None."""
+        """NpyCache OHLCV DataFrame .  None."""
         try:
             npy = getattr(self, '_npy_cache', None)
             if npy is not None:
@@ -244,11 +237,11 @@ class CacheManager:
         return None
 
     def get_candles(self, market: str, interval: str = "1h"):
-        """get_ohlcv 별칭 (하위 호환)."""
+        """get_ohlcv  ( )."""
         return self.get_ohlcv(market, interval)
 
     def set_ohlcv(self, market: str, interval: str, df) -> None:
-        """NpyCache에 OHLCV DataFrame 저장."""
+        """NpyCache OHLCV DataFrame ."""
         try:
             npy = getattr(self, '_npy_cache', None)
             if npy is not None:

@@ -1,18 +1,14 @@
-"""
-fix_telegram_notify.py
-– notify_buy / notify_sell / notify_risk 메시지 포맷 완성
-– 1시간 자동 현황 알림 추가
-"""
+"""fix_telegram_notify.py
+– notify_buy / notify_sell / notify_risk   
+– 1"""
 import shutil, py_compile
 from pathlib import Path
 
 tg_path = Path("monitoring/telegram_bot.py")
 shutil.copy(tg_path, "monitoring/telegram_bot.py.bak_notify")
 
-NEW_CODE = '''"""
-APEX BOT – 텔레그램 알림 모듈
-자동 푸시 알림: 매수/매도/피라미딩/손절/트레일/시간별 현황
-"""
+NEW_CODE = '''"""APEX BOT –   
+  : /////"""
 import asyncio
 import os
 from typing import Optional, Dict
@@ -52,7 +48,7 @@ class TelegramNotifier:
         self._token                      = os.getenv("TELEGRAM_TOKEN", "")
         self._enabled                    = bool(self._token and self._chat_id)
         if not self._enabled:
-            logger.warning("텔레그램 알림 비활성화 (토큰/채팅ID 없음)")
+            logger.warning("   (/ID )")
 
     # ── 초기화 ──────────────────────────────────────────────────────────
     async def initialize(self, engine_ref=None):
@@ -77,7 +73,7 @@ class TelegramNotifier:
             await self._app.start()
             await self._app.updater.start_polling(drop_pending_updates=True)
             me = await self._bot.get_me()
-            logger.info(f"✅ 텔레그램 봇 연결: @{me.username}")
+            logger.info(f"   : @{me.username}")
             # 시작 알림
             await self.send_message(
                 f"✅ *APEX BOT 시작*\\n"
@@ -85,7 +81,7 @@ class TelegramNotifier:
                 f"/help 로 명령어 확인"
             )
         except Exception as e:
-            logger.error(f"텔레그램 초기화 실패: {e}")
+            logger.error(f"  : {e}")
             self._enabled = False
 
     # ── 기본 전송 ────────────────────────────────────────────────────────
@@ -99,7 +95,7 @@ class TelegramNotifier:
                 parse_mode = parse_mode,
             )
         except Exception as e:
-            logger.warning(f"텔레그램 전송 실패: {e}")
+            logger.warning(f"  : {e}")
 
     # ── 매수 체결 알림 ───────────────────────────────────────────────────
     async def notify_buy(self, market: str, price: float, amount_krw: float,
@@ -216,7 +212,7 @@ class TelegramNotifier:
             )
             await self.send_message(msg)
         except Exception as e:
-            logger.warning(f"시간별 요약 전송 실패: {e}")
+            logger.warning(f"   : {e}")
 
     # ── 일일 리포트 ──────────────────────────────────────────────────────
     async def send_daily_report(self, stats: Dict):
@@ -289,9 +285,9 @@ class TelegramNotifier:
 tg_path.write_text(NEW_CODE, encoding="utf-8")
 try:
     py_compile.compile(str(tg_path), doraise=True)
-    print("✅ telegram_bot.py 완전 재작성 완료")
-    print("   다음: python start_paper.py")
+    print(" telegram_bot.py   ")
+    print("   : python start_paper.py")
 except py_compile.PyCompileError as e:
-    print(f"❌ 문법 오류: {e}")
+    print(f"  : {e}")
     shutil.copy("monitoring/telegram_bot.py.bak_notify", tg_path)
-    print("🔄 원본 복구")
+    print("  ")

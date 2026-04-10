@@ -1,7 +1,4 @@
-"""
-APEX BOT - 전략 기본 클래스 (Abstract Base Class)
-모든 전략이 상속하는 표준 인터페이스
-"""
+"""APEX BOT -    (Abstract Base Class)"""
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from datetime import datetime
@@ -21,7 +18,7 @@ class SignalType(Enum):
 
 @dataclass
 class StrategySignal:
-    """전략 신호 데이터"""
+    """docstring"""
     strategy_name: str
     market: str
     signal: SignalType
@@ -49,18 +46,18 @@ class StrategySignal:
 
     @property
     def weighted_score(self) -> float:
-        """가중 점수 (신호값 × 신뢰도)"""
+        """( × )"""
         return self.score * self.confidence
 
     # ── 하위 호환 속성 (signal_type, strength) ──────────────────
     @property
     def signal_type(self) -> 'SignalType':
-        """하위 호환: signal 필드의 별칭"""
+        """: signal"""
         return self.signal
 
     @property
     def strength(self) -> float:
-        """하위 호환: score 필드의 별칭"""
+        """: score"""
         return self.score
 
 
@@ -69,10 +66,7 @@ Signal = StrategySignal
 
 
 class BaseStrategy(ABC):
-    """
-    전략 추상 기본 클래스
-    모든 전략 모듈이 이 클래스를 상속
-    """
+    """docstring"""
 
     # 전략 메타데이터 (하위 클래스에서 오버라이드)
     NAME: str = "base"
@@ -89,36 +83,34 @@ class BaseStrategy(ABC):
 
     @abstractmethod
     def _default_params(self) -> dict:
-        """기본 파라미터 반환"""
+        """docstring"""
         return {}
 
     @abstractmethod
     def generate_signal(self, df: pd.DataFrame, market: str,
                         timeframe: str = "60") -> Optional[StrategySignal]:
-        """
-        신호 생성 (핵심 메서드)
+        """( )
         
         Args:
-            df: OHLCV + 지표 DataFrame (calculate_all_indicators 적용 완료)
-            market: 마켓 코드 (예: "KRW-BTC")
-            timeframe: 타임프레임 (분 단위)
+            df: OHLCV +  DataFrame (calculate_all_indicators  )
+            market:   (: "KRW-BTC")
+            timeframe:  ( )
         
         Returns:
-            StrategySignal 또는 None (신호 없음)
-        """
+            StrategySignal  None ( )"""
         pass
 
     def validate_df(self, df: pd.DataFrame) -> bool:
-        """DataFrame 유효성 검증"""
+        """DataFrame"""
         if df is None or df.empty:
             return False
         if len(df) < self.MIN_CANDLES:
-            logger.debug(f"⚠️ {self.NAME}: 캔들 부족 ({len(df)} < {self.MIN_CANDLES})")
+            logger.debug(f" {self.NAME}:   ({len(df)} < {self.MIN_CANDLES})")
             return False
         required_cols = ["open", "high", "low", "close", "volume"]
         missing = [c for c in required_cols if c not in df.columns]
         if missing:
-            logger.warning(f"⚠️ {self.NAME}: 필수 컬럼 누락 {missing}")
+            logger.warning(f" {self.NAME}:    {missing}")
             return False
         return True
 
@@ -135,7 +127,7 @@ class BaseStrategy(ABC):
         timeframe: str,
         metadata: dict = None
     ) -> StrategySignal:
-        """신호 객체 생성 헬퍼"""
+        """docstring"""
         self._signal_count += 1
         sig = StrategySignal(
             strategy_name=self.NAME,
@@ -153,8 +145,8 @@ class BaseStrategy(ABC):
         )
         self._last_signal = sig
         logger.info(
-            f"📊 [{self.NAME}] {signal.name} 신호 | {market} | "
-            f"점수: {score:.2f} | 신뢰도: {confidence:.2%} | {reason}"
+            f" [{self.NAME}] {signal.name}  | {market} | "
+            f": {score:.2f} | : {confidence:.2%} | {reason}"
         )
         return sig
 
@@ -180,19 +172,19 @@ class BaseStrategy(ABC):
     # ── 하위 호환 속성 & 메서드 ───────────────────────────────────
     @property
     def name(self) -> str:
-        """하위 호환: NAME 클래스 속성의 인스턴스 별칭"""
+        """: NAME"""
         return self.NAME
 
     @property
     def weight(self) -> float:
-        """하위 호환: WEIGHT 클래스 속성의 인스턴스 별칭"""
+        """: WEIGHT"""
         return self.WEIGHT
 
     def get_parameters(self) -> dict:
-        """하위 호환: _default_params() 별칭 + 현재 params 반환"""
+        """: _default_params()  +  params"""
         return self.params.copy()
 
     def analyze(self, market: str, df: pd.DataFrame,
                 timeframe: str = "60") -> Optional[StrategySignal]:
-        """하위 호환: generate_signal() 의 인수 순서 교체 래퍼"""
+        """: generate_signal()"""
         return self.generate_signal(df, market, timeframe)

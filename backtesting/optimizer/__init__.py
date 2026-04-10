@@ -1,3 +1,3 @@
-"""Optimizer 패키지"""
+"""Optimizer"""
 from .param_optimizer import ParamOptimizer, OptimResult
 __all__ = ["ParamOptimizer", "OptimResult"]

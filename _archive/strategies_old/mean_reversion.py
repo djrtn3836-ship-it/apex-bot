@@ -7,7 +7,7 @@ from signals.signal_combiner import CombinedSignal, SignalType
 
 
 class MeanReversion(BaseStrategy):
-    """평균 회귀 전략 - 볼린저 밴드 + RSI 기반"""
+    """-   + RSI"""
 
     def __init__(self, settings: dict = None):
         super().__init__("MeanReversion", settings)

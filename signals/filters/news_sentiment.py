@@ -1,23 +1,21 @@
-"""
-APEX BOT - 뉴스 감성 분석 (NLP 기반)
-급등/급락 선행 신호 포착
+"""APEX BOT -    (NLP )
+/   
 
-데이터 소스:
-  1. CryptoPanic API  (무료 티어 가능)
-  2. CoinDesk RSS 피드
-  3. 업비트 공지사항
+ :
+  1. CryptoPanic API  (  )
+  2. CoinDesk RSS 
+  3.  
   4. Google Trends (pytrends)
 
-분석 방법:
-  - 규칙 기반 키워드 매핑 (즉시 사용 가능)
-  - VADER 감성 분석 (nltk, 경량)
-  - FinBERT 추론 (transformers, GPU 가속)  ← 선택사항
+ :
+  -     (  )
+  - VADER   (nltk, )
+  - FinBERT  (transformers, GPU )  ← 
 
-출력:
-  sentiment_score:  -1.0 (극도 부정) ~ +1.0 (극도 긍정)
-  signal_boost:     BUY 임계값 조정 (-2.0 ~ +2.0)
-  hot_topics:       감지된 긍정/부정 키워드
-"""
+:
+  sentiment_score:  -1.0 ( ) ~ +1.0 ( )
+  signal_boost:     BUY   (-2.0 ~ +2.0)
+  hot_topics:        /"""
 from __future__ import annotations
 import os
 
@@ -137,15 +135,13 @@ class NewsItem:
 # ──────────────────────────────────────────────────────────────
 
 class NewsSentimentAnalyzer:
-    """
-    뉴스 감성 분석 + 매매 신호 조정
+    """+   
 
-    사용 흐름:
+     :
       analyzer = NewsSentimentAnalyzer()
-      await analyzer.fetch_news()           # 뉴스 수집
-      score, boost = analyzer.get_signal_boost("KRW-BTC")  # 신호 조정
-      can_buy, reason = analyzer.can_buy("KRW-BTC")         # 매수 허용 여부
-    """
+      await analyzer.fetch_news()           #  
+      score, boost = analyzer.get_signal_boost("KRW-BTC")  #  
+      can_buy, reason = analyzer.can_buy("KRW-BTC")         #"""
 
     CACHE_DIR = Path("data/news_cache")
     CRYPTOPANIC_URL = "https://cryptopanic.com/api/v1/posts/"
@@ -184,21 +180,21 @@ class NewsSentimentAnalyzer:
                     model="ProsusAI/finbert",
                     device=device,
                 )
-                logger.info("🤖 FinBERT 감성 모델 로드 완료")
+                logger.info(" FinBERT    ")
             except Exception as e:
-                logger.warning(f"FinBERT 로드 실패 (규칙 기반 사용): {e}")
+                logger.warning(f"FinBERT   (  ): {e}")
 
         self.CACHE_DIR.mkdir(parents=True, exist_ok=True)
         logger.info(
-            f"📰 뉴스 감성 분석기 초기화 | "
-            f"VADER={'✅' if self._vader else '❌'} | "
-            f"FinBERT={'✅' if self._finbert else '❌'}"
+            f"     | "
+            f"VADER={'' if self._vader else ''} | "
+            f"FinBERT={'' if self._finbert else ''}"
         )
 
     # ── Public API ──────────────────────────────────────────────
 
     async def fetch_news(self) -> int:
-        """뉴스 수집 (캐시 유효 시 스킵)"""
+        """(   )"""
         now = time.time()
         if now - self._last_fetch < self.cache_hours * 3600:
             return 0
@@ -221,18 +217,14 @@ class NewsSentimentAnalyzer:
         self._update_market_scores()
         self._last_fetch = now
 
-        logger.info(f"📰 뉴스 {len(new_items)}건 수집 / 분석 완료")
+        logger.info(f"  {len(new_items)}건 수집 / 분석 완료")
         return len(new_items)
 
     def get_signal_boost(self, market: str) -> Tuple[float, float]:
-        """
-        마켓별 뉴스 기반 신호 조정값 반환
-
-        Returns:
+        """Returns:
             (sentiment_score, signal_boost)
             sentiment_score: -1.0 ~ +1.0
-            signal_boost:   매수 임계값 조정 (-2.0 = 낮춤/강화, +2.0 = 높임/억제)
-        """
+            signal_boost:      (-2.0 = /, +2.0 = /)"""
         score = self._market_scores.get(market, 0.0)
         # 전체 시장 점수도 반영
         global_score = self._market_scores.get("GLOBAL", 0.0)
@@ -246,12 +238,8 @@ class NewsSentimentAnalyzer:
         return round(combined, 3), round(boost, 3)
 
     def can_buy(self, market: str) -> Tuple[bool, str]:
-        """
-        강한 부정 뉴스 시 매수 차단
-
-        Returns:
-            (can_buy, reason)
-        """
+        """Returns:
+            (can_buy, reason)"""
         score, _ = self.get_signal_boost(market)
         if score < -0.6:
             reason = f"뉴스 감성 매우 부정 ({score:.2f}): {self._get_top_negative(market)}"
@@ -261,7 +249,7 @@ class NewsSentimentAnalyzer:
     def get_recent_news(
         self, market: Optional[str] = None, n: int = 5
     ) -> List[Dict]:
-        """최근 뉴스 요약 반환"""
+        """docstring"""
         items = list(self._news_cache)
         if market:
             coin = market.replace("KRW-", "").lower()
@@ -278,7 +266,7 @@ class NewsSentimentAnalyzer:
         ]
 
     def get_dashboard_summary(self) -> Dict:
-        """대시보드용 감성 요약"""
+        """docstring"""
         positive = sum(1 for i in self._news_cache if i.sentiment_score > 0.3)
         negative = sum(1 for i in self._news_cache if i.sentiment_score < -0.3)
         neutral  = len(self._news_cache) - positive - negative
@@ -296,7 +284,7 @@ class NewsSentimentAnalyzer:
     # ── 뉴스 수집 ───────────────────────────────────────────────
 
     async def _fetch_cryptopanic(self) -> List[NewsItem]:
-        """CryptoPanic API 뉴스 수집"""
+        """CryptoPanic API"""
         if not self.api_key:
             return []
         try:
@@ -335,11 +323,11 @@ class NewsSentimentAnalyzer:
             return items
 
         except Exception as e:
-            logger.debug(f"CryptoPanic 수집 오류: {e}")
+            logger.debug(f"CryptoPanic  : {e}")
             return []
 
     async def _fetch_coindesk_rss(self) -> List[NewsItem]:
-        """CoinDesk RSS 피드"""
+        """CoinDesk RSS"""
         try:
             import xml.etree.ElementTree as ET
             timeout = aiohttp.ClientTimeout(total=10)
@@ -367,13 +355,13 @@ class NewsSentimentAnalyzer:
             return items[:20]  # 최신 20개
 
         except Exception as e:
-            logger.debug(f"CoinDesk RSS 수집 오류: {e}")
+            logger.debug(f"CoinDesk RSS  : {e}")
             return []
 
     # ── 감성 분석 ───────────────────────────────────────────────
 
     def _score_item(self, item: NewsItem):
-        """단일 뉴스 아이템 감성 점수 계산"""
+        """docstring"""
         title_lower = item.title.lower()
 
         # 1단계: FinBERT (고정밀)
@@ -409,7 +397,7 @@ class NewsSentimentAnalyzer:
         item.sentiment_score = self._keyword_score(title_lower)
 
     def _keyword_score(self, text: str) -> float:
-        """키워드 기반 점수 계산"""
+        """docstring"""
         score = 0.0
         hits = 0
         for kw, val in BULLISH_KEYWORDS.items():
@@ -425,13 +413,13 @@ class NewsSentimentAnalyzer:
         return max(-1.0, min(1.0, score / (hits * 4)))  # 정규화
 
     def _apply_keywords(self, text: str, base_score: float) -> float:
-        """VADER 점수에 키워드 보정 적용"""
+        """VADER"""
         kw_score = self._keyword_score(text)
         # 70% VADER + 30% 키워드 가중 평균
         return base_score * 0.7 + kw_score * 0.3
 
     def _update_market_scores(self):
-        """최근 1시간 뉴스로 마켓별 점수 업데이트"""
+        """1"""
         cutoff = time.time() - 3600  # 1시간 이내만
         market_sums = defaultdict(list)
         global_sums = []
@@ -460,7 +448,7 @@ class NewsSentimentAnalyzer:
                 self._market_scores[market] = sum(scores) / len(scores)
 
     def _get_top_negative(self, market: str) -> str:
-        """가장 부정적인 최근 뉴스 제목"""
+        """docstring"""
         coin = market.replace("KRW-", "").lower()
         neg_items = [
             i for i in self._news_cache
@@ -490,7 +478,7 @@ _global_analyzer: Optional[NewsSentimentAnalyzer] = None
 
 
 def get_news_analyzer() -> NewsSentimentAnalyzer:
-    """싱글턴 분석기 반환"""
+    """docstring"""
     global _global_analyzer
     if _global_analyzer is None:
         _global_analyzer = NewsSentimentAnalyzer(
@@ -509,17 +497,17 @@ if __name__ == "__main__":
     async def _test():
         analyzer = NewsSentimentAnalyzer()
         n = await analyzer.fetch_news()
-        print(f"\n수집된 뉴스: {n}건")
+        print(f"\n : {n}")
 
         for market in ["KRW-BTC", "KRW-ETH", "KRW-XRP"]:
             score, boost = analyzer.get_signal_boost(market)
             can_buy, reason = analyzer.can_buy(market)
             print(
-                f"\n{market}: 감성={score:+.3f} | 신호보정={boost:+.2f} | "
-                f"{'✅ 매수가능' if can_buy else '❌ ' + reason}"
+                f"\n{market}: ={score:+.3f} | ={boost:+.2f} | "
+                f"{' ' if can_buy else ' ' + reason}"
             )
 
-        print("\n=== 최근 뉴스 ===")
+        print("\n===   ===")
         for news in analyzer.get_recent_news(n=5):
             print(
                 f"[{news['time']}] {news['sentiment']:+.2f} | "

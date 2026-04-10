@@ -1,9 +1,7 @@
-"""
-fix_unlimited_analysis.py
-1. 분석은 모든 코인 대상 (포지션 수 제한 없음)
-2. 신규 진입만 잔고/포지션 수로 제한
-3. max_positions를 진입 제한이 아닌 리스크 한도로만 사용
-"""
+"""fix_unlimited_analysis.py
+1.     (   )
+2.   /  
+3. max_positions"""
 import shutil, py_compile, re
 from pathlib import Path
 
@@ -86,15 +84,15 @@ while i < len(lines):
 
 if fix1_done:
     text = "\n".join(out)
-    print("✅ FIX-1: 전체 코인 분석 (포지션 수 무관) 적용 완료")
+    print(" FIX-1:    (  ) 적용 완료")
 else:
-    print("⚠️ FIX-1: 조건 블록을 찾지 못함 – 현재 구조 확인 필요")
+    print(" FIX-1:     –    ")
 
 # ── FIX-2: _analyze_existing_position 없으면 추가 ────────────────────────
 if "_analyze_existing_position" not in text:
     NEW_METHOD = '''
     async def _analyze_existing_position(self, market: str):
-        """기존 포지션 ML 재평가 – 익절/추가매수 기회 탐색"""
+        """ML  – /"""
         try:
             df = self.cache_manager.get_candles(market, "1h")
             if df is None or len(df) < 10:
@@ -111,16 +109,16 @@ if "_analyze_existing_position" not in text:
             current = self._market_prices.get(market, entry)
             pnl_pct = (current - entry) / entry * 100 if entry > 0 else 0
             logger.debug(
-                f"📊 포지션 재평가 | {market} | "
+                f"   | {market} | "
                 f"ML={signal}({conf:.2f}) | PnL={pnl_pct:+.2f}%"
             )
             if signal == "SELL" and conf > 0.75 and pnl_pct > 1.0:
                 logger.info(
-                    f"🎯 ML 익절 신호 | {market} | "
-                    f"신뢰도={conf:.2f} | 수익={pnl_pct:+.2f}%"
+                    f" ML   | {market} | "
+                    f"={conf:.2f} | ={pnl_pct:+.2f}%"
                 )
         except Exception as e:
-            logger.debug(f"포지션 재평가 오류 ({market}): {e}")
+            logger.debug(f"   ({market}): {e}")
 
 '''
     lines2 = text.splitlines()
@@ -128,10 +126,10 @@ if "_analyze_existing_position" not in text:
         if "async def _analyze_market" in ln:
             lines2 = lines2[:idx] + NEW_METHOD.splitlines() + lines2[idx:]
             text = "\n".join(lines2)
-            print("✅ FIX-2: _analyze_existing_position 추가 완료")
+            print(" FIX-2: _analyze_existing_position  ")
             break
 else:
-    print("✔ FIX-2: _analyze_existing_position 이미 존재")
+    print(" FIX-2: _analyze_existing_position  ")
 
 # ── FIX-3: 1시간 텔레그램 스케줄 ────────────────────────────────────────
 if "hourly_telegram_summary" not in text:
@@ -151,19 +149,19 @@ if "hourly_telegram_summary" not in text:
             ]
             lines3 = lines3[:idx] + block + lines3[idx:]
             text = "\n".join(lines3)
-            print("✅ FIX-3: 1시간 텔레그램 스케줄 등록 완료")
+            print(" FIX-3: 1    ")
             break
 else:
-    print("✔ FIX-3: 스케줄 이미 등록됨")
+    print(" FIX-3:   ")
 
 # ── 저장 및 컴파일 ───────────────────────────────────────────────────────
 engine_path.write_text(text, encoding="utf-8")
 try:
     py_compile.compile(str(engine_path), doraise=True)
-    print("\n✅ engine.py 문법 OK – 전체 수정 완료")
-    print("   다음: python start_paper.py")
+    print("\n engine.py  OK –   ")
+    print("   : python start_paper.py")
 except py_compile.PyCompileError as e:
-    print(f"\n❌ 문법 오류: {e}")
+    print(f"\n  : {e}")
     m = re.search(r"line (\d+)", str(e))
     if m:
         n = int(m.group(1))
@@ -171,4 +169,4 @@ except py_compile.PyCompileError as e:
         for j in range(max(0, n-4), min(len(err_lines), n+5)):
             print(f"  L{j+1}: {err_lines[j]}")
     shutil.copy("core/engine.py.bak_unlimited", engine_path)
-    print("🔄 원본 복구 완료")
+    print("   ")

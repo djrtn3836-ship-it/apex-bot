@@ -7,7 +7,7 @@ from signals.signal_combiner import CombinedSignal, SignalType
 
 
 class VolatilityBreakout(BaseStrategy):
-    """변동성 돌파 전략 - Larry Williams 방식"""
+    """- Larry Williams"""
 
     def __init__(self, settings: dict = None):
         super().__init__("VolatilityBreakout", settings)

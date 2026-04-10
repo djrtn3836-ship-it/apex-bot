@@ -1,15 +1,13 @@
 # run_ml_train_v4.py
-"""
-APEX BOT — ML 개선 학습 v4
-v3 실패 원인 수정:
-  1. 데이터: minute60 × 200 × 5코인배치 → day(1d) × 500개 (중복 없음)
-  2. Loss: FocalLoss 제거 → CrossEntropyLoss + label_smoothing=0.05
-  3. threshold: 0.6% → 1.0% (명확한 신호)
-  4. horizon: 3 → 5 (안정적 예측)
-  5. 추가 피처 10개 유지 (검증된 것만)
-  6. 데이터 augmentation: 가우시안 노이즈 추가
-실행: python run_ml_train_v4.py
-"""
+"""APEX BOT — ML   v4
+v3   :
+  1. : minute60 × 200 × 5 → day(1d) × 500 ( )
+  2. Loss: FocalLoss  → CrossEntropyLoss + label_smoothing=0.05
+  3. threshold: 0.6% → 1.0% ( )
+  4. horizon: 3 → 5 ( )
+  5.   10  ( )
+  6.  augmentation:   
+: python run_ml_train_v4.py"""
 import asyncio, sys
 import numpy as np
 from pathlib import Path
@@ -19,11 +17,8 @@ sys.path.insert(0, str(ROOT))
 
 
 async def collect_data_v4():
-    """
-    멀티 타임프레임 데이터 수집
-    - minute60: 500개 (기존 v2 방식, 검증됨)
-    - 코인당 486행 × 10코인 = 4860행 목표
-    """
+    """- minute60: 500 ( v2 , )
+    -  486 × 10 = 4860"""
     from config.settings import get_settings
     from data.collectors.rest_collector import RestCollector
     from data.processors.candle_processor import CandleProcessor
@@ -35,40 +30,38 @@ async def collect_data_v4():
     processor = CandleProcessor()
     all_dfs   = []
 
-    print(f"\n[1/5] OHLCV 수집 (minute60 × 500개 × {len(markets)}코인)...")
+    print(f"\n[1/5] OHLCV  (minute60 × 500 × {len(markets)}코인)...")
     for market in markets:
         try:
             # v2와 동일한 방식 (검증됨)
             df = await collector.get_ohlcv(market, "minute60", 500)
             if df is None or len(df) < 100:
-                print(f"  ⚠️  {market}: 데이터 부족 — 스킵")
+                print(f"    {market}:   — ")
                 continue
             df_proc = await processor.process(market, df, "60")
             if df_proc is None or len(df_proc) < 100:
-                print(f"  ⚠️  {market}: 전처리 실패 — 스킵")
+                print(f"    {market}:   — ")
                 continue
             all_dfs.append(df_proc)
-            print(f"  ✅ {market}: {len(df_proc)}행")
+            print(f"   {market}: {len(df_proc)}행")
             await asyncio.sleep(0.35)
         except Exception as e:
-            print(f"  ❌ {market}: {e}")
+            print(f"   {market}: {e}")
 
     if not all_dfs:
         return None, None
 
     combined = pd.concat(all_dfs, ignore_index=True)
-    print(f"\n  📊 합산: {len(combined)}행 × {len(combined.columns)}컬럼")
+    print(f"\n   : {len(combined)}행 × {len(combined.columns)}컬럼")
     return combined, all_dfs
 
 
 def extract_features_v4(trainer, df, threshold=0.010, horizon=5):
-    """
-    v4 피처 추출
-    - threshold 1.0% (명확한 BUY/SELL 신호)
-    - horizon 5 (안정적)
-    - 추가 피처 10개 (검증된 것만)
-    - 데이터 증강: 가우시안 노이즈
-    """
+    """v4  
+    - threshold 1.0% ( BUY/SELL )
+    - horizon 5 ()
+    -   10 ( )
+    -  :"""
     from config.settings import get_settings
 
     settings = get_settings()
@@ -84,7 +77,7 @@ def extract_features_v4(trainer, df, threshold=0.010, horizon=5):
     ] if c in df.columns]
 
     if len(base_cols) < 5:
-        raise ValueError(f"피처 부족: {len(base_cols)}개")
+        raise ValueError(f" : {len(base_cols)}개")
 
     data   = df[base_cols].values.astype(np.float32)
     close  = df["close"].values.astype(np.float32)
@@ -170,12 +163,12 @@ def extract_features_v4(trainer, df, threshold=0.010, horizon=5):
         else:
             hold_cnt += 1
 
-    print(f"\n  레이블 분포 (threshold={threshold*100:.1f}%, horizon={horizon}):")
-    print(f"    BUY : {buy_cnt:4d}개 ({buy_cnt/n*100:.1f}%)")
-    print(f"    HOLD: {hold_cnt:4d}개 ({hold_cnt/n*100:.1f}%)")
-    print(f"    SELL: {sell_cnt:4d}개 ({sell_cnt/n*100:.1f}%)")
-    print(f"    피처: {data_combined.shape[1]}개 "
-          f"(기본 {len(base_cols)} + 추가 10)")
+    print(f"\n    (threshold={threshold*100:.1f}%, horizon={horizon}):")
+    print(f"    BUY : {buy_cnt:4d} ({buy_cnt/n*100:.1f}%)")
+    print(f"    HOLD: {hold_cnt:4d} ({hold_cnt/n*100:.1f}%)")
+    print(f"    SELL: {sell_cnt:4d} ({sell_cnt/n*100:.1f}%)")
+    print(f"    : {data_combined.shape[1]} "
+          f"( {len(base_cols)} + 추가 10)")
 
     # ── 시퀀스 생성 ───────────────────────────────────────────
     X, y = [], []
@@ -202,19 +195,17 @@ def extract_features_v4(trainer, df, threshold=0.010, horizon=5):
         # 셔플
         perm = np.random.permutation(len(X))
         X, y = X[perm], y[perm]
-        print(f"    증강 후 샘플: {len(X)}개 "
+        print(f"      : {len(X)}개 "
               f"(원본 {len(perm)-len(aug_X)} + 증강 {len(aug_X)})")
 
     return X, y
 
 
 def train_v4(trainer, X, y):
-    """
-    v4 학습
+    """v4 
     - CrossEntropyLoss + label_smoothing=0.05
     - AdamW + CosineAnnealingWarmRestarts
-    - 클래스 가중치 유지
-    """
+    -"""
     import torch
     import torch.nn as nn
     import torch.optim as optim
@@ -226,14 +217,14 @@ def train_v4(trainer, X, y):
     ml_cfg   = settings.ml
     device   = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
-    print(f"\n[3/5] 클래스 가중치 계산...")
+    print(f"\n[3/5]   ...")
     unique, counts = np.unique(y, return_counts=True)
     total = len(y)
     weight_arr = np.zeros(3, dtype=np.float32)
     for cls, cnt in zip(unique, counts):
         weight_arr[cls] = total / (3 * cnt)
     class_weights = torch.tensor(weight_arr).to(device)
-    print(f"  클래스 가중치: BUY={weight_arr[0]:.2f} | "
+    print(f"   : BUY={weight_arr[0]:.2f} | "
           f"HOLD={weight_arr[1]:.2f} | SELL={weight_arr[2]:.2f}")
 
     # 시간순 분할 (증강 데이터는 뒤에 붙어있으므로 앞 80% 사용)
@@ -253,7 +244,7 @@ def train_v4(trainer, X, y):
         pin_memory=True, num_workers=0
     )
 
-    print(f"\n[4/5] 모델 학습 시작 ({device})...")
+    print(f"\n[4/5]    ({device})...")
     model = EnsembleModel(
         input_size  = ml_cfg.feature_count,
         hidden_size = ml_cfg.hidden_size,
@@ -375,7 +366,7 @@ def train_v4(trainer, X, y):
 
     if best_state:
         model.load_state_dict(best_state)
-    print(f"\n  ✅ 학습 완료 | Best Val Loss={best_val_loss:.4f} "
+    print(f"\n     | Best Val Loss={best_val_loss:.4f} "
           f"| Best Epoch={best_epoch}")
     return model, best_metrics
 
@@ -387,11 +378,11 @@ def save_v4(model, metrics, test_df):
     src = Path("models/saved/ensemble_best.pt")
     if src.exists():
         shutil.copy(src, "models/saved/ensemble_backup_before_v4.pt")
-        print("  📦 v2 모델 백업: ensemble_backup_before_v4.pt")
+        print("   v2  : ensemble_backup_before_v4.pt")
 
     Path("models/saved").mkdir(parents=True, exist_ok=True)
     torch.save(model.state_dict(), src)
-    print(f"\n[5/5] 모델 저장: models/saved/ensemble_best.pt")
+    print(f"\n[5/5]  : models/saved/ensemble_best.pt")
 
     # v2 vs v4 비교
     v2_acc  = 60.7
@@ -401,47 +392,47 @@ def save_v4(model, metrics, test_df):
     v2_sell = 55.6
     v4_sell = metrics["sell_acc"]
 
-    print(f"\n  ── v2 vs v4 비교 ──")
+    print(f"\n   v2 vs v4  ")
     print(f"  Val Acc : v2={v2_acc:.1f}%  →  v4={v4_acc:.1f}%  "
-          f"{'✅ 개선' if v4_acc > v2_acc else '❌ 하락'}")
+          f"{' ' if v4_acc > v2_acc else ' '}")
     print(f"  BUY Acc : v2={v2_buy:.1f}%  →  v4={v4_buy:.1f}%  "
-          f"{'✅ 개선' if v4_buy > v2_buy else '❌ 하락'}")
+          f"{' ' if v4_buy > v2_buy else ' '}")
     print(f"  SELL Acc: v2={v2_sell:.1f}%  →  v4={v4_sell:.1f}%  "
-          f"{'✅ 개선' if v4_sell > v2_sell else '❌ 하락'}")
+          f"{' ' if v4_sell > v2_sell else ' '}")
 
     # v4가 나쁘면 자동 롤백
     if v4_acc < v2_acc - 5.0:
-        print("\n  ⚠️  v4 성능 v2보다 5% 이상 낮음 → 자동 롤백")
+        print("\n    v4  v2 5%   →  ")
         shutil.copy("models/saved/ensemble_backup_before_v4.pt", src)
-        print("  ✅ v2 모델 복원 완료")
+        print("   v2   ")
         return False
 
-    print("\n  예측 테스트...")
+    print("\n   ...")
     try:
         predictor = MLPredictor()
         predictor.load_model()
         result = predictor.predict("KRW-BTC", test_df.tail(80))
         if result:
-            print(f"  ✅ 신호={result.get('signal')} | "
+            print(f"   ={result.get('signal')} | "
                   f"신뢰도={result.get('confidence',0):.2%} | "
                   f"BUY={result.get('buy_prob',0):.2%} | "
                   f"SELL={result.get('sell_prob',0):.2%}")
     except Exception as e:
-        print(f"  ⚠️  예측 테스트 오류: {e}")
+        print(f"      : {e}")
     return True
 
 
 async def main():
     print("=" * 62)
-    print("  APEX BOT — ML 개선 학습 v4")
-    print("  v3 실패 수정: CE Loss + 증강 + WarmRestart LR")
+    print("  APEX BOT — ML   v4")
+    print("  v3  : CE Loss +  + WarmRestart LR")
     print("=" * 62)
 
     combined, all_dfs = await collect_data_v4()
     if combined is None:
-        print("❌ 데이터 수집 실패"); return
+        print("   "); return
 
-    print("\n[2/5] 피처 추출 v4 (threshold=1.0%, horizon=5)...")
+    print("\n[2/5]   v4 (threshold=1.0%, horizon=5)...")
     from models.train.trainer import ModelTrainer
     trainer = ModelTrainer()
 
@@ -455,13 +446,13 @@ async def main():
         )
     except Exception as e:
         import traceback
-        print(f"❌ 피처 추출 실패: {e}")
+        print(f"   : {e}")
         traceback.print_exc()
         return
 
     print(f"  X shape: {X.shape}  Y shape: {y.shape}")
     if len(X) < 200:
-        print(f"❌ 샘플 부족: {len(X)}개"); return
+        print(f"  : {len(X)}개"); return
 
     try:
         model, metrics = await loop.run_in_executor(
@@ -469,7 +460,7 @@ async def main():
         )
     except Exception as e:
         import traceback
-        print(f"❌ 학습 실패: {e}")
+        print(f"  : {e}")
         traceback.print_exc()
         return
 
@@ -479,14 +470,14 @@ async def main():
 
     print("\n" + "=" * 62)
     if success:
-        print("🎉 ML v4 학습 완료! v2 대비 개선됨")
+        print(" ML v4  ! v2  ")
     else:
-        print("⚠️  ML v4 성능 미달 → v2 자동 복원됨")
+        print("  ML v4   → v2  ")
     print(f"\n  Val Acc  : {metrics['final_val_acc']:.1f}%")
     print(f"  BUY Acc  : {metrics['buy_acc']:.1f}%")
     print(f"  SELL Acc : {metrics['sell_acc']:.1f}%")
     print(f"  Best Epoch: {metrics['best_epoch']}")
-    print("\n봇 재시작: python start_paper.py")
+    print("\n : python start_paper.py")
     print("=" * 62)
 
 

@@ -1,14 +1,12 @@
 # fix_candle_final.py
-"""
-FIX-1: RestCollector.get_ohlcv 시그니처 확인 후 _analyze_existing_position 호출 수정
-FIX-2: _initial_data_fetch에서 캔들 수집 후 NpyCache에 저장하도록 수정
-"""
+"""FIX-1: RestCollector.get_ohlcv    _analyze_existing_position  
+FIX-2: _initial_data_fetch    NpyCache"""
 import shutil, py_compile, re, subprocess, sys
 from pathlib import Path
 
 ENGINE = Path("core/engine.py")
 shutil.copy(ENGINE, ENGINE.with_suffix(".py.bak_candle"))
-print("📦 백업 완료")
+print("  ")
 
 # ── Step 1: RestCollector.get_ohlcv 실제 시그니처 확인 ────────────────────────
 result = subprocess.run(
@@ -20,7 +18,7 @@ result = subprocess.run(
     capture_output=True, text=True
 )
 sig = result.stdout.strip()
-print(f"🔍 RestCollector.get_ohlcv 시그니처: {sig}")
+print(f" RestCollector.get_ohlcv : {sig}")
 
 # 시그니처에서 파라미터 파악
 # 예상: (self, market, interval='1h', count=200) 또는 (self, market, timeframe, count)
@@ -41,7 +39,7 @@ elif sig and "(" in sig:
 else:
     rest_call = 'await self.rest_collector.get_ohlcv(market, "1h", 100)'
 
-print(f"✅ REST 호출: {rest_call}")
+print(f" REST : {rest_call}")
 
 # ── Step 2: engine.py 수정 ────────────────────────────────────────────────────
 text = ENGINE.read_text(encoding="utf-8", errors="ignore")
@@ -56,9 +54,9 @@ new_rest = f"candles = {rest_call}"
 
 if old_rest.search(text):
     text = old_rest.sub(new_rest, text, count=1)
-    print("✅ FIX-1: REST fallback 호출 수정 완료")
+    print(" FIX-1: REST fallback   ")
 else:
-    print("⚠️  FIX-1: REST fallback 패턴 없음 – 수동 삽입")
+    print("  FIX-1: REST fallback   –  ")
     # _analyze_existing_position 내 candles = None 이후에 삽입
     text = text.replace(
         "                except Exception:\n                    candles = None",
@@ -70,7 +68,7 @@ else:
 # _initial_data_fetch에서 캔들을 수집하지만 NpyCache에 저장하지 않는 문제 수정
 FETCH_SAVE = '''
     async def _save_initial_candles(self):
-        """초기 캔들 데이터를 NpyCache에 저장"""
+        """NpyCache"""
         markets = self.settings.trading.target_markets
         saved = 0
         for market in markets:
@@ -79,10 +77,10 @@ FETCH_SAVE = '''
                 if df is not None and len(df) > 0:
                     self.cache_manager.set_ohlcv(market, "1h", df)
                     saved += 1
-                    logger.debug(f"💾 캔들 저장 | {market} | {len(df)}개")
+                    logger.debug(f"   | {market} | {len(df)}개")
             except Exception as e:
-                logger.debug(f"캔들 저장 실패 ({market}): {e}")
-        logger.info(f"✅ 초기 캔들 NpyCache 저장 완료 | {saved}/{len(markets)}개 코인")
+                logger.debug(f"   ({market}): {e}")
+        logger.info(f"   NpyCache   | {saved}/{len(markets)}개 코인")
 '''
 
 if "_save_initial_candles" not in text:
@@ -92,15 +90,15 @@ if "_save_initial_candles" not in text:
         FETCH_SAVE + "\n    async def _initial_data_fetch(",
         1
     )
-    print("✅ FIX-2: _save_initial_candles 메서드 추가 완료")
+    print(" FIX-2: _save_initial_candles   ")
 else:
-    print("⚠️  FIX-2: _save_initial_candles 이미 존재")
+    print("  FIX-2: _save_initial_candles  ")
 
 # _initial_data_fetch 완료 로그 직후에 _save_initial_candles 호출 추가
 if "await self._save_initial_candles()" not in text:
     text = text.replace(
-        "logger.info(f\"✅ 초기 데이터 수집 완료",
-        "await self._save_initial_candles()\n            logger.info(f\"✅ 초기 데이터 수집 완료",
+        "logger.info(f\"    ",
+        "await self._save_initial_candles()\n            logger.info(f\"    ",
         1
     )
     # 인코딩 문제로 못 찾을 경우 fallback
@@ -111,25 +109,25 @@ if "await self._save_initial_candles()" not in text:
             "await self._initial_data_fetch()\n            await self._save_initial_candles()",
             1
         )
-    print("✅ FIX-3: 초기 시작 시 캔들 저장 호출 추가 완료")
+    print(" FIX-3:        ")
 else:
-    print("⚠️  FIX-3: _save_initial_candles 호출 이미 존재")
+    print("  FIX-3: _save_initial_candles   ")
 
 ENGINE.write_text(text, encoding="utf-8")
 
 # ── 문법 검사 ─────────────────────────────────────────────────────────────────
 try:
     py_compile.compile(str(ENGINE), doraise=True)
-    print("\n✅ engine.py 문법 OK – 모든 수정 완료")
-    print("   다음: python start_paper.py")
+    print("\n engine.py  OK –   ")
+    print("   : python start_paper.py")
 except py_compile.PyCompileError as e:
     m = re.search(r'line (\d+)', str(e))
     if m:
         err_line = int(m.group(1))
         err_lines = ENGINE.read_text(encoding="utf-8").splitlines()
-        print(f"\n❌ 문법 오류 (L{err_line}): {e}")
+        print(f"\n   (L{err_line}): {e}")
         for idx in range(max(0, err_line-4), min(len(err_lines), err_line+4)):
             print(f"  L{idx+1}: {err_lines[idx]}")
     shutil.copy(ENGINE.with_suffix(".py.bak_candle"), ENGINE)
-    print("🔄 engine.py 원본 복구 완료")
+    print(" engine.py   ")
     exit(1)

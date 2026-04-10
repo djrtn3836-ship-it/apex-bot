@@ -1,6 +1,4 @@
-"""
-Apex Bot - 실전 전환 적합성 자동 판단 (M7-C)
-"""
+"""Apex Bot -      (M7-C)"""
 import sqlite3
 import pathlib
 import numpy as np
@@ -10,23 +8,21 @@ from loguru import logger
 
 
 class LiveReadinessChecker:
-    """실전 전환 적합성 자동 판단"""
+    """docstring"""
 
     def __init__(self, db_path: str = "database/apex_bot.db"):
         self.db_path = pathlib.Path(db_path)
-        logger.info("✅ LiveReadinessChecker 초기화")
+        logger.info(" LiveReadinessChecker ")
 
     def check(self) -> Tuple[bool, float, Dict]:
-        """
-        반환: (통과여부, 점수 0~1, 상세 결과)
-        """
+        """: (,  0~1,  )"""
         stats  = self._load_stats()
         score  = self._calc_score(stats)
         passed = score >= 0.70
 
         logger.info(
-            f"실전 전환 적합성: {'✅ 통과' if passed else '❌ 미통과'} "
-            f"(점수={score:.1%})"
+            f"  : {' ' if passed else ' '} "
+            f"(={score:.1%})"
         )
         return passed, score, stats
 
@@ -89,7 +85,7 @@ class LiveReadinessChecker:
                 "trade_days":   trade_days,
             }
         except Exception as e:
-            logger.error(f"통계 로드 실패: {e}")
+            logger.error(f"  : {e}")
             return {}
 
     def _calc_score(self, stats: Dict) -> float:
@@ -108,21 +104,19 @@ class LiveReadinessChecker:
 
     def print_report(self):
         passed, score, stats = self.check()
-        print(f"""
+        print(f"""{'='*55}
+     
+  : {score:.1%} | {' ' if passed else ' '}
 {'='*55}
-  실전 전환 적합성 리포트
-  점수: {score:.1%} | {'✅ 통과' if passed else '❌ 미통과'}
+     : {stats.get('total_trades', 0)}
+         : {stats.get('win_rate',     0)*100:.1f}%  ( ≥ 50%)
+     : {stats.get('sharpe',       0):.2f}   ( ≥ 0.5)
+     : {stats.get('mdd',          0)*100:.1f}%  ( ≤ 10%)
+       : {stats.get('expectancy',   0):+.4f} ( ≥ 0.001)
+     : {stats.get('trade_days',   0)}   ( ≥ 14)
 {'='*55}
-  총 거래수  : {stats.get('total_trades', 0)}회
-  승률       : {stats.get('win_rate',     0)*100:.1f}%  (기준 ≥ 50%)
-  샤프비율   : {stats.get('sharpe',       0):.2f}   (기준 ≥ 0.5)
-  최대낙폭   : {stats.get('mdd',          0)*100:.1f}%  (기준 ≤ 10%)
-  기대값     : {stats.get('expectancy',   0):+.4f} (기준 ≥ 0.001)
-  거래일수   : {stats.get('trade_days',   0)}일   (기준 ≥ 14일)
-{'='*55}
-{'  🎉 실전 전환 준비 완료!' if passed else '  📌 페이퍼 트레이딩 계속 진행 권장'}
-{'='*55}
-""")
+{'      !' if passed else '       '}
+{'='*55}""")
 
 
 if __name__ == "__main__":

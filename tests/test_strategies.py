@@ -1,7 +1,5 @@
-"""
-APEX BOT - 전략 유닛 테스트
-pytest + pytest-asyncio
-"""
+"""APEX BOT -   
+pytest + pytest-asyncio"""
 import pytest
 import pandas as pd
 import numpy as np
@@ -9,7 +7,7 @@ from datetime import datetime, timedelta
 
 
 def create_mock_df(n: int = 200, trend: str = "up") -> pd.DataFrame:
-    """테스트용 OHLCV DataFrame 생성"""
+    """OHLCV DataFrame"""
     dates = [datetime.now() - timedelta(hours=n-i) for i in range(n)]
     base_price = 50_000_000  # BTC 5000만원 기준
 
@@ -34,7 +32,7 @@ def create_mock_df(n: int = 200, trend: str = "up") -> pd.DataFrame:
 
 
 def add_indicators(df: pd.DataFrame) -> pd.DataFrame:
-    """기본 지표 추가"""
+    """docstring"""
     c = df["close"]
     df["ema20"] = c.ewm(span=20, adjust=False).mean()
     df["ema50"] = c.ewm(span=50, adjust=False).mean()
@@ -229,7 +227,7 @@ class TestSignalCombiner:
         self.SignalType = SignalType
 
     def _make_sig(self, market, sig_type, score, confidence, strat_name, reason):
-        """StrategySignal 생성 헬퍼"""
+        """StrategySignal"""
         from datetime import datetime
         return self.Signal(
             strategy_name=strat_name,

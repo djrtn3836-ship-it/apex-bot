@@ -1,11 +1,9 @@
-"""
-APEX BOT Backtester v3.0
-- Upbit 과거 데이터 자동 수집
-- 8개 전략 백테스트
+"""APEX BOT Backtester v3.0
+- Upbit    
+- 8  
 - Walk-Forward Analysis
-- 수수료·슬리피지 현실적 반영
-- JSON + HTML 리포트 자동 생성
-"""
+- ·  
+- JSON + HTML"""
 import asyncio
 from dataclasses import dataclass, field
 from datetime import datetime
@@ -21,7 +19,7 @@ from backtesting.signal_generator import get_signals, STRATEGIES
 
 @dataclass
 class Trade:
-    """개별 거래 기록"""
+    """docstring"""
     market:       str
     entry_time:   datetime
     exit_time:    Optional[datetime]
@@ -63,7 +61,7 @@ class Trade:
 
 @dataclass
 class BacktestResult:
-    """백테스트 결과"""
+    """docstring"""
     market:          str
     strategy:        str
     start_date:      str
@@ -112,7 +110,7 @@ class BacktestResult:
     def print_summary(self):
         s = self.summary()
         print("\n" + "="*55)
-        print(f"  📊 백테스트 결과: {s['strategy']} / {s['market']}")
+        print(f"    : {s['strategy']} / {s['market']}")
         print("="*55)
         for k, v in s.items():
             if k not in ("market", "strategy"):
@@ -121,13 +119,11 @@ class BacktestResult:
 
 
 class Backtester:
-    """
-    APEX BOT 메인 백테스터
-    - Upbit 과거 데이터 자동 수집
-    - 수수료(0.05%) + 슬리피지(0.1%) 현실 반영
-    - 전략 8개 일괄 실행 지원
-    - Walk-Forward 분석 내장
-    """
+    """APEX BOT  
+    - Upbit    
+    - (0.05%) + (0.1%)  
+    -  8   
+    - Walk-Forward"""
 
     def __init__(
         self,
@@ -155,16 +151,14 @@ class Backtester:
         market:   str = "KRW-BTC",
         **signal_kwargs,
     ) -> BacktestResult:
-        """
-        단일 전략, 단일 코인 백테스트 실행
+        """,    
 
         Args:
-            df:       OHLCV DataFrame (fetch_ohlcv_sync 결과)
-            strategy: 전략 이름 (STRATEGIES 딕셔너리 키)
-            market:   코인 마켓 코드
-        """
+            df:       OHLCV DataFrame (fetch_ohlcv_sync )
+            strategy:   (STRATEGIES  )
+            market:"""
         if df.empty:
-            logger.error("빈 DataFrame – 백테스트 불가")
+            logger.error(" DataFrame –  ")
             return self._empty_result(market, strategy)
 
         signals = get_signals(strategy, df, **signal_kwargs)
@@ -177,16 +171,16 @@ class Backtester:
         interval: str = "1d",
         days:     int = 365,
     ) -> Dict[str, BacktestResult]:
-        """8개 전략 전체를 한 번에 백테스트"""
-        logger.info(f"[Backtester] {market} {interval} {days}일 데이터 수집 중...")
+        """8"""
+        logger.info(f"[Backtester] {market} {interval} {days}   ...")
         df = await fetch_ohlcv(market, interval, days)
         if df.empty:
-            logger.error("데이터 로드 실패")
+            logger.error("  ")
             return {}
 
         results = {}
         for name in STRATEGIES:
-            logger.info(f"  → {name} 백테스트 중...")
+            logger.info(f"  → {name}  ...")
             results[name] = self.run(df, name, market)
 
         return results
@@ -200,11 +194,9 @@ class Backtester:
         n_splits:    int   = 5,
         test_ratio:  float = 0.2,
     ) -> List[BacktestResult]:
-        """
-        Walk-Forward Analysis
-        전체 데이터를 n_splits개 구간으로 나누어
-        각 구간의 앞 (1-test_ratio)를 학습, 뒤 test_ratio를 테스트합니다.
-        """
+        """Walk-Forward Analysis
+          n_splits  
+           (1-test_ratio) ,  test_ratio ."""
         results = []
         total   = len(df)
         step    = total // n_splits
@@ -226,7 +218,7 @@ class Backtester:
             results.append(result)
             logger.info(
                 f"  [WF {i+1}/{n_splits}] {result.start_date}~{result.end_date} "
-                f"수익률={result.total_return:.1f}% 거래수={result.total_trades}"
+                f"={result.total_return:.1f}% ={result.total_trades}"
             )
 
         return results
@@ -348,7 +340,7 @@ class Backtester:
         return self._calc_metrics(result)
 
     def _calc_metrics(self, r: BacktestResult) -> BacktestResult:
-        """성과 지표 계산"""
+        """docstring"""
         r.total_trades = len(r.trades)
 
         if r.total_trades == 0:

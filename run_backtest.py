@@ -1,15 +1,13 @@
-"""
-APEX BOT 백테스터 실행 진입점
-사용법:
-  python run_backtest.py                          # KRW-BTC 전략 전체 1년
-  python run_backtest.py --market KRW-ETH         # 코인 변경
-  python run_backtest.py --days 180               # 기간 변경
-  python run_backtest.py --strategy ml_strategy   # 단일 전략
-  python run_backtest.py --walk-forward           # Walk-Forward 분석
-  python run_backtest.py --all-coins              # 10개 코인 전체
-  python run_backtest.py --ensemble               # 앙상블 agree 레벨 비교
-  python run_backtest.py --ensemble --all-coins   # 10개 코인 앙상블 비교
-"""
+"""APEX BOT   
+:
+  python run_backtest.py                          # KRW-BTC   1
+  python run_backtest.py --market KRW-ETH         #  
+  python run_backtest.py --days 180               #  
+  python run_backtest.py --strategy ml_strategy   #  
+  python run_backtest.py --walk-forward           # Walk-Forward 
+  python run_backtest.py --all-coins              # 10  
+  python run_backtest.py --ensemble               #  agree  
+  python run_backtest.py --ensemble --all-coins   # 10"""
 import asyncio
 import argparse
 from loguru import logger
@@ -57,25 +55,25 @@ async def run(args):
         for coin in coins:
             df = await fetch_ohlcv(coin, args.interval, args.days)
             if df.empty:
-                logger.warning(f"{coin} 데이터 없음, 스킵")
+                logger.warning(f"{coin}  , ")
                 continue
-            print(f"\n[{coin}] 앙상블 agree 수준 비교")
+            print(f"\n[{coin}]  agree  ")
             ens.compare_agree_levels(df, ens.DEFAULT_STRATEGIES, coin)
         return
 
     # 단일 전략 모드
     if args.strategy:
         coin = args.market
-        logger.info(f"단일 전략 백테스트: {args.strategy} / {coin} / {args.days}일")
+        logger.info(f"  : {args.strategy} / {coin} / {args.days}")
         df = await fetch_ohlcv(coin, args.interval, args.days)
         if df.empty:
-            logger.error("데이터 없음")
+            logger.error(" ")
             return
         if args.walk_forward:
             results = bt.walk_forward(df, args.strategy, coin, n_splits=5)
             for r in results:
                 r.print_summary()
-            logger.info(f"Walk-Forward 완료: {len(results)}구간")
+            logger.info(f"Walk-Forward : {len(results)}구간")
         else:
             result = bt.run(df, args.strategy, coin)
             reporter.generate(result, args.strategy)
@@ -84,12 +82,12 @@ async def run(args):
     # 전체 전략 모드
     for coin in coins:
         logger.info("=" * 50)
-        logger.info(f"[{coin}] 전략 전체 백테스트 ({args.days}일)")
+        logger.info(f"[{coin}]    ({args.days})")
         logger.info("=" * 50)
 
         df = await fetch_ohlcv(coin, args.interval, args.days)
         if df.empty:
-            logger.warning(f"{coin} 데이터 없음, 스킵")
+            logger.warning(f"{coin}  , ")
             continue
 
         results = []
@@ -103,12 +101,12 @@ async def run(args):
 
         if args.walk_forward:
             best = max(results, key=lambda x: x.sharpe_ratio)
-            logger.info(f"[Walk-Forward] 최고 샤프 전략: {best.strategy}")
+            logger.info(f"[Walk-Forward]   : {best.strategy}")
             wf_results = bt.walk_forward(df, best.strategy, coin)
             total_ret  = sum(r.total_return for r in wf_results)
-            logger.info(f"Walk-Forward 누적 수익률: {total_ret:.2f}%")
+            logger.info(f"Walk-Forward  : {total_ret:.2f}%")
 
-    logger.info("✅ 백테스트 완료! 결과는 reports/backtest/ 폴더에 저장됐습니다.")
+    logger.info("  !  reports/backtest/  .")
 
 
 def main():

@@ -7,7 +7,7 @@ from signals.signal_combiner import CombinedSignal, SignalType
 
 
 class RSIDivergence(BaseStrategy):
-    """RSI 다이버전스 전략 - 가격과 RSI 의 방향 불일치 탐지"""
+    """RSI   -  RSI"""
 
     def __init__(self, settings: dict = None):
         super().__init__("RSIDivergence", settings)

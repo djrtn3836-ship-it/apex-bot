@@ -1,13 +1,11 @@
 # data/processors/mtf_processor.py — 다중 타임프레임 데이터 수집/관리
-"""
-6개 타임프레임 OHLCV 동시 관리
-  1m  → 진입/청산 타이밍
-  5m  → 단기 신호 확인
-  15m → 중기 방향
-  60m → 핵심 트렌드 (메인)
-  4h  → 스윙 포인트
-  1d  → 대세 방향 (EMA200 트렌드 필터)
-"""
+"""6  OHLCV  
+  1m  → / 
+  5m  →   
+  15m →  
+  60m →   ()
+  4h  →  
+  1d  →   (EMA200  )"""
 
 import asyncio
 from typing import Dict, Optional
@@ -28,9 +26,7 @@ TF_CONFIG = {
 
 
 class MTFProcessor:
-    """
-    다중 타임프레임 데이터 수집 및 캐싱
-    """
+    """docstring"""
     REFRESH_SECONDS = {
         "1m": 60, "5m": 300, "15m": 900,
         "60m": 3600, "4h": 14400, "1d": 86400,
@@ -45,9 +41,7 @@ class MTFProcessor:
     async def get(
         self, market: str, timeframe: str, force_refresh: bool = False
     ) -> Optional[pd.DataFrame]:
-        """
-        캐시된 DataFrame 반환 (만료시 자동 갱신)
-        """
+        """DataFrame  (  )"""
         import time
         now = time.time()
         ttl = self.REFRESH_SECONDS.get(timeframe, 60)
@@ -59,7 +53,7 @@ class MTFProcessor:
         return self._cache.get(market, {}).get(timeframe)
 
     async def get_all(self, market: str) -> Dict[str, Optional[pd.DataFrame]]:
-        """6개 타임프레임 동시 수집"""
+        """6"""
         tasks = [self.get(market, tf) for tf in TF_CONFIG]
         results = await asyncio.gather(*tasks, return_exceptions=True)
         return {
@@ -68,7 +62,7 @@ class MTFProcessor:
         }
 
     async def _fetch(self, market: str, timeframe: str):
-        """REST API로 OHLCV 수집 + 전처리"""
+        """REST API OHLCV  +"""
         import time
         cfg = TF_CONFIG[timeframe]
         try:
@@ -87,4 +81,4 @@ class MTFProcessor:
             self._last_update[market][timeframe] = time.time()
 
         except Exception as e:
-            logger.warning(f"[MTF] {market} {timeframe} 수집 실패: {e}")
+            logger.warning(f"[MTF] {market} {timeframe}  : {e}")

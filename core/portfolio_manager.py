@@ -1,7 +1,5 @@
-"""
-APEX BOT - 포트폴리오 관리자
-보유 포지션 추적 + 성과 계산 + 드로다운 모니터링
-"""
+"""APEX BOT -  
+   +   +"""
 import time
 from typing import Dict, List, Optional, Tuple
 from dataclasses import dataclass, field
@@ -15,7 +13,7 @@ from utils.helpers import calculate_profit_rate, format_percent
 
 @dataclass
 class Position:
-    """보유 포지션"""
+    """docstring"""
     market: str
     entry_price: float
     volume: float
@@ -51,7 +49,7 @@ class Position:
 
 @dataclass
 class TradeRecord:
-    """거래 기록"""
+    """docstring"""
     market: str
     side: str
     price: float
@@ -65,11 +63,8 @@ class TradeRecord:
 
 
 class PortfolioManager:
-    """
-    포트폴리오 상태 중앙 관리
-    - profit_rate 저장 단위: % (close_position에서 *100 후 저장)
-    - get_statistics()에서 별도 변환 없이 그대로 사용
-    """
+    """- profit_rate  : % (close_position *100  )
+    - get_statistics()"""
 
     def __init__(self):
         self.settings = get_settings()
@@ -109,7 +104,7 @@ class PortfolioManager:
         )
         self._positions[market] = position
         logger.info(
-            f"📂 포지션 오픈 | {market} | {entry_price:,.0f} × {volume:.6f} | "
+            f"   | {market} | {entry_price:,.0f} × {volume:.6f} | "
             f"₩{amount_krw:,.0f} | {strategy}"
         )
         return position
@@ -121,10 +116,10 @@ class PortfolioManager:
         fee: float,
         reason: str = "",
     ) -> Optional[Tuple[float, float]]:
-        """포지션 닫기 → (수익금 KRW, 수익률 %) 반환"""
+        """→ ( KRW,  %)"""
         position = self._positions.get(market)
         if not position:
-            logger.warning(f"포지션 없음: {market}")
+            logger.warning(f" : {market}")
             return None
 
         # profit_rate: % 단위 (예: 2.5 = 2.5%)
@@ -151,7 +146,7 @@ class PortfolioManager:
         del self._positions[market]
 
         logger.info(
-            f"📁 포지션 종료 | {market} | 수익률={format_percent(profit_rate)} | "
+            f"   | {market} | ={format_percent(profit_rate)} | "
             f"사유={reason} | 보유={position.hold_hours:.1f}h"
         )
         return proceeds, profit_rate
@@ -196,7 +191,7 @@ class PortfolioManager:
 
     # ── 성과 통계 ────────────────────────────────────────────────
     def _load_trade_history_from_db(self):
-        """봇 재시작 시 DB에서 거래 내역 복구"""
+        """DB"""
         try:
             import sqlite3 as _sq
             conn = _sq.connect("database/apex_bot.db")
@@ -238,16 +233,13 @@ class PortfolioManager:
                 loaded += 1
 
             if loaded:
-                logger.info(f"📂 거래 내역 DB 복구: {loaded}건 로드")
+                logger.info(f"   DB : {loaded} ")
 
         except Exception as e:
-            logger.warning(f"거래 내역 DB 로드 실패: {e}")
+            logger.warning(f"  DB  : {e}")
 
     def get_statistics(self) -> Dict:
-        """
-        거래 성과 통계
-        profit_rate 단위: % (DB 저장 기준, 별도 변환 없음)
-        """
+        """profit_rate : % (DB  ,   )"""
         sell_trades = [t for t in self._trade_history if t.side == "SELL"]
 
         # 메모리에 없으면 DB 재시도

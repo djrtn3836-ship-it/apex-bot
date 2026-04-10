@@ -1,7 +1,5 @@
-"""
-Apex Bot - 몬테카를로 시뮬레이션 (M1-C)
-1000회 시뮬레이션으로 전략 강건성 검증
-"""
+"""Apex Bot -   (M1-C)
+1000"""
 import numpy as np
 import pandas as pd
 from dataclasses import dataclass, field
@@ -25,24 +23,21 @@ class MCResult:
 
 
 class MonteCarloSimulator:
-    """몬테카를로 시뮬레이션"""
+    """docstring"""
 
     def __init__(self, n_simulations: int = 1000):
         self.n = n_simulations
-        logger.info(f"✅ MonteCarloSimulator 초기화 ({n_simulations}회)")
+        logger.info(f" MonteCarloSimulator  ({n_simulations})")
 
     def run(
         self,
         backtest_result: BacktestResult,
         ruin_threshold: float = -0.20,
     ) -> MCResult:
-        """
-        백테스트 거래 결과를 랜덤 재배열하여 시뮬레이션
-        ruin_threshold: 파산 기준 수익률 (기본 -20%)
-        """
+        """ruin_threshold:    ( -20%)"""
         trades = backtest_result.trades
         if not trades:
-            logger.warning("거래 데이터 없음 — 시뮬레이션 불가")
+            logger.warning("   —  ")
             return MCResult()
 
         trade_returns = np.array([t.profit_rate for t in trades])
@@ -74,10 +69,10 @@ class MonteCarloSimulator:
         )
 
         logger.info(
-            f"몬테카를로 완료: "
-            f"중앙값={result.median_return:.2%} | "
-            f"파산확률={result.ruin_probability:.1%} | "
-            f"생존가능={'✅' if result.is_viable else '❌'}"
+            f" : "
+            f"={result.median_return:.2%} | "
+            f"={result.ruin_probability:.1%} | "
+            f"={'' if result.is_viable else ''}"
         )
         return result
 

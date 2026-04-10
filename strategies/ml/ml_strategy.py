@@ -1,7 +1,5 @@
-"""
-APEX BOT - ML 앙상블 전략 플러그인
-ML 예측 결과를 전략 신호로 변환 (strategy layer 통합용)
-"""
+"""APEX BOT - ML   
+ML      (strategy layer )"""
 import pandas as pd
 from typing import Optional
 from loguru import logger
@@ -10,12 +8,10 @@ from strategies.base_strategy import BaseStrategy, Signal, SignalType
 
 
 class MLEnsembleStrategy(BaseStrategy):
-    """
-    ML 앙상블 신호를 전략 시스템에 통합하는 어댑터
-    - BiLSTM + TFT + CNN-LSTM 앙상블 예측 결과 사용
-    - 신뢰도 임계값 이상일 때만 신호 생성
-    - 3모델 동의율 필터 적용
-    """
+    """ML      
+    - BiLSTM + TFT + CNN-LSTM    
+    -      
+    - 3"""
 
     def __init__(self, predictor=None):
         super().__init__(name="ML_Ensemble", weight=2.5)
@@ -25,16 +21,16 @@ class MLEnsembleStrategy(BaseStrategy):
         self._last_predictions = {}     # {market: prediction}
 
     def set_predictor(self, predictor):
-        """ML 예측기 주입"""
+        """ML"""
         self._predictor = predictor
 
     def update_prediction(self, market: str, prediction: dict):
-        """외부에서 ML 예측 결과 업데이트"""
+        """ML"""
         self._last_predictions[market] = prediction
 
     def analyze(self, market: str, df: pd.DataFrame,
                 context: dict = None) -> Optional[Signal]:
-        """ML 예측 결과 → Signal 변환"""
+        """ML   → Signal"""
         # 캐시된 예측 사용 (비동기 ML 추론 결과)
         prediction = self._last_predictions.get(market)
 

@@ -1,12 +1,10 @@
 # monitoring/performance_tracker.py — 샤프비율/MDD/승률 추적기
-"""
-실시간 성과 지표:
-  - 샤프 비율 (Sharpe Ratio)
-  - 최대 낙폭 (Max Drawdown)
-  - 승률 (Win Rate)
-  - 수익 팩터 (Profit Factor)
-  - 평균 보유 시간
-"""
+""":
+  -   (Sharpe Ratio)
+  -   (Max Drawdown)
+  -  (Win Rate)
+  -   (Profit Factor)
+  -"""
 
 import sqlite3
 import math
@@ -37,9 +35,7 @@ class PerformanceTracker:
         self.db_path = db_path or self.DB_PATH
 
     def get_stats(self, days: int = 14) -> PerformanceStats:
-        """
-        최근 N일 성과 통계 계산
-        """
+        """N"""
         rows = self._query_sells(days)
 
         if not rows:
@@ -74,26 +70,22 @@ class PerformanceTracker:
         )
 
     def print_report(self, days: int = 14):
-        """성과 리포트 출력"""
+        """docstring"""
         s = self.get_stats(days)
         grade = self._grade(s)
 
-        print(f"""
-╔══════════════════════════════════════════════════════╗
-║     📊 APEX BOT 성과 리포트 (최근 {days:2d}일)              ║
-╠══════════════════════════════════════════════════════╣
-║  총 거래수      : {s.total_trades:>5d}건                          ║
-║  승률           : {s.win_rate*100:>6.1f}%                        ║
-║  평균 수익률    : {s.avg_profit*100:>+7.3f}%                     ║
-║  수익 팩터      : {s.profit_factor:>6.2f}                        ║
-║  샤프 비율      : {s.sharpe_ratio:>6.2f}                         ║
-║  최대 낙폭(MDD) : {s.max_drawdown*100:>6.2f}%                    ║
-║  누적 P&L       : ₩{s.total_pnl_krw:>10,.0f}                   ║
-║  최고 수익 거래 : {s.best_trade*100:>+7.3f}%                     ║
-║  최악 손실 거래 : {s.worst_trade*100:>+7.3f}%                    ║
-║  종합 등급      : {grade:>3s}                                ║
-╚══════════════════════════════════════════════════════╝
-""")
+        print(f"""APEX BOT   ( {days:2d})              
+
+         : {s.total_trades:>5d}                          
+             : {s.win_rate*100:>6.1f}%                        
+       : {s.avg_profit*100:>+7.3f}%                     
+         : {s.profit_factor:>6.2f}                        
+         : {s.sharpe_ratio:>6.2f}                         
+   (MDD) : {s.max_drawdown*100:>6.2f}%                    
+   P&L       : ₩{s.total_pnl_krw:>10,.0f}                   
+     : {s.best_trade*100:>+7.3f}%                     
+     : {s.worst_trade*100:>+7.3f}%                    
+         : {grade:>3s}""")
 
     # ── 내부 계산 ─────────────────────────────────────────────
     def _calc_sharpe(self, rates: list) -> float:

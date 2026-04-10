@@ -1,10 +1,8 @@
-"""
-APEX BOT - 상관관계 필터 (Correlation Filter)
-BTC 급락 시 알트코인 동시 손절 방지
-- BTC 가격 변화율이 임계치 초과 시 알트코인 신규 매수 차단
-- 상관관계 높은 코인 동시 포지션 제한
-- 시장 충격(Market Shock) 감지
-"""
+"""APEX BOT -   (Correlation Filter)
+BTC      
+- BTC         
+-      
+-  (Market Shock)"""
 from __future__ import annotations
 
 import time
@@ -15,23 +13,21 @@ from loguru import logger
 
 
 class CorrelationFilter:
-    """
-    BTC 기반 상관관계 리스크 필터
+    """BTC    
 
-    주요 기능:
-    1. BTC 단기 급락 감지 → 알트 매수 차단
-    2. 포트폴리오 상관관계 계산 → 동시 포지션 제한
-    3. 시장 충격 감지 (Market Shock Detection)
-    4. 변동성 스파이크 감지
+     :
+    1. BTC    →   
+    2.    →   
+    3.    (Market Shock Detection)
+    4.   
 
-    사용법:
+    :
         cf = CorrelationFilter()
         cf.update_price("KRW-BTC", btc_price)
 
         ok, reason = cf.can_buy("KRW-ETH", open_positions)
         if not ok:
-            logger.warning(f"상관관계 필터 차단: {reason}")
-    """
+            logger.warning(f"  : {reason}")"""
 
     BTC_MARKET = "KRW-BTC"
 
@@ -64,12 +60,12 @@ class CorrelationFilter:
         # 변동성 추적
         self._volatility: Dict[str, deque] = {}
 
-        logger.info("✅ 상관관계 필터 초기화")
+        logger.info("   ")
 
     # ── Price Feed ──────────────────────────────────────────────────
 
     def update_price(self, market: str, price: float):
-        """가격 업데이트 (엔진에서 매 tick 호출)"""
+        """(  tick )"""
         if market not in self._price_history:
             self._price_history[market] = deque(maxlen=360)  # 최대 6시간(1분봉)
 
@@ -81,7 +77,7 @@ class CorrelationFilter:
             self._check_btc_shock()
 
     def update_prices(self, price_map: Dict[str, float]):
-        """다중 마켓 가격 일괄 업데이트"""
+        """docstring"""
         for market, price in price_map.items():
             self.update_price(market, price)
 
@@ -92,12 +88,8 @@ class CorrelationFilter:
         market: str,
         open_positions: List[str] = None,
     ) -> Tuple[bool, str]:
-        """
-        매수 가능 여부 확인
-
-        Returns:
-            (가능 여부, 사유)
-        """
+        """Returns:
+            ( , )"""
         now = time.time()
 
         # 1. 글로벌 차단 (BTC 급락)
@@ -131,11 +123,9 @@ class CorrelationFilter:
         return True, "OK"
 
     def can_maintain_position(self, market: str) -> Tuple[bool, str]:
-        """
-        기존 포지션 유지 여부 (비상 청산 권고)
+        """(  )
         Returns:
-            (유지 권장, 사유)
-        """
+            ( , )"""
         if market == self.BTC_MARKET:
             return True, "BTC는 직접 청산 판단"
 
@@ -150,7 +140,7 @@ class CorrelationFilter:
     # ── BTC Shock Detection ─────────────────────────────────────────
 
     def _check_btc_shock(self):
-        """BTC 급락/급등 감지 → 글로벌 차단 설정"""
+        """BTC /  →"""
         ret_5m  = self._get_return(self.BTC_MARKET, window_seconds=300)
         ret_15m = self._get_return(self.BTC_MARKET, window_seconds=900)
         ret_1h  = self._get_return(self.BTC_MARKET, window_seconds=3600)
@@ -162,7 +152,7 @@ class CorrelationFilter:
             self._global_block_until = now + self.BLOCK_DURATION_SEVERE
             self._block_reason = f"BTC 1h 급락 {ret_1h:.2%}"
             logger.warning(
-                f"🚨 BTC 심각 급락 감지: {ret_1h:.2%} (1h) → "
+                f" BTC   : {ret_1h:.2%} (1h) → "
                 f"전체 매수 {self.BLOCK_DURATION_SEVERE//60}분 차단"
             )
             return
@@ -172,7 +162,7 @@ class CorrelationFilter:
             self._global_block_until = now + self._block_duration
             self._block_reason = f"BTC 5m 급락 {ret_5m:.2%}"
             logger.warning(
-                f"⚠️ BTC 급락 감지: {ret_5m:.2%} (5m) → "
+                f" BTC  : {ret_5m:.2%} (5m) → "
                 f"전체 매수 {self._block_duration//60}분 차단"
             )
             return
@@ -182,11 +172,11 @@ class CorrelationFilter:
             self._global_block_until = now + self._block_duration
             self._block_reason = f"BTC 15m 하락 {ret_15m:.2%}"
             logger.warning(
-                f"⚠️ BTC 15분 하락: {ret_15m:.2%} → 매수 차단"
+                f" BTC 15 : {ret_15m:.2%} →  "
             )
 
     def _check_btc_trend(self) -> Tuple[bool, str]:
-        """BTC 단기 추세 확인 (매수 판단 시 호출)"""
+        """BTC    (   )"""
         ret_5m = self._get_return(self.BTC_MARKET, window_seconds=300)
         if ret_5m is None:
             return True, "OK"  # 데이터 없으면 통과
@@ -199,7 +189,7 @@ class CorrelationFilter:
     # ── Volatility Spike ────────────────────────────────────────────
 
     def _is_volatility_spike(self, market: str) -> bool:
-        """변동성 스파이크 감지"""
+        """docstring"""
         history = self._price_history.get(market)
         if not history or len(history) < 20:
             return False
@@ -215,8 +205,8 @@ class CorrelationFilter:
 
         if avg_vol > 0 and recent_vol > avg_vol * self.VOL_SPIKE_MULT:
             logger.debug(
-                f"⚡ 변동성 스파이크: {market} | "
-                f"현재={recent_vol:.4f} > 평균={avg_vol:.4f} × {self.VOL_SPIKE_MULT}"
+                f"  : {market} | "
+                f"={recent_vol:.4f} > ={avg_vol:.4f} × {self.VOL_SPIKE_MULT}"
             )
             return True
 
@@ -229,10 +219,7 @@ class CorrelationFilter:
         market: str,
         open_positions: List[str],
     ) -> Tuple[bool, str]:
-        """
-        포트폴리오 내 상관관계 확인
-        BTC, ETH 등 고상관 코인 동시 3개 이상 보유 제한
-        """
+        """BTC, ETH     3"""
         # BTC/ETH/BNB 등 고상관 코인 그룹
         HIGH_CORR_GROUP = {
             "KRW-BTC", "KRW-ETH", "KRW-BNB", "KRW-SOL",
@@ -257,14 +244,10 @@ class CorrelationFilter:
     # ── Helpers ─────────────────────────────────────────────────────
 
     def _get_return(self, market: str, window_seconds: int) -> Optional[float]:
-        """
-        특정 시간 창 내 수익률 계산
-
-        Args:
-            window_seconds: 기간 (초)
+        """Args:
+            window_seconds:  ()
         Returns:
-            수익률 (None = 데이터 부족)
-        """
+             (None =  )"""
         history = self._price_history.get(market)
         if not history or len(history) < 2:
             return None
@@ -286,7 +269,7 @@ class CorrelationFilter:
         return (current_price - start_price) / start_price
 
     def get_btc_status(self) -> Dict:
-        """BTC 현재 상태 요약"""
+        """BTC"""
         ret_5m  = self._get_return(self.BTC_MARKET, 300)
         ret_15m = self._get_return(self.BTC_MARKET, 900)
         ret_1h  = self._get_return(self.BTC_MARKET, 3600)
@@ -305,8 +288,8 @@ class CorrelationFilter:
         }
 
     def force_unblock(self):
-        """수동 차단 해제 (관리자용)"""
+        """()"""
         self._global_block_until = 0
         self._blocked_until.clear()
         self._block_reason = ""
-        logger.info("✅ 상관관계 필터 차단 수동 해제")
+        logger.info("     ")

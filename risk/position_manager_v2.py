@@ -1,7 +1,5 @@
-"""
-Apex Bot - 포지션 관리 고도화 v2 (M4)
-피라미딩 / 부분익절 / 손익분기스탑 / 시간청산
-"""
+"""Apex Bot -    v2 (M4)
+ /  /  /"""
 from dataclasses import dataclass, field
 from typing import Dict, List, Optional, Tuple
 from datetime import datetime, timedelta
@@ -47,7 +45,7 @@ class ExitSignal:
 
 
 class PositionManagerV2:
-    """포지션 관리 고도화 v2"""
+    """v2"""
 
     def __init__(
         self,
@@ -69,17 +67,17 @@ class PositionManagerV2:
         self.pyramid_max        = pyramid_max
         self.pyramid_trigger    = pyramid_trigger
         self.positions: Dict[str, PositionV2] = {}
-        logger.info("✅ PositionManagerV2 초기화")
+        logger.info(" PositionManagerV2 ")
 
     def add_position(self, pos: PositionV2):
         self.positions[pos.market] = pos
-        logger.info(f"📂 포지션 등록 | {pos.market} | 진입가={pos.entry_price:,.0f}")
+        logger.info(f"   | {pos.market} | ={pos.entry_price:,.0f}")
 
     def remove_position(self, market: str):
         self.positions.pop(market, None)
 
     def check_exit(self, market: str, current_price: float) -> ExitSignal:
-        """포지션 청산 조건 체크"""
+        """docstring"""
         pos = self.positions.get(market)
         if pos is None:
             return ExitSignal(False, ExitReason.SIGNAL_SELL)
@@ -96,7 +94,7 @@ class PositionManagerV2:
         if pnl >= self.breakeven_trigger and not pos.breakeven_set:
             pos.stop_loss   = pos.entry_price * 1.001
             pos.breakeven_set = True
-            logger.info(f"🔒 손익분기 스탑 설정 | {market} | 손절선={pos.stop_loss:,.0f}")
+            logger.info(f"    | {market} | ={pos.stop_loss:,.0f}")
 
         # 3. 1차 부분익절
         if pnl >= self.partial_exit_1 and not pos.partial_exited:
@@ -119,7 +117,7 @@ class PositionManagerV2:
         return ExitSignal(False, ExitReason.SIGNAL_SELL)
 
     def check_pyramid(self, market: str, current_price: float) -> Tuple[bool, float]:
-        """피라미딩 추가진입 조건 체크 → (진입여부, 추가금액비율)"""
+        """→ (, )"""
         pos = self.positions.get(market)
         if pos is None:
             return False, 0.0
@@ -131,8 +129,8 @@ class PositionManagerV2:
             add_ratio = 0.5 ** (pos.pyramid_count + 1)
             pos.pyramid_count += 1
             logger.info(
-                f"📈 피라미딩 {pos.pyramid_count}/{self.pyramid_max} | "
-                f"{market} | 추가비율={add_ratio:.0%}"
+                f"  {pos.pyramid_count}/{self.pyramid_max} | "
+                f"{market} | ={add_ratio:.0%}"
             )
             return True, add_ratio
 

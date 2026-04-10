@@ -1,7 +1,5 @@
-"""
-APEX BOT - FastAPI 실시간 대시보드
-WebSocket 기반 실시간 업데이트 + REST API
-"""
+"""APEX BOT - FastAPI  
+WebSocket    + REST API"""
 import asyncio
 import json
 from typing import Dict, List, Optional, Set
@@ -17,14 +15,14 @@ try:
     FASTAPI_AVAILABLE = True
 except ImportError:
     FASTAPI_AVAILABLE = False
-    logger.warning("FastAPI 미설치 - 대시보드 비활성화")
+    logger.warning("FastAPI  -  ")
 
 from config.settings import get_settings
 
 import socket as _socket
 
 def _find_free_port(start: int = 8888, retries: int = 10) -> int:
-    """사용 가능한 포트를 찾아 반환"""
+    """docstring"""
     for port in range(start, start + retries):
         with _socket.socket(_socket.AF_INET, _socket.SOCK_STREAM) as s:
             try:
@@ -101,7 +99,7 @@ dashboard_state = DashboardState()
 
 # ── FastAPI 앱 ──────────────────────────────────────────────────────
 def create_dashboard_app(engine_ref=None) -> "FastAPI":
-    """대시보드 FastAPI 앱 생성"""
+    """FastAPI"""
     if not FASTAPI_AVAILABLE:
         return None
 
@@ -109,12 +107,12 @@ def create_dashboard_app(engine_ref=None) -> "FastAPI":
 
     @asynccontextmanager
     async def lifespan(app: FastAPI):
-        logger.info("🚀 대시보드 서버 시작")
+        logger.info("   ")
         # 주기적 상태 브로드캐스트 (2초마다)
         task = asyncio.create_task(_broadcast_loop())
         yield
         task.cancel()
-        logger.info("🛑 대시보드 서버 종료")
+        logger.info("   ")
 
     app = FastAPI(
         title="APEX BOT Dashboard",
@@ -190,7 +188,7 @@ def create_dashboard_app(engine_ref=None) -> "FastAPI":
             dashboard_state.recent_trades = list(reversed(rows))
             return rows
         except Exception as e:
-            logger.debug(f"trades DB 조회 오류: {e}")
+            logger.debug(f"trades DB  : {e}")
             return []
 
     @app.get("/api/metrics")
@@ -203,7 +201,7 @@ def create_dashboard_app(engine_ref=None) -> "FastAPI":
 
     @app.get("/api/ml-predict")
     async def get_ml_predictions():
-        """ML 앙상블 최신 예측 결과 반환 (엔진 실행 중일 때 실시간 갱신)"""
+        """ML      (     )"""
         return {
             "ml_predictions": dashboard_state.signals.get("ml_predictions", {}),
             "last_updated": dashboard_state.signals.get("ml_last_updated", None),
@@ -212,7 +210,7 @@ def create_dashboard_app(engine_ref=None) -> "FastAPI":
 
     @app.post("/api/control/{action}")
     async def control_bot(action: str):
-        """봇 제어: pause/resume/stop"""
+        """: pause/resume/stop"""
         valid_actions = ["pause", "resume", "stop", "start"]
         if action not in valid_actions:
             raise HTTPException(400, f"유효하지 않은 액션: {action}")
@@ -231,7 +229,7 @@ def create_dashboard_app(engine_ref=None) -> "FastAPI":
 
     @app.post("/api/report")
     async def generate_report(hours: int = 24):
-        """페이퍼 트레이딩 리포트 즉시 생성"""
+        """docstring"""
         import asyncio
         from monitoring.paper_report import generate_paper_report
         try:
@@ -280,7 +278,7 @@ def create_dashboard_app(engine_ref=None) -> "FastAPI":
 
 
 async def _broadcast_loop():
-    """2초마다 상태 브로드캐스트"""
+    """2"""
     while True:
         try:
             await asyncio.sleep(2)
@@ -289,12 +287,12 @@ async def _broadcast_loop():
         except asyncio.CancelledError:
             break
         except Exception as e:
-            logger.error(f"브로드캐스트 오류: {e}")
+            logger.error(f" : {e}")
 
 
 # ── 상태 업데이트 헬퍼 ──────────────────────────────────────────────
 async def update_dashboard(data: dict):
-    """외부에서 대시보드 상태 업데이트"""
+    """docstring"""
     update_type = data.get("type", "")
 
     if update_type == "trade":
@@ -328,13 +326,12 @@ async def update_dashboard(data: dict):
 
 
 # ── 대시보드 HTML ────────────────────────────────────────────────────
-HTML_DASHBOARD = """
-<!DOCTYPE html>
+HTML_DASHBOARD = """<!DOCTYPE html>
 <html lang="ko">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>⚡ Apex Bot Dashboard</title>
+<title> Apex Bot Dashboard</title>
 <style>
   @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
   :root {
@@ -353,7 +350,7 @@ HTML_DASHBOARD = """
   * { margin:0; padding:0; box-sizing:border-box; }
   body { font-family:'Inter',sans-serif; background:var(--bg); color:var(--text); min-height:100vh; }
 
-  /* ── Header ── */
+  /*  Header  */
   .header {
     display:flex; align-items:center; justify-content:space-between;
     padding:18px 28px;
@@ -378,10 +375,10 @@ HTML_DASHBOARD = """
     border:1px solid rgba(245,158,11,0.3); letter-spacing:1px;
   }
 
-  /* ── Main Layout ── */
+  /*  Main Layout  */
   .main { padding:24px 28px; display:flex; flex-direction:column; gap:20px; }
 
-  /* ── KPI Cards ── */
+  /*  KPI Cards  */
   .kpi-grid { display:grid; grid-template-columns:repeat(4,1fr); gap:14px; }
   .kpi-card {
     background:var(--card); border:1px solid var(--border);
@@ -403,11 +400,11 @@ HTML_DASHBOARD = """
   .neg { color:var(--red); }
   .neu { color:var(--muted); }
 
-  /* ── Two-column ── */
+  /*  Two-column  */
   .two-col { display:grid; grid-template-columns:1fr 1fr; gap:14px; }
   .three-col { display:grid; grid-template-columns:1fr 1fr 1fr; gap:14px; }
 
-  /* ── Panel ── */
+  /*  Panel  */
   .panel {
     background:var(--card); border:1px solid var(--border);
     border-radius:14px; overflow:hidden;
@@ -420,7 +417,7 @@ HTML_DASHBOARD = """
   .panel-title { font-size:13px; font-weight:600; display:flex; align-items:center; gap:8px; }
   .panel-body { padding:16px 20px; }
 
-  /* ── Table ── */
+  /*  Table  */
   table { width:100%; border-collapse:collapse; font-size:13px; }
   th { text-align:left; color:var(--muted); font-weight:500; padding:8px 10px; font-size:11px; text-transform:uppercase; letter-spacing:.5px; border-bottom:1px solid var(--border); }
   td { padding:10px 10px; border-bottom:1px solid rgba(30,45,69,0.5); vertical-align:middle; }
@@ -432,7 +429,7 @@ HTML_DASHBOARD = """
   }
   .dot { width:8px; height:8px; border-radius:50%; display:inline-block; }
 
-  /* ── Gauge (Fear & Greed) ── */
+  /*  Gauge (Fear & Greed)  */
   .gauge-wrap { display:flex; flex-direction:column; align-items:center; padding:10px 0; }
   .gauge-arc { position:relative; width:160px; height:80px; overflow:hidden; }
   .gauge-arc svg { width:160px; height:80px; }
@@ -441,27 +438,27 @@ HTML_DASHBOARD = """
   .gauge-bar-wrap { width:100%; background:var(--border); border-radius:4px; height:8px; margin-top:12px; overflow:hidden; }
   .gauge-bar { height:100%; border-radius:4px; transition:width .8s; }
 
-  /* ── Mini stat ── */
+  /*  Mini stat  */
   .mini-stat { display:flex; justify-content:space-between; align-items:center; padding:8px 0; border-bottom:1px solid rgba(30,45,69,0.5); }
   .mini-stat:last-child { border-bottom:none; }
   .mini-label { font-size:13px; color:var(--muted); }
   .mini-value { font-size:13px; font-weight:600; }
 
-  /* ── Badge tags ── */
+  /*  Badge tags  */
   .tag-buy  { padding:2px 8px; border-radius:4px; font-size:11px; font-weight:700; background:rgba(16,185,129,.15); color:var(--green); }
   .tag-sell { padding:2px 8px; border-radius:4px; font-size:11px; font-weight:700; background:rgba(239,68,68,.15); color:var(--red); }
   .tag-hold { padding:2px 8px; border-radius:4px; font-size:11px; font-weight:700; background:rgba(100,116,139,.15); color:var(--muted); }
 
-  /* ── ML panel ── */
+  /*  ML panel  */
   .ml-item { display:flex; align-items:center; justify-content:space-between; padding:9px 0; border-bottom:1px solid rgba(30,45,69,.5); }
   .ml-item:last-child { border-bottom:none; }
   .ml-bar-wrap { width:120px; background:var(--border); border-radius:4px; height:6px; overflow:hidden; }
   .ml-bar { height:100%; border-radius:4px; background:linear-gradient(90deg,#3b82f6,#8b5cf6); }
 
-  /* ── Footer ── */
+  /*  Footer  */
   .footer { text-align:center; padding:16px; color:var(--muted); font-size:12px; border-top:1px solid var(--border); }
 
-  /* ── Responsive ── */
+  /*  Responsive  */
   @media(max-width:1100px) {
     .kpi-grid { grid-template-columns:repeat(2,1fr); }
     .three-col { grid-template-columns:1fr 1fr; }
@@ -474,11 +471,11 @@ HTML_DASHBOARD = """
 </head>
 <body>
 
-<!-- ── HEADER ── -->
+<!--  HEADER  -->
 <div class="header">
   <div class="header-left">
-    <div class="logo">⚡ <span>Apex</span> Bot</div>
-    <div class="badge" id="statusBadge">● LIVE</div>
+    <div class="logo"> <span>Apex</span> Bot</div>
+    <div class="badge" id="statusBadge"> LIVE</div>
   </div>
   <div class="header-right">
     <div class="mode-tag" id="modeTag">PAPER</div>
@@ -486,28 +483,28 @@ HTML_DASHBOARD = """
   </div>
 </div>
 
-<!-- ── MAIN ── -->
+<!--  MAIN  -->
 <div class="main">
 
   <!-- KPI Row -->
   <div class="kpi-grid">
     <div class="kpi-card blue">
-      <div class="kpi-label">💰 총 자산</div>
+      <div class="kpi-label">  </div>
       <div class="kpi-value" id="totalAssets">₩--</div>
-      <div class="kpi-sub">초기 ₩1,000,000</div>
+      <div class="kpi-sub"> ₩1,000,000</div>
     </div>
     <div class="kpi-card green">
-      <div class="kpi-label">📊 투자금</div>
+      <div class="kpi-label"> </div>
       <div class="kpi-value" id="invested">₩--</div>
-      <div class="kpi-sub" id="investRatio">--% 투자 중</div>
+      <div class="kpi-sub" id="investRatio">--%  </div>
     </div>
     <div class="kpi-card yellow">
-      <div class="kpi-label">💵 현금 잔고</div>
+      <div class="kpi-label">  </div>
       <div class="kpi-value" id="cashBalance">₩--</div>
-      <div class="kpi-sub" id="cashRatio">--% 여유</div>
+      <div class="kpi-sub" id="cashRatio">--% </div>
     </div>
     <div class="kpi-card purple">
-      <div class="kpi-label">📈 오늘 손익</div>
+      <div class="kpi-label">  </div>
       <div class="kpi-value" id="todayPnl">₩--</div>
       <div class="kpi-sub" id="todayPct">---%</div>
     </div>
@@ -519,19 +516,19 @@ HTML_DASHBOARD = """
     <!-- Positions Table -->
     <div class="panel" style="grid-column:span 2">
       <div class="panel-header">
-        <div class="panel-title">📦 보유 포지션 <span id="posCount" style="color:var(--muted);font-size:12px;font-weight:400"></span></div>
-        <div style="font-size:12px;color:var(--muted)" id="lastUpdate">업데이트 중...</div>
+        <div class="panel-title">   <span id="posCount" style="color:var(--muted);font-size:12px;font-weight:400"></span></div>
+        <div style="font-size:12px;color:var(--muted)" id="lastUpdate"> ...</div>
       </div>
       <div class="panel-body" style="padding:0">
         <table>
           <thead>
             <tr>
-              <th>코인</th><th>전략</th><th>매수가</th><th>현재가</th>
-              <th>평가금</th><th>손익</th><th>목표/손절</th>
+              <th></th><th></th><th></th><th></th>
+              <th></th><th></th><th>/</th>
             </tr>
           </thead>
           <tbody id="posTable">
-            <tr><td colspan="7" style="text-align:center;color:var(--muted);padding:24px">데이터 로딩 중...</td></tr>
+            <tr><td colspan="7" style="text-align:center;color:var(--muted);padding:24px">  ...</td></tr>
           </tbody>
         </table>
       </div>
@@ -540,7 +537,7 @@ HTML_DASHBOARD = """
     <!-- Fear & Greed -->
     <div class="panel">
       <div class="panel-header">
-        <div class="panel-title">🧠 시장 감성</div>
+        <div class="panel-title">  </div>
       </div>
       <div class="panel-body">
         <div class="gauge-wrap">
@@ -559,19 +556,19 @@ HTML_DASHBOARD = """
             <circle cx="80" cy="75" r="5" fill="var(--text)"/>
           </svg>
           <div class="gauge-num" id="fgNum">--</div>
-          <div class="gauge-label" id="fgLabel">공포탐욕지수</div>
+          <div class="gauge-label" id="fgLabel"></div>
         </div>
         <div style="margin-top:12px">
           <div class="mini-stat">
-            <span class="mini-label">김치 프리미엄</span>
+            <span class="mini-label"> </span>
             <span class="mini-value" id="kimchi">--%</span>
           </div>
           <div class="mini-stat">
-            <span class="mini-label">뉴스 감성</span>
+            <span class="mini-label"> </span>
             <span class="mini-value" id="newsSentiment">--</span>
           </div>
           <div class="mini-stat">
-            <span class="mini-label">시장 국면</span>
+            <span class="mini-label"> </span>
             <span class="mini-value" id="marketRegime">--</span>
           </div>
         </div>
@@ -585,26 +582,26 @@ HTML_DASHBOARD = """
     <!-- ML Ensemble -->
     <div class="panel">
       <div class="panel-header">
-        <div class="panel-title">🤖 ML 앙상블 예측</div>
+        <div class="panel-title"> ML  </div>
         <div style="font-size:11px;color:var(--muted)" id="mlUpdate">--</div>
       </div>
       <div class="panel-body" id="mlPanel">
-        <div style="color:var(--muted);text-align:center;padding:20px">분석 대기 중...</div>
+        <div style="color:var(--muted);text-align:center;padding:20px">  ...</div>
       </div>
     </div>
 
     <!-- Recent Trades -->
     <div class="panel">
       <div class="panel-header">
-        <div class="panel-title">🔄 최근 거래</div>
+        <div class="panel-title">  </div>
       </div>
       <div class="panel-body" style="padding:0">
         <table>
           <thead>
-            <tr><th>시간</th><th>코인</th><th>구분</th><th>금액</th><th>손익</th></tr>
+            <tr><th></th><th></th><th></th><th></th><th></th></tr>
           </thead>
           <tbody id="tradeTable">
-            <tr><td colspan="5" style="text-align:center;color:var(--muted);padding:20px">거래 데이터 없음</td></tr>
+            <tr><td colspan="5" style="text-align:center;color:var(--muted);padding:20px">  </td></tr>
           </tbody>
         </table>
       </div>
@@ -614,46 +611,46 @@ HTML_DASHBOARD = """
   <!-- Row 4: Stats -->
   <div class="three-col">
     <div class="panel">
-      <div class="panel-header"><div class="panel-title">📊 성과 요약</div></div>
+      <div class="panel-header"><div class="panel-title">  </div></div>
       <div class="panel-body">
-        <div class="mini-stat"><span class="mini-label">총 거래 수</span><span class="mini-value" id="statTrades">--</span></div>
-        <div class="mini-stat"><span class="mini-label">승률</span><span class="mini-value" id="statWin">--%</span></div>
-        <div class="mini-stat"><span class="mini-label">손익비</span><span class="mini-value" id="statPF">--</span></div>
-        <div class="mini-stat"><span class="mini-label">샤프 비율</span><span class="mini-value" id="statSharpe">--</span></div>
+        <div class="mini-stat"><span class="mini-label">  </span><span class="mini-value" id="statTrades">--</span></div>
+        <div class="mini-stat"><span class="mini-label"></span><span class="mini-value" id="statWin">--%</span></div>
+        <div class="mini-stat"><span class="mini-label"></span><span class="mini-value" id="statPF">--</span></div>
+        <div class="mini-stat"><span class="mini-label"> </span><span class="mini-value" id="statSharpe">--</span></div>
       </div>
     </div>
     <div class="panel">
-      <div class="panel-header"><div class="panel-title">⚠️ 리스크 현황</div></div>
+      <div class="panel-header"><div class="panel-title">  </div></div>
       <div class="panel-body">
-        <div class="mini-stat"><span class="mini-label">최대 낙폭</span><span class="mini-value" id="riskMDD">--%</span></div>
-        <div class="mini-stat"><span class="mini-label">포지션 수</span><span class="mini-value" id="riskPos">-- / 10</span></div>
-        <div class="mini-stat"><span class="mini-label">BEAR_REVERSAL</span><span class="mini-value" id="riskBear">오늘 -- / 3</span></div>
-        <div class="mini-stat"><span class="mini-label">봇 상태</span><span class="mini-value" id="riskStatus">--</span></div>
+        <div class="mini-stat"><span class="mini-label"> </span><span class="mini-value" id="riskMDD">--%</span></div>
+        <div class="mini-stat"><span class="mini-label"> </span><span class="mini-value" id="riskPos">-- / 10</span></div>
+        <div class="mini-stat"><span class="mini-label">BEAR_REVERSAL</span><span class="mini-value" id="riskBear"> -- / 3</span></div>
+        <div class="mini-stat"><span class="mini-label"> </span><span class="mini-value" id="riskStatus">--</span></div>
       </div>
     </div>
     <div class="panel">
-      <div class="panel-header"><div class="panel-title">🏆 전략 성과</div></div>
+      <div class="panel-header"><div class="panel-title">  </div></div>
       <div class="panel-body" id="stratPanel">
-        <div style="color:var(--muted);text-align:center;padding:20px">전략 데이터 없음</div>
+        <div style="color:var(--muted);text-align:center;padding:20px">  </div>
       </div>
     </div>
   </div>
 
 </div>
 
-<div class="footer">⚡ Apex Bot v2.0.0 · PAPER Trading · RTX 5060 (CUDA 12.8) · <span id="footerTime">--</span></div>
+<div class="footer"> Apex Bot v2.0.0 · PAPER Trading · RTX 5060 (CUDA 12.8) · <span id="footerTime">--</span></div>
 
 <script>
-// ── WebSocket ──────────────────────────────────────────────
+//  WebSocket 
 const ws = new WebSocket(`ws://${location.host}/ws`);
 ws.onopen  = () => console.log('WS connected');
-ws.onclose = () => { document.getElementById('statusBadge').textContent='● OFFLINE'; document.getElementById('statusBadge').style.color='var(--red)'; };
+ws.onclose = () => { document.getElementById('statusBadge').textContent=' OFFLINE'; document.getElementById('statusBadge').style.color='var(--red)'; };
 ws.onmessage = e => {
   try { updateAll(JSON.parse(e.data)); } catch(err){}
 };
 setInterval(() => { if(ws.readyState===1) ws.send(JSON.stringify({type:'ping'})); }, 5000);
 
-// ── Clock ──────────────────────────────────────────────────
+//  Clock 
 function pad(n){ return String(n).padStart(2,'0'); }
 function tick(){
   const n=new Date();
@@ -663,7 +660,7 @@ function tick(){
 }
 setInterval(tick,1000); tick();
 
-// ── Formatters ─────────────────────────────────────────────
+//  Formatters 
 function fmt(n){ return '₩'+Math.round(n||0).toLocaleString('ko-KR'); }
 function fmtPct(n,dec=2){ const v=parseFloat(n||0); return (v>=0?'+':'')+v.toFixed(dec)+'%'; }
 function colorClass(n){ return parseFloat(n)>0?'pos':parseFloat(n)<0?'neg':'neu'; }
@@ -677,36 +674,36 @@ function coinDot(sym){
   return `<span class="dot" style="background:${c}"></span>`;
 }
 
-// ── Main updater ───────────────────────────────────────────
-// ── Main updater ──────────────────────────────────────────────
+//  Main updater 
+//  Main updater 
 function updateAll(d){
   const p  = d.portfolio  || {};
   const s  = d.signals    || {};
   const m  = d.metrics    || {};
   const ml = s.ml_predictions || d.ml_predictions || {};
-  // ML 앙상블 단건 예측 표시 (signals.ml_prediction 단수)
+  // ML     (signals.ml_prediction )
   (function() {
     var pred = s.ml_prediction || null;
     var el = document.getElementById('mlSignal') || document.querySelector('.ml-signal');
-    // 기존 ML 예측 컨테이너 찾기
+    //  ML   
     var container = document.querySelector('[id*="ml"]');
     var mlText = '--';
     if (pred && pred.signal) {
-      var arrow = pred.signal === 'BUY' ? '🟢' : pred.signal === 'SELL' ? '🔴' : '🟡';
+      var arrow = pred.signal === 'BUY' ? '' : pred.signal === 'SELL' ? '' : '';
       mlText = arrow + ' ' + pred.signal + ' (' + (pred.confidence * 100).toFixed(1) + '%)';
-      mlText += ' | 매수확률: ' + (pred.buy_prob * 100).toFixed(1) + '%';
+      mlText += ' | : ' + (pred.buy_prob * 100).toFixed(1) + '%';
     } else if (Object.keys(ml).length > 0) {
-      // ml_predictions 형식 처리
+      // ml_predictions  
       var markets = Object.keys(ml);
       if (markets.length > 0) {
         var first = ml[markets[0]];
         if (first && first.signal) {
-          var arrow2 = first.signal === 'BUY' ? '🟢' : first.signal === 'SELL' ? '🔴' : '🟡';
+          var arrow2 = first.signal === 'BUY' ? '' : first.signal === 'SELL' ? '' : '';
           mlText = arrow2 + ' ' + first.signal;
         }
       }
     }
-    // ML 예측 텍스트 표시할 요소 찾기
+    // ML     
     var mlEls = document.querySelectorAll('[id*="Ml"],[id*="ml"],[class*="ml-pred"]');
     mlEls.forEach(function(e) {
       if (e.tagName !== 'SCRIPT' && e.id && e.id.toLowerCase().includes('ml')) {
@@ -728,8 +725,8 @@ function updateAll(d){
   document.getElementById('totalAssets').textContent = fmt(total);
   document.getElementById('invested').textContent    = fmt(inv);
   document.getElementById('cashBalance').textContent = fmt(cash);
-  document.getElementById('investRatio').textContent = invR  + '% 투자 중';
-  document.getElementById('cashRatio').textContent   = cashR + '% 여유';
+  document.getElementById('investRatio').textContent = invR  + '%  ';
+  document.getElementById('cashRatio').textContent   = cashR + '% ';
 
   const pnlEl = document.getElementById('todayPnl');
   const pctEl = document.getElementById('todayPct');
@@ -743,10 +740,10 @@ function updateAll(d){
   document.getElementById('modeTag').textContent = (p.mode || 'PAPER').toUpperCase();
   const st    = (d.bot_status || 'running').toLowerCase();
   const badge = document.getElementById('statusBadge');
-  badge.textContent = st === 'running' ? '● LIVE' : '● ' + st.toUpperCase();
+  badge.textContent = st === 'running' ? ' LIVE' : ' ' + st.toUpperCase();
   badge.style.color = st === 'running' ? 'var(--green)' : 'var(--yellow)';
 
-  // Positions: dict이면 배열로 변환
+  // Positions: dict  
   let positions = p.positions_detail || [];
   if (positions.length === 0 && p.positions && typeof p.positions === 'object' && !Array.isArray(p.positions)) {
     positions = Object.entries(p.positions).map(function([market, pos]) {
@@ -762,10 +759,10 @@ function updateAll(d){
       };
     });
   }
-  document.getElementById('posCount').textContent = '(' + positions.length + '개)';
+  document.getElementById('posCount').textContent = '(' + positions.length + ')';
   const tbody = document.getElementById('posTable');
   if (positions.length === 0) {
-    tbody.innerHTML = '<tr><td colspan="7" style="text-align:center;color:var(--muted);padding:24px">보유 포지션 없음</td></tr>';
+    tbody.innerHTML = '<tr><td colspan="7" style="text-align:center;color:var(--muted);padding:24px">  </td></tr>';
   } else {
     tbody.innerHTML = positions.map(function(pos) {
       const sym  = (pos.market || '').replace('KRW-', '');
@@ -787,7 +784,7 @@ function updateAll(d){
   // Fear & Greed
   const fg = parseFloat(s.fear_greed || m.fear_greed_index || 11);
   document.getElementById('fgNum').textContent = fg;
-  const fgLabels = ['극단적 공포','공포','중립','탐욕','극단적 탐욕'];
+  const fgLabels = [' ','','','',' '];
   const fgIdx    = fg<20?0:fg<40?1:fg<60?2:fg<80?3:4;
   const fgColors = ['var(--red)','#f97316','var(--muted)','var(--green)','#06b6d4'];
   document.getElementById('fgLabel').textContent = fgLabels[fgIdx];
@@ -802,20 +799,20 @@ function updateAll(d){
   const kimchi = (s.kimchi_premium != null) ? s.kimchi_premium : (m.kimchi_premium != null ? m.kimchi_premium : null);
   document.getElementById('kimchi').textContent        = kimchi != null ? fmtPct(kimchi, 1) : '--%';
   document.getElementById('newsSentiment').textContent = s.news_sentiment || m.news_sentiment || '--';
-  // 시장 국면: Fear&Greed 기반 직접 계산
+  //  : Fear&Greed   
   (function() {
-    // fear_greed: signals.fear_greed → metrics.fear_greed_index → 기본값 순으로 탐색
+    // fear_greed: signals.fear_greed → metrics.fear_greed_index →   
     var fg = null;
     if (s && s.fear_greed != null)        fg = parseInt(s.fear_greed);
     else if (m && m.fear_greed_index != null) fg = parseInt(m.fear_greed_index);
     if (fg === null || isNaN(fg))         fg = 50;
     var regime = s.market_regime || m.market_regime;
     if (!regime || regime === '--') {
-      if      (fg <= 20) regime = '🔴 BEAR (극단공포)';
-      else if (fg <= 35) regime = '🟠 BEAR_WATCH';
-      else if (fg <= 55) regime = '🟡 NEUTRAL';
-      else if (fg <= 75) regime = '🟢 BULL_WATCH';
-      else               regime = '🟢 BULL (극단탐욕)';
+      if      (fg <= 20) regime = ' BEAR ()';
+      else if (fg <= 35) regime = ' BEAR_WATCH';
+      else if (fg <= 55) regime = ' NEUTRAL';
+      else if (fg <= 75) regime = ' BULL_WATCH';
+      else               regime = ' BULL ()';
     }
     document.getElementById('marketRegime').textContent = regime;
   })();
@@ -838,14 +835,14 @@ function updateAll(d){
         + '</div></div>';
     }).join('');
   } else {
-    mlBody.innerHTML = '<div style="color:var(--muted);text-align:center;padding:20px">분석 대기 중...</div>';
+    mlBody.innerHTML = '<div style="color:var(--muted);text-align:center;padding:20px">  ...</div>';
   }
 
   // Recent Trades
   const trades = (d.recent_trades || []).slice(0, 8);
   const ttbody = document.getElementById('tradeTable');
   if (trades.length === 0) {
-    ttbody.innerHTML = '<tr><td colspan="5" style="text-align:center;color:var(--muted);padding:20px">거래 데이터 없음</td></tr>';
+    ttbody.innerHTML = '<tr><td colspan="5" style="text-align:center;color:var(--muted);padding:20px">  </td></tr>';
   } else {
     ttbody.innerHTML = trades.map(function(t) {
       const sym      = (t.market || '').replace('KRW-', '');
@@ -869,9 +866,9 @@ function updateAll(d){
   document.getElementById('statSharpe').textContent = m.sharpe_ratio  != null ? parseFloat(m.sharpe_ratio).toFixed(3)  : '--';
   document.getElementById('riskMDD').textContent    = m.max_drawdown  != null ? fmtPct(parseFloat(m.max_drawdown) * 100, 2) : '--';
   document.getElementById('riskPos').textContent    = positions.length + ' / 10';
-  document.getElementById('riskBear').textContent   = '오늘 ' + (s.bear_reversal_count || m.bear_reversal_count || 0) + ' / 3';
+  document.getElementById('riskBear').textContent   = ' ' + (s.bear_reversal_count || m.bear_reversal_count || 0) + ' / 3';
   const stEl = document.getElementById('riskStatus');
-  stEl.textContent = st === 'running' ? '정상 작동' : '일시정지';
+  stEl.textContent = st === 'running' ? ' ' : '';
   stEl.className   = 'mini-value ' + (st === 'running' ? 'pos' : 'yellow');
 
   // Strategy panel
@@ -882,16 +879,16 @@ function updateAll(d){
       const wr = parseFloat(s2.win_rate || 0);
       return '<div class="mini-stat">'
         + '<span class="mini-label" style="font-size:12px">' + (s2.strategy || '?') + '</span>'
-        + '<span class="mini-value" style="font-size:12px">' + (s2.trades || 0) + '건 / ' + wr.toFixed(0) + '% 승</span>'
+        + '<span class="mini-value" style="font-size:12px">' + (s2.trades || 0) + ' / ' + wr.toFixed(0) + '% </span>'
         + '</div>';
     }).join('');
   } else {
-    sPanel.innerHTML = '<div style="color:var(--muted);text-align:center;padding:20px">전략 데이터 없음</div>';
+    sPanel.innerHTML = '<div style="color:var(--muted);text-align:center;padding:20px">  </div>';
   }
 }
 
 
-// ── Fallback REST poll (if WS slow) ───────────────────────
+//  Fallback REST poll (if WS slow) 
 async function poll(){
   try{
     const [s,p,m,ml,t] = await Promise.all([
@@ -908,12 +905,11 @@ poll();
 setInterval(poll, 10000);
 </script>
 </body>
-</html>
-"""
+</html>"""
 
 
 class DashboardServer:
-    """대시보드 서버 관리 클래스"""
+    """docstring"""
 
     def __init__(self):
         self.settings = get_settings()
@@ -935,7 +931,7 @@ class DashboardServer:
         )
         server = uvicorn.Server(config)
         logger.info(
-            f"🌐 대시보드 시작: http://{self.settings.monitoring.dashboard_host}"
+            f"  : http://{self.settings.monitoring.dashboard_host}"
             f":{self.settings.monitoring.dashboard_port}"
         )
         self._server_task = asyncio.create_task(server.serve())

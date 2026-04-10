@@ -1,9 +1,7 @@
-"""
-ATR 기반 동적 손절/익절 계산
-- 코인 현재가 기준 자동 프로필 선택 (고정 딕셔너리 제거)
-- 가격대별: BTC급/ETH급/중가/저가/초저가 자동 분류
-- ATR% 실시간 반영으로 변동성 국면별 SL/TP 자동 조정
-"""
+"""ATR   / 
+-       (  )
+- : BTC/ETH///  
+- ATR%     SL/TP"""
 import numpy as np
 import pandas as pd
 from dataclasses import dataclass
@@ -21,10 +19,8 @@ class StopLevels:
 
 
 def _get_profile_by_price(entry_price: float) -> dict:
-    """
-    현재가 기준 자동 프로필 반환 (고정 딕셔너리 불필요)
-    가격대가 높을수록 SL 타이트, 낮을수록 SL 넓게
-    """
+    """(  )
+      SL ,  SL"""
     if entry_price >= 10_000_000:       # BTC급 (1000만원 이상)
         return {"min_sl": 0.010, "max_sl": 0.025, "sl_mult": 1.5, "tp_mult": 3.0}
     elif entry_price >= 1_000_000:      # ETH/BNB급 (100만원 이상)
@@ -42,12 +38,10 @@ def _get_profile_by_price(entry_price: float) -> dict:
 
 
 class ATRStopLoss:
-    """
-    ATR 기반 동적 손절/익절 계산기
-    - 가격대 자동 프로필 선택
-    - ATR% 실시간 변동성 반영
-    - 수익 구간별 SL 동적 이동
-    """
+    """ATR   / 
+    -    
+    - ATR%   
+    -   SL"""
     ATR_PERIOD = 14
 
     def __init__(self, sl_multiplier: float = 2.0, tp_multiplier: float = 4.0):
@@ -131,12 +125,10 @@ class ATRStopLoss:
         profit_pct: float,
         market: str = "",
     ) -> StopLevels:
-        """
-        수익 구간별 SL 동적 이동
-        +3%: 손익분기점(BEP)으로 이동
-        +5%: +2% 수익 보전
-        +10%: +5% 수익 보전
-        """
+        """SL  
+        +3%: (BEP) 
+        +5%: +2%  
+        +10%: +5%"""
         levels = self.calculate(df, entry_price, market)
 
         if profit_pct >= 0.10:

@@ -1,8 +1,6 @@
-"""
-APEX BOT Backtester - 신호 생성기
-백테스트용 기술지표 기반 신호 생성 (전략 8개 대응)
-각 전략은 OHLCV DataFrame을 받아 pd.Series(+1/-1/0)을 반환합니다.
-"""
+"""APEX BOT Backtester -  
+     ( 8 )
+  OHLCV DataFrame  pd.Series(+1/-1/0) ."""
 import numpy as np
 import pandas as pd
 from typing import Callable, Dict
@@ -41,7 +39,7 @@ def _bollinger(close: pd.Series, period=20, std_mult=2.0):
     return mid + std_mult * std, mid, mid - std_mult * std
 
 def _adx(df: pd.DataFrame, period: int = 14) -> pd.Series:
-    """ADX 근사 계산"""
+    """ADX"""
     atr_val = _atr(df, period)
     up_move   = df["high"].diff()
     down_move = -df["low"].diff()
@@ -56,7 +54,7 @@ def _adx(df: pd.DataFrame, period: int = 14) -> pd.Series:
 # ── 전략 신호 생성 함수들 ─────────────────────────────────────────────────
 
 def signal_volatility_breakout(df: pd.DataFrame, k: float = 0.5) -> pd.Series:
-    """변동성 돌파 전략 (Larry Williams) - Look-Ahead Bias 없음 확인"""
+    """(Larry Williams) - Look-Ahead Bias"""
     prev_range = (df["high"] - df["low"]).shift(1)   # 전일 범위 (과거)
     target     = df["open"] + prev_range * k          # 당일 목표가
     sig = pd.Series(0, index=df.index)
@@ -66,7 +64,7 @@ def signal_volatility_breakout(df: pd.DataFrame, k: float = 0.5) -> pd.Series:
 
 
 def signal_mean_reversion(df: pd.DataFrame, period: int = 20, z_thresh: float = 2.0) -> pd.Series:
-    """평균회귀 전략 (Bollinger Band Z-score)"""
+    """(Bollinger Band Z-score)"""
     bb_upper, bb_mid, bb_lower = _bollinger(df["close"], period)
     z = (df["close"] - bb_mid) / (df["close"].rolling(period).std().replace(0, np.nan))
     sig = pd.Series(0, index=df.index)
@@ -76,7 +74,7 @@ def signal_mean_reversion(df: pd.DataFrame, period: int = 20, z_thresh: float = 
 
 
 def signal_trend_following(df: pd.DataFrame, fast: int = 50, slow: int = 200) -> pd.Series:
-    """추세 추종 (EMA 크로스오버)"""
+    """(EMA )"""
     ema_fast = _ema(df["close"], fast)
     ema_slow = _ema(df["close"], slow)
     sig = pd.Series(0, index=df.index)
@@ -92,7 +90,7 @@ def signal_trend_following(df: pd.DataFrame, fast: int = 50, slow: int = 200) ->
 
 def signal_rsi_divergence(df: pd.DataFrame, rsi_period: int = 14,
                           oversold: float = 30, overbought: float = 70) -> pd.Series:
-    """RSI 다이버전스 전략"""
+    """RSI"""
     rsi = _rsi(df["close"], rsi_period)
     sig = pd.Series(0, index=df.index)
     sig[rsi < oversold]  = 1
@@ -101,7 +99,7 @@ def signal_rsi_divergence(df: pd.DataFrame, rsi_period: int = 14,
 
 
 def signal_macd_momentum(df: pd.DataFrame) -> pd.Series:
-    """MACD 모멘텀 전략"""
+    """MACD"""
     macd, macd_sig = _macd(df["close"])
     hist = macd - macd_sig
     sig = pd.Series(0, index=df.index)
@@ -117,7 +115,7 @@ def signal_macd_momentum(df: pd.DataFrame) -> pd.Series:
 
 def signal_volume_spike(df: pd.DataFrame, vol_mult: float = 2.0,
                         period: int = 20) -> pd.Series:
-    """거래량 급증 전략"""
+    """docstring"""
     avg_vol = df["volume"].rolling(period).mean()
     spike   = df["volume"] > avg_vol * vol_mult
     sig = pd.Series(0, index=df.index)
@@ -128,7 +126,7 @@ def signal_volume_spike(df: pd.DataFrame, vol_mult: float = 2.0,
 
 
 def signal_order_block_smc(df: pd.DataFrame, swing_period: int = 5) -> pd.Series:
-    """SMC 오더 블록 전략 (Look-Ahead Bias 수정: center=False + shift(1))"""
+    """SMC    (Look-Ahead Bias : center=False + shift(1))"""
     # center=False: 과거 데이터만 참조
     # shift(1): 신호 발생 다음 봉에 진입 (현실적 실행)
     local_high = df["high"].rolling(swing_period * 2 + 1, center=False).max().shift(1)
@@ -142,10 +140,8 @@ def signal_order_block_smc(df: pd.DataFrame, swing_period: int = 5) -> pd.Series
 
 
 def signal_ml_strategy(df: pd.DataFrame) -> pd.Series:
-    """
-    ML 전략 백테스트용 앙상블 근사 신호
-    실제 모델 대신 다중 지표 조합으로 근사합니다.
-    """
+    """ML     
+          ."""
     rsi   = _rsi(df["close"], 14)
     macd_, macd_sig_ = _macd(df["close"])
     adx   = _adx(df, 14)
@@ -181,12 +177,12 @@ STRATEGIES: Dict[str, Callable] = {
 
 
 def get_signals(strategy_name: str, df: pd.DataFrame, **kwargs) -> pd.Series:
-    """전략 이름으로 신호 생성"""
+    """docstring"""
     if strategy_name not in STRATEGIES:
-        raise ValueError(f"Unknown strategy: {strategy_name}. 가능: {list(STRATEGIES)}")
+        raise ValueError(f"Unknown strategy: {strategy_name}. : {list(STRATEGIES)}")
     fn = STRATEGIES[strategy_name]
     try:
         return fn(df, **kwargs)
     except Exception as e:
-        logger.error(f"[{strategy_name}] 신호 생성 실패: {e}")
+        logger.error(f"[{strategy_name}]   : {e}")
         return pd.Series(0, index=df.index)

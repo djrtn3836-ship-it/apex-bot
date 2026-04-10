@@ -1,22 +1,18 @@
-"""
-엘리엇 파동 기초 감지 (v2.0.4)
-5파 상승 패턴 감지 (간단한 지그재그 카운팅)
-"""
+"""(v2.0.4)
+5    (  )"""
 import numpy as np
 from typing import List, Optional
 
 
 class ElliottWaveDetectorAnalyzer:
-    """엘리엇 파동 5파 상승 감지"""
+    """5"""
     
     def __init__(self):
         self.min_wave_bars = 5  # 최소 파동 길이
         
     def detect_impulse_wave(self, closes: List[float]) -> Optional[str]:
-        """
-        5파 상승 임펄스 감지
-        Returns: "wave5_top" | "wave4_bottom" | None
-        """
+        """5   
+        Returns: "wave5_top" | "wave4_bottom" | None"""
         if len(closes) < 50:
             return None
             
@@ -41,10 +37,8 @@ class ElliottWaveDetectorAnalyzer:
         return None
         
     def _find_zigzag(self, closes: List[float], threshold=0.03):
-        """
-        지그재그 피크/밸리 찾기
-        threshold: 최소 변동률 (3%)
-        """
+        """/ 
+        threshold:   (3%)"""
         peaks = []
         valleys = []
         

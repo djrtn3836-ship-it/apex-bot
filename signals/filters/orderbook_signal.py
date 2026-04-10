@@ -1,13 +1,11 @@
-"""
-APEX BOT - 호가창 신호 분석기 v2.0
-페이크월(가짜 지지/저항벽) 탐지 강화
-────────────────────────────────────
-개선 사항:
-  1. 페이크월 탐지: 벽 크기가 평균의 3배 이상인 단일 레벨 감지
-  2. 벽 소멸 감지: 히스토리 비교로 갑작스러운 벽 사라짐 = 페이크월
-  3. 벽 출현 속도: 갑자기 3배 이상 증가한 벽 = 조작 가능성
-  4. 근접 레벨 필터: 최우선호가 5단계 이내만 유효한 벽으로 인정
-"""
+"""APEX BOT -    v2.0
+( /)  
+
+ :
+  1.  :    3    
+  2.   :      = 
+  3.   :  3    =  
+  4.   :  5"""
 from __future__ import annotations
 
 import time
@@ -20,7 +18,7 @@ from loguru import logger
 
 @dataclass
 class OrderbookSignal:
-    """호가창 분석 결과 (v2.0 — 페이크월 포함)"""
+    """(v2.0 —  )"""
     market: str
     bid_ask_ratio: float
     spread_pct: float
@@ -40,16 +38,14 @@ class OrderbookSignal:
 
 
 class OrderbookSignalAnalyzer:
-    """
-    실시간 호가창 신호 분석기 v2.0
-    ─────────────────────────────
-    페이크월 판정 기준 (한국 시장 특화):
-      1. 단일 레벨 크기 >= 평균 * WALL_THR (기본 3.0배)
-      2. 최우선호가에서 5단계 이내 레벨만 유효
-      3. 히스토리에서 1회만 등장 → 지속성 없음 → 페이크 가능성 높음
-      4. 이전 스냅샷 대비 크기가 3배 이상 급증 → 조작 가능성
-      5. 이전에 있던 벽이 30초 내 사라짐 → 페이크월 확정
-    """
+    """v2.0
+    
+       (  ):
+      1.    >=  * WALL_THR ( 3.0)
+      2.  5   
+      3.  1  →   →   
+      4.     3   →  
+      5.    30   →"""
 
     BUY_PRESSURE_RATIO  = 1.5
     SELL_PRESSURE_RATIO = 1.5
@@ -146,19 +142,19 @@ class OrderbookSignalAnalyzer:
 
             if fake_detected:
                 logger.info(
-                    f"🚨 페이크월 탐지 | {market} | {fake_side.upper()} | "
+                    f"   | {market} | {fake_side.upper()} | "
                     f"신뢰도={fake_conf:.0%} | 크기={wall_ratio:.1f}배 | "
                     f"소멸감지={wall_vanished}"
                 )
             else:
                 logger.debug(
-                    f"📊 호가창 신호 | {market} | {signal} | "
+                    f"   | {market} | {signal} | "
                     f"bid/ask={bid_ask_ratio:.2f} | spread={spread:.3f}%"
                 )
             return result
 
         except Exception as e:
-            logger.error(f"호가창 분석 오류 ({market}): {e}")
+            logger.error(f"   ({market}): {e}")
             return None
 
     # ── 페이크월 핵심 탐지 로직 ────────────────────────────────────
@@ -240,7 +236,7 @@ class OrderbookSignalAnalyzer:
         return fake_detected, fake_side, fake_conf, wall_vanished, wall_ratio
 
     def _update_history(self, market: str, bids: List, asks: List):
-        """벽 히스토리 업데이트"""
+        """docstring"""
         if market not in self._wall_history:
             self._wall_history[market] = deque(maxlen=self.HISTORY_MAXLEN)
         now = time.time()

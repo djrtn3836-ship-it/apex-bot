@@ -7,7 +7,7 @@ from signals.signal_combiner import CombinedSignal, SignalType
 
 
 class MLStrategy(BaseStrategy):
-    """ML 앙상블 예측 기반 전략 - engine 의 ml_prediction 결과 활용"""
+    """ML     - engine  ml_prediction"""
 
     def __init__(self, settings: dict = None):
         super().__init__("MLStrategy", settings)
@@ -31,7 +31,7 @@ class MLStrategy(BaseStrategy):
         return self._signal_from_features(market, df, additional_data)
 
     def _signal_from_ml_prediction(self, market, ml_prediction, df, additional_data):
-        """ML 예측 결과로부터 신호 생성"""
+        """ML"""
         signal_type_str = None
         score = 0.0
         confidence = 0.0
@@ -73,7 +73,7 @@ class MLStrategy(BaseStrategy):
         )
 
     def _signal_from_features(self, market, df, additional_data):
-        """ML 예측 없을 때 특성 기반 신호 (폴백)"""
+        """ML       ()"""
         close = df["close"].values
         volume = df["volume"].values
 

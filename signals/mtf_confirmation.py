@@ -1,13 +1,11 @@
-"""
-Multi-Timeframe Confirmation (다중 타임프레임 확인)
-v2.1.0 추가
-"""
+"""Multi-Timeframe Confirmation (  )
+v2.1.0"""
 from typing import Dict, List
 import pandas as pd
 
 
 class MultiTimeframeConfirmation:
-    """5분/15분/1시간 3개 타임프레임 동의 확인"""
+    """5/15/1 3"""
     
     def __init__(self):
         self.timeframes = ["5m", "15m", "1h"]
@@ -18,10 +16,8 @@ class MultiTimeframeConfirmation:
         signals_15m: Dict,
         signals_1h: Dict
     ) -> Dict:
-        """
-        3개 타임프레임 모두 동의 시 신뢰도 +30%
-        2개 동의 시 신뢰도 +15%
-        """
+        """3      +30%
+        2    +15%"""
         sig_5 = signals_5m.get("signal", 0)
         sig_15 = signals_15m.get("signal", 0)
         sig_1h = signals_1h.get("signal", 0)

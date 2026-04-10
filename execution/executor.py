@@ -1,7 +1,5 @@
-﻿"""
-APEX BOT - 주문 실행기
-신호 → 주문 변환 + 체결 확인 + 슬리피지 모델 + 실패 재시도
-"""
+﻿"""APEX BOT -  
+ →   +   +   +"""
 import asyncio
 import time
 from typing import Optional, Dict, List
@@ -27,7 +25,7 @@ class OrderStatus(Enum):
 
 @dataclass
 class ExecutionRequest:
-    """주문 실행 요청"""
+    """docstring"""
     market: str
     side: OrderSide
     amount_krw: float           # 매수금액 (KRW)
@@ -40,7 +38,7 @@ class ExecutionRequest:
 
 @dataclass
 class ExecutionResult:
-    """주문 실행 결과"""
+    """docstring"""
     request: ExecutionRequest
     status: OrderStatus
     order_uuid: str = ""
@@ -55,13 +53,10 @@ class ExecutionResult:
         return self.executed_price * self.executed_volume
 
 class OrderExecutor:
-    """
-    주문 실행 엔진
-    - 지정가 우선, 미체결 시 시장가 전환
-    - 최대 3회 재시도
-    - 체결 확인 (최대 60초 대기)
-    - 슬리피지 추정
-    """
+    """-  ,    
+    -  3 
+    -   ( 60 )
+    -"""
 
     FILL_TIMEOUT = 60       # 체결 대기 최대 60초
     FILL_CHECK_INTERVAL = 2  # 2초마다 체결 확인
@@ -77,10 +72,10 @@ class OrderExecutor:
 
     # ── 메인 실행 인터페이스 ──────────────────────────────────────
     async def execute(self, request: ExecutionRequest) -> ExecutionResult:
-        """주문 실행 (메인 진입점)"""
+        """( )"""
         logger.info(
-            f"📤 주문 요청 | {request.market} | {request.side.name} | "
-            f"금액={request.amount_krw:,.0f}KRW | 사유={request.reason}"
+            f"   | {request.market} | {request.side.name} | "
+            f"={request.amount_krw:,.0f}KRW | ={request.reason}"
         )
 
         result = ExecutionResult(request=request, status=OrderStatus.PENDING)
@@ -95,11 +90,11 @@ class OrderExecutor:
                 elif result.status == OrderStatus.FAILED:
                     if attempt < self.MAX_RETRIES - 1:
                         wait = 2 ** attempt
-                        logger.warning(f"⚠️ 재시도 {attempt+1}/{self.MAX_RETRIES} ({wait}s 후)")
+                        logger.warning(f"  {attempt+1}/{self.MAX_RETRIES} ({wait}s )")
                         await asyncio.sleep(wait)
 
             except Exception as e:
-                logger.error(f"주문 실행 예외 (시도 {attempt+1}): {e}")
+                logger.error(f"   ( {attempt+1}): {e}")
                 result.error_message = str(e)
                 if attempt == self.MAX_RETRIES - 1:
                     result.status = OrderStatus.FAILED
@@ -110,7 +105,7 @@ class OrderExecutor:
 
     # ── 지정가 주문 ───────────────────────────────────────────────
     async def _execute_limit(self, req: ExecutionRequest) -> ExecutionResult:
-        """지정가 주문 실행 + 체결 대기"""
+        """+"""
         result = ExecutionResult(request=req, status=OrderStatus.SUBMITTED)
 
         if req.side == OrderSide.BUY:
@@ -141,7 +136,7 @@ class OrderExecutor:
             result.fee = float(filled.get("fee", filled.get("paid_fee", 0)))
         else:
             # 미체결 → 취소 후 시장가 전환
-            logger.warning(f"⏱️ 체결 타임아웃 → 주문 취소 후 시장가 전환")
+            logger.warning(f"⏱   →     ")
             await self.adapter.cancel_order(result.order_uuid)
             # 시장가로 재시도
             market_req = ExecutionRequest(
@@ -157,7 +152,7 @@ class OrderExecutor:
 
     # ── 시장가 주문 ───────────────────────────────────────────────
     async def _execute_market(self, req: ExecutionRequest) -> ExecutionResult:
-        """시장가 주문 즉시 실행"""
+        """docstring"""
         result = ExecutionResult(request=req, status=OrderStatus.SUBMITTED)
 
         if req.side == OrderSide.BUY:
@@ -188,7 +183,7 @@ class OrderExecutor:
 
     # ── 체결 확인 루프 ────────────────────────────────────────────
     async def _wait_for_fill(self, order_uuid: str) -> Optional[Dict]:
-        """체결될 때까지 대기 (최대 FILL_TIMEOUT초)"""
+        """( FILL_TIMEOUT)"""
         start = time.time()
         while time.time() - start < self.FILL_TIMEOUT:
             await asyncio.sleep(self.FILL_CHECK_INTERVAL)
@@ -204,11 +199,11 @@ class OrderExecutor:
 
     # ── 긴급 전량 청산 ────────────────────────────────────────────
     async def emergency_sell_all(self, market: str, reason: str = "긴급 청산") -> ExecutionResult:
-        """보유 코인 전량 시장가 청산"""
+        """docstring"""
         coin = market.split("-")[1]
         volume = await self.adapter.get_balance(coin)
         if volume <= 0:
-            logger.info(f"긴급 청산 불필요 ({market}: 보유량 없음)")
+            logger.info(f"   ({market}:  )")
             return ExecutionResult(
                 request=ExecutionRequest(market=market, side=OrderSide.SELL,
                                          amount_krw=0, volume=0, reason=reason),
@@ -222,24 +217,24 @@ class OrderExecutor:
             volume=volume,
             reason=reason,
         )
-        logger.warning(f"🚨 긴급 청산 실행 | {market} | {volume:.8f} | {reason}")
+        logger.warning(f"    | {market} | {volume:.8f} | {reason}")
         return await self._execute_market(req)
 
     # ── 미체결 주문 전체 취소 ────────────────────────────────────
     async def cancel_all_orders(self, market: str = None) -> int:
-        """미체결 주문 전체 취소"""
+        """docstring"""
         orders = await self.adapter.get_open_orders(market)
         cancelled = 0
         for order in orders:
             if await self.adapter.cancel_order(order["uuid"]):
                 cancelled += 1
         if cancelled > 0:
-            logger.info(f"✅ {cancelled}개 주문 취소 완료")
+            logger.info(f" {cancelled}   ")
         return cancelled
 
     # ── 통계 ──────────────────────────────────────────────────────
     def get_execution_stats(self) -> Dict:
-        """실행 통계 반환"""
+        """docstring"""
         if not self._execution_history:
             return {}
         filled = [r for r in self._execution_history if r.status == OrderStatus.FILLED]
@@ -253,7 +248,7 @@ class OrderExecutor:
         }
 
     def _log_execution_result(self, result: ExecutionResult):
-        """실행 결과 로깅 + DB 저장"""
+        """+ DB"""
         if result.status == OrderStatus.FILLED:
             logger.success(
                 f"✅ 체결 완료 | {result.request.market} | "
@@ -263,5 +258,5 @@ class OrderExecutor:
             # ── DB 저장: engine._execute_buy에서 처리 (중복 방지) ──
         elif result.status == OrderStatus.FAILED:
             logger.error(
-                f"❌ 주문 실패 | {result.request.market} | {result.error_message}"
+                f"   | {result.request.market} | {result.error_message}"
             )

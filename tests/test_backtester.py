@@ -1,6 +1,4 @@
-"""
-APEX BOT - 백테스터 테스트
-"""
+"""APEX BOT -"""
 import pytest
 import pandas as pd
 import numpy as np
@@ -8,7 +6,7 @@ from datetime import datetime, timedelta
 
 
 def create_test_df(n: int = 500) -> pd.DataFrame:
-    """테스트용 처리된 DataFrame"""
+    """DataFrame"""
     dates = [datetime.now() - timedelta(hours=n-i) for i in range(n)]
     close = 50_000_000 + np.cumsum(np.random.randn(n) * 200_000)
     close = np.maximum(close, 10_000_000)
@@ -27,7 +25,7 @@ def create_test_df(n: int = 500) -> pd.DataFrame:
 
 
 def random_signal_fn(df: pd.DataFrame) -> pd.Series:
-    """무작위 신호 함수 (테스트용)"""
+    """()"""
     signals = pd.Series(0, index=df.index)
     for i in range(len(df)):
         r = np.random.random()
@@ -39,7 +37,7 @@ def random_signal_fn(df: pd.DataFrame) -> pd.Series:
 
 
 def buy_hold_signal_fn(df: pd.DataFrame) -> pd.Series:
-    """바이앤홀드 전략 (첫 캔들 매수, 이후 홀드)"""
+    """(  ,  )"""
     signals = pd.Series(0, index=df.index)
     signals.iloc[0] = 1
     return signals

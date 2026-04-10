@@ -1,9 +1,7 @@
-"""
-fix_ws_orderbook.py
-– engine.py의 WebSocket 수집기에 orderbook 구독 및 캐시 저장 연동
-– _on_ws_message에 orderbook 타입 라우팅 추가
-– subscribe_orderbook() 호출 추가
-"""
+"""fix_ws_orderbook.py
+– engine.py WebSocket  orderbook     
+– _on_ws_message orderbook   
+– subscribe_orderbook()"""
 import shutil, py_compile
 from pathlib import Path
 
@@ -27,12 +25,12 @@ for i, ln in enumerate(lines):
         break
 
 if target_start is None or target_end is None:
-    print(f"⚠️ 대상 블록을 찾지 못했습니다.")
+    print(f"    .")
     print(f"  target_start={target_start}, target_end={target_end}")
-    print("  수동으로 engine.py L306~L320 구간을 확인하세요.")
+    print("   engine.py L306~L320  .")
     exit(1)
 
-print(f"✅ 수정 대상 확인: L{target_start+1} ~ L{target_end+1}")
+print(f"   : L{target_start+1} ~ L{target_end+1}")
 
 # ── 기존 블록의 들여쓰기 추출 ────────────────────────────────────────────
 indent = len(lines[target_start]) - len(lines[target_start].lstrip())
@@ -43,7 +41,7 @@ new_block = f"""{sp}async def _on_ws_message(data):
 {sp}    msg_type = data.get('ty', data.get('type', ''))
 {sp}    market   = data.get('cd', data.get('code', ''))
 
-{sp}    # ── ticker: 현재가 업데이트 ──────────────────────────────────
+{sp}    #  ticker:   
 {sp}    if msg_type == 'ticker':
 {sp}        price = data.get('tp', data.get('trade_price', 0))
 {sp}        if market and price:
@@ -51,10 +49,10 @@ new_block = f"""{sp}async def _on_ws_message(data):
 {sp}            self.correlation_filter.update_price(market, price)
 {sp}            self.kimchi_monitor.update_upbit_price(market, price)
 
-{sp}    # ── orderbook: 호가창 캐시 저장 ─────────────────────────────
+{sp}    #  orderbook:    
 {sp}    elif msg_type == 'orderbook':
 {sp}        if market:
-{sp}            # SIMPLE 포맷 → orderbook_units 변환
+{sp}            # SIMPLE  → orderbook_units 
 {sp}            raw_units = data.get('obu', data.get('orderbook_units', []))
 {sp}            normalized = {{
 {sp}                "market": market,
@@ -79,7 +77,7 @@ new_block = f"""{sp}async def _on_ws_message(data):
 {sp})
 {sp}self.ws_collector.subscribe_ticker()
 {sp}self.ws_collector.subscribe_orderbook()
-{sp}logger.info(f"✅ WebSocket 호가창 구독 시작 | {{len(self.settings.trading.target_markets)}}개 코인")"""
+{sp}logger.info(f" WebSocket    | {{len(self.settings.trading.target_markets)}} ")"""
 
 # ── 기존 블록 교체 ───────────────────────────────────────────────────────
 new_lines = lines[:target_start] + new_block.splitlines() + lines[target_end + 1:]
@@ -89,11 +87,11 @@ engine_path.write_text(new_text, encoding="utf-8")
 
 try:
     py_compile.compile(str(engine_path), doraise=True)
-    print("✅ engine.py 문법 OK – WebSocket 호가창 연동 완료")
-    print(f"   수정 범위: L{target_start+1} ~ L{target_end+1}")
-    print("\n다음: python start_paper.py")
+    print(" engine.py  OK – WebSocket   ")
+    print(f"    : L{target_start+1} ~ L{target_end+1}")
+    print("\n: python start_paper.py")
 except py_compile.PyCompileError as e:
-    print(f"❌ 문법 오류: {e}")
+    print(f"  : {e}")
     import re
     m = re.search(r"line (\d+)", str(e))
     if m:
@@ -102,4 +100,4 @@ except py_compile.PyCompileError as e:
         for j in range(max(0, n-3), min(len(err_lines), n+4)):
             print(f"  L{j+1}: {err_lines[j]}")
     shutil.copy("core/engine.py.bak_ws", engine_path)
-    print("🔄 원본 복구 완료")
+    print("   ")

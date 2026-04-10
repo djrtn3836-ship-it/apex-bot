@@ -1,6 +1,4 @@
-"""
-APEX BOT 시작 스크립트 (코인봇 전용)
-"""
+"""APEX BOT   ( )"""
 import subprocess
 import sys
 import os
@@ -16,7 +14,7 @@ PYTHON_EXE = sys.executable
 
 for fp in FORBIDDEN_PATHS:
     if fp in PYTHON_EXE:
-        print(f"❌ 오류: 키움봇 환경({fp})으로 실행됨!")
+        print(f" :  ({fp}) !")
         sys.exit(1)
 
 import socket
@@ -24,12 +22,12 @@ for port in FORBIDDEN_PORTS:
     with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
         s.settimeout(0.2)
         if s.connect_ex(("127.0.0.1", port)) == 0:
-            print(f"⚠️  키움봇 포트 {port} 활성 확인 (정상)")
+            print(f"    {port}   ()")
 
-print("✅ 환경 검증 통과")
+print("   ")
 print(f"   Python : {PYTHON_EXE}")
-print(f"   사용 포트: 8888 (대시보드), 5600~5604 (ZMQ)")
-print(f"   금지 포트: {sorted(FORBIDDEN_PORTS)} (키움봇 전용)")
+print(f"    : 8888 (), 5600~5604 (ZMQ)")
+print(f"    : {sorted(FORBIDDEN_PORTS)} ( )")
 print()
 
 # ── PPO 경고 억제 + 봇 실행 ────────────────────────

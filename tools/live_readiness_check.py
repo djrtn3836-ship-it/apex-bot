@@ -1,11 +1,9 @@
-"""
-APEX BOT - 실매매 전환 준비도 체크
-페이퍼 트레이딩 데이터를 분석해 실거래 전환 가능 여부를 판단합니다.
+"""APEX BOT -    
+        .
 
-사용법:
+:
     python tools/live_readiness_check.py
-    python tools/live_readiness_check.py --days 30
-"""
+    python tools/live_readiness_check.py --days 30"""
 import sys
 import os
 import argparse
@@ -43,9 +41,7 @@ CRITERIA = {
 
 
 class LiveReadinessChecker:
-    """
-    페이퍼 트레이딩 성과를 분석하여 실매매 전환 준비도를 평가합니다.
-    """
+    """."""
 
     def __init__(self, days: int = 14):
         self.days = days
@@ -55,7 +51,7 @@ class LiveReadinessChecker:
         self.max_score = 0
 
     def _load_paper_metrics(self) -> Dict[str, Any]:
-        """페이퍼 리포트에서 성과 지표 로드"""
+        """docstring"""
         try:
             import config.settings as settings_module
             from config.settings import Settings
@@ -66,11 +62,11 @@ class LiveReadinessChecker:
             result = generate_paper_report(hours=hours, output_dir="reports/paper")
             return result.get("metrics", {})
         except Exception as e:
-            logger.error(f"리포트 로드 실패: {e}")
+            logger.error(f"  : {e}")
             return {}
 
     def _load_trade_history(self):
-        """DB에서 거래 이력 직접 로드"""
+        """DB"""
         try:
             import sqlite3
             db_path = "database/apex_bot.db"
@@ -92,18 +88,18 @@ class LiveReadinessChecker:
             return []
 
     def check(self) -> Dict[str, Any]:
-        """전체 준비도 평가 실행"""
+        """docstring"""
         print("\n" + "="*65)
-        print("  🔍 APEX BOT - 실매매 전환 준비도 평가")
-        print(f"  분석 기간: 최근 {self.days}일")
+        print("   APEX BOT -    ")
+        print(f"   :  {self.days}")
         print("="*65)
 
         metrics = self._load_paper_metrics()
         trades = self._load_trade_history()
 
         if not metrics:
-            print("\n❌ 페이퍼 트레이딩 데이터 없음")
-            print("   최소 2주 이상 paper 모드 운영 후 재실행하세요")
+            print("\n    ")
+            print("    2  paper    ")
             return {"ready": False, "reason": "데이터 부족"}
 
         # ── 지표 추출 ─────────────────────────────────────────────
@@ -129,8 +125,8 @@ class LiveReadinessChecker:
             ("연속 손실",      consec_losses, CRITERIA["max_consecutive_losses"], "회", consec_losses <= CRITERIA["max_consecutive_losses"], 10),
         ]
 
-        print("\n  [평가 기준]")
-        print(f"  {'항목':<16} {'실제값':>10}  {'기준':>10}   {'결과'}")
+        print("\n  [ ]")
+        print(f"  {'':<16} {'':>10}  {'':>10}   {''}")
         print("  " + "-"*55)
 
         total_score = 0
@@ -169,7 +165,7 @@ class LiveReadinessChecker:
         all_passed = len(critical_fails) == 0 and score_pct >= 70
 
         print("\n" + "="*65)
-        print(f"\n  📊 종합 점수: {total_score}/{max_possible}점 ({score_pct:.0f}%)")
+        print(f"\n    : {total_score}/{max_possible} ({score_pct:.0f}%)")
 
         # ── 판정 ──────────────────────────────────────────────────
         if all_passed and score_pct >= 85:
@@ -185,13 +181,13 @@ class LiveReadinessChecker:
             verdict = "🟠 추가 검증 필요"
             color_guide = "⚠️  점수 부족 — 계속 페이퍼 모드 운영"
 
-        print(f"\n  최종 판정: {verdict}")
+        print(f"\n   : {verdict}")
         print(f"  {color_guide}")
 
         # ── 실매매 전환 가이드 ────────────────────────────────────
         if all_passed and score_pct >= 70:
             print("\n" + "="*65)
-            print("  📋 실매매 전환 체크리스트")
+            print("     ")
             print("="*65)
             checklist = [
                 ("업비트 API 키 발급 및 입력",         ".env → UPBIT_ACCESS_KEY / SECRET_KEY"),
@@ -202,8 +198,8 @@ class LiveReadinessChecker:
                 ("실매매 시작",                         "python main.py --mode live"),
             ]
             for i, (task, desc) in enumerate(checklist, 1):
-                print(f"  {i}. □ {task}")
-                print(f"       └ {desc}")
+                print(f"  {i}.  {task}")
+                print(f"        {desc}")
             print()
 
         print("="*65)

@@ -1,14 +1,12 @@
-"""
-APEX BOT - 로깅 시스템
-Loguru 기반 구조화된 로깅 + 파일 로테이션 + 컬러 출력
-"""
+"""APEX BOT -  
+Loguru    +   +"""
 import sys
 from pathlib import Path
 from loguru import logger
 
 
 def setup_logger(log_level: str = "INFO", log_dir: Path = None) -> None:
-    """전역 로거 설정"""
+    """docstring"""
     # 기존 핸들러 제거
     logger.remove()
 
@@ -63,33 +61,33 @@ def setup_logger(log_level: str = "INFO", log_dir: Path = None) -> None:
             encoding="utf-8",
         )
 
-    logger.info("✅ 로거 초기화 완료")
+    logger.info("   ")
 
 
 def get_logger(name: str):
-    """모듈별 로거 반환"""
+    """docstring"""
     return logger.bind(module=name)
 
 
 # 거래 전용 로그 헬퍼
 def log_trade(action: str, market: str, price: float, amount: float,
               reason: str = "", profit_rate: float = None):
-    """거래 실행 로그 (전용 포맷)"""
+    """( )"""
     profit_str = f" | 수익률={profit_rate:.2f}%" if profit_rate is not None else ""
     logger.info(
-        f"TRADE | {action} | {market} | 가격={price:,.0f} | "
-        f"금액={amount:,.0f}KRW | 사유={reason}{profit_str}"
+        f"TRADE | {action} | {market} | ={price:,.0f} | "
+        f"={amount:,.0f}KRW | ={reason}{profit_str}"
     )
 
 
 def log_signal(market: str, signal_type: str, score: float, strategies: list):
-    """신호 생성 로그"""
+    """docstring"""
     logger.info(
-        f"SIGNAL | {market} | {signal_type} | 점수={score:.2f} | "
-        f"전략={', '.join(strategies)}"
+        f"SIGNAL | {market} | {signal_type} | ={score:.2f} | "
+        f"={', '.join(strategies)}"
     )
 
 
 def log_risk(event: str, detail: str):
-    """리스크 이벤트 로그"""
+    """docstring"""
     logger.warning(f"RISK | {event} | {detail}")

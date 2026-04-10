@@ -1,21 +1,19 @@
-﻿"""
-APEX BOT - 메인 트레이딩 엔진  v2.0.0
-이벤트 루프 중심 비동기 아키텍처
+﻿"""APEX BOT -     v2.0.0
+    
 
-신규 통합 모듈:
-  ✅ 트레일링 스탑 실시간 연동 (TrailingStopManager)
-  ✅ 부분 청산 (PartialExitManager) - 3단계 자동 익절
-  ✅ 상관관계 필터 (CorrelationFilter) - BTC 급락 시 알트 차단
-  ✅ 김치 프리미엄 모니터링 (KimchiPremiumMonitor)
-  ✅ 공포탐욕 지수 연동 (FearGreedMonitor)
-  ✅ 거래량 스파이크 감지 (VolumeSpikeDetector)
-  ✅ GPU 가속 (RTX 50xx CUDA 지원)
-  ✅ 24h 페이퍼 리포트 자동 생성
+  :
+       (TrailingStopManager)
+     (PartialExitManager) - 3  
+     (CorrelationFilter) - BTC    
+      (KimchiPremiumMonitor)
+      (FearGreedMonitor)
+      (VolumeSpikeDetector)
+   GPU  (RTX 50xx CUDA )
+   24h    
 
-수정 이력:
-  v2.0.1 - _check_circuit_breaker() 자정 리셋 추가
-           _cycle() ML 배치 캐시 순서 수정 (분석 전 저장)
-"""
+ :
+  v2.0.1 - _check_circuit_breaker()   
+           _cycle() ML     (  )"""
 import asyncio
 import time
 from datetime import datetime
@@ -207,7 +205,7 @@ def calc_exit_plan(entry_price: float, atr: float, position_krw: float) -> dict:
 
 
 class TradingEngine:
-    """APEX BOT 메인 엔진 v2.0.0"""
+    """APEX BOT   v2.0.0"""
 
     VERSION = "2.0.0"
 
@@ -242,11 +240,11 @@ class TradingEngine:
 
         self.live_guard = LiveGuard() if LIVE_GUARD_OK else None
         if self.live_guard:
-            logger.info("✅ LiveGuard (M2) 초기화")
+            logger.info(" LiveGuard (M2) 초기화")
 
         self.mtf_merger = MTFSignalMerger() if MTF_MERGER_OK else None
         if self.mtf_merger:
-            logger.info("✅ MTFSignalMerger (M3) 초기화")
+            logger.info(" MTFSignalMerger (M3) 초기화")
 
         self.position_mgr_v2 = PositionManagerV2(
             max_hold_hours=72, breakeven_trigger=0.02,
@@ -255,12 +253,12 @@ class TradingEngine:
             pyramid_max=2, pyramid_trigger=0.02,
         ) if POS_MGR_V2_OK else None
         if self.position_mgr_v2:
-            logger.info("✅ PositionManagerV2 (M4) 초기화")
+            logger.info(" PositionManagerV2 (M4) 초기화")
 
         self.strategy_analyzer = StrategyAnalyzer()     if STRATEGY_ANALYZER_OK else None
         self.live_readiness    = LiveReadinessChecker() if LIVE_READINESS_OK    else None
         if self.strategy_analyzer:
-            logger.info("✅ StrategyAnalyzer (M7) 초기화")
+            logger.info(" StrategyAnalyzer (M7) 초기화")
 
         self.correlation_filter = CorrelationFilter()
         self.kimchi_monitor     = KimchiPremiumMonitor()
@@ -270,34 +268,34 @@ class TradingEngine:
         try:
             from data.processors.orderbook_analyzer import OrderBookAnalyzer
             self.orderbook_analyzer = OrderBookAnalyzer()
-            logger.info("✅ OrderBookAnalyzer 초기화 완료")
+            logger.info(" OrderBookAnalyzer  ")
         except Exception as _ob_err:
             self.orderbook_analyzer = None
             import traceback
-            logger.error(f"❌ OrderBookAnalyzer 초기화 실패: {_ob_err}")
+            logger.error(f" OrderBookAnalyzer  : {_ob_err}")
             logger.error(traceback.format_exc())
 
         try:
             from strategies.order_block_detector import OrderBlockDetector
             self.ob_detector = OrderBlockDetector(impulse_mult=2.0, lookback=100)
-            logger.info("✅ OrderBlockDetector 초기화 완료")
+            logger.info(" OrderBlockDetector  ")
         except Exception as _obd_err:
             self.ob_detector = None
-            logger.warning(f"⚠️ OrderBlockDetector 초기화 실패: {_obd_err}")
+            logger.warning(f" OrderBlockDetector  : {_obd_err}")
 
         try:
             from core.rate_limit_manager import RateLimitManager
             self.rate_limiter = RateLimitManager()
         except Exception as _rl_err:
             self.rate_limiter = None
-            logger.warning(f"⚠️ RateLimitManager 초기화 실패: {_rl_err}")
+            logger.warning(f" RateLimitManager  : {_rl_err}")
 
         try:
             from core.slippage_model import SlippageModel
             self.slippage_model = SlippageModel()
         except Exception as _sm_err:
             self.slippage_model = None
-            logger.warning(f"⚠️ SlippageModel 초기화 실패: {_sm_err}")
+            logger.warning(f" SlippageModel  : {_sm_err}")
 
         self.news_analyzer = NewsSentimentAnalyzer(use_finbert=True)
         self.dashboard     = DashboardServer()
@@ -311,10 +309,10 @@ class TradingEngine:
 
         try:
             self.ppo_online_trainer = PPOOnlineTrainer()
-            logger.info("✅ PPOOnlineTrainer 초기화 완료")
+            logger.info(" PPOOnlineTrainer  ")
         except Exception as _ppo_e:
             self.ppo_online_trainer = None
-            logger.warning(f"⚠️ PPOOnlineTrainer 초기화 실패: {_ppo_e}")
+            logger.warning(f" PPOOnlineTrainer  : {_ppo_e}")
 
         self._market_prices:     Dict[str, float] = {}
         self._last_signal_time:  Dict[str, float] = {}
@@ -338,7 +336,7 @@ class TradingEngine:
         self._last_scan_time:  float = 0.0
         self.markets:          list  = []
         self.markets = self.settings.trading.target_markets
-        logger.info(f"⚡ APEX BOT v{self.VERSION} 초기화 완료")
+        logger.info(f" APEX BOT v{self.VERSION}  ")
 
     # ── 시작 / 종료 ──────────────────────────────────────────────
     async def start(self):
@@ -347,9 +345,9 @@ class TradingEngine:
             self.settings.monitoring.log_dir,
         )
         logger.info("=" * 60)
-        logger.info(f"  APEX BOT v{self.VERSION} 시작")
-        logger.info(f"  모드: {self.settings.mode.upper()}")
-        logger.info(f"  대상: {len(self.settings.trading.target_markets)}개 코인")
+        logger.info(f"  APEX BOT v{self.VERSION} ")
+        logger.info(f"  : {self.settings.mode.upper()}")
+        logger.info(f"  : {len(self.settings.trading.target_markets)}개 코인")
         logger.info("=" * 60)
 
         try:
@@ -360,7 +358,7 @@ class TradingEngine:
             await self.adapter.initialize()
             krw_balance = await self.adapter.get_balance("KRW")
             self.portfolio.set_initial_capital(krw_balance)
-            logger.info(f"💰 초기 자본: ₩{krw_balance:,.0f}")
+            logger.info(f"  : ₩{krw_balance:,.0f}")
 
             await self._restore_positions_from_db()
             await self._restore_sl_cooldown()
@@ -434,32 +432,32 @@ class TradingEngine:
             self.ws_collector.subscribe_ticker()
             self.ws_collector.subscribe_orderbook()
             logger.info(
-                f"✅ WebSocket 호가창 구독 시작 | "
+                f" WebSocket    | "
                 f"{len(self.settings.trading.target_markets)}개 코인"
             )
 
             await self._initial_data_fetch()
-            logger.info("🚀 메인 루프 시작")
+            logger.info("   ")
             await self._main_loop()
 
         except KeyboardInterrupt:
-            logger.info("🛑 사용자 종료 요청")
+            logger.info("   ")
         except Exception as e:
-            logger.error(f"❌ 엔진 치명적 오류: {e}")
+            logger.error(f"   : {e}")
             await self.telegram.notify_error(str(e), "메인 루프")
             raise
         finally:
             await self.stop()
 
     async def stop(self):
-        logger.info("🛑 APEX BOT 종료 중...")
+        logger.info(" APEX BOT  ...")
         self.state_machine.transition(BotState.STOPPED)
         self.scheduler.shutdown(wait=False)
         self._process_pool.shutdown(wait=False)
         if self.ws_collector:
             await self.ws_collector.stop()
         await self.dashboard.stop()
-        logger.info("✅ APEX BOT 정상 종료")
+        logger.info(" APEX BOT  ")
 
     def pause(self):
         self.state_machine.transition(BotState.PAUSED)
@@ -470,11 +468,11 @@ class TradingEngine:
 
     def resume(self):
         self.state_machine.transition(BotState.RUNNING)
-        logger.info("▶️ 거래 재개")
+        logger.info("  ")
 
     # ── 외부 데이터 초기화 ───────────────────────────────────────
     async def _init_external_data(self):
-        logger.info("🌐 외부 데이터 초기화 중...")
+        logger.info("    ...")
         tasks = [
             self.kimchi_monitor.fetch_all(),
             self.fear_greed.fetch(),
@@ -484,24 +482,21 @@ class TradingEngine:
         names   = ["김치 프리미엄", "공포탐욕 지수", "뉴스 감성"]
         for i, r in enumerate(results):
             if isinstance(r, Exception):
-                logger.warning(f"{names[i]} 초기화 실패 (계속 진행): {r}")
+                logger.warning(f"{names[i]}   ( ): {r}")
         logger.info(
-            f"  공포탐욕 지수: {self.fear_greed.index} ({self.fear_greed.label})"
+            f"   : {self.fear_greed.index} ({self.fear_greed.label})"
         )
         logger.info(
-            f"  뉴스 수집: "
+            f"   : "
             f"{results[2] if not isinstance(results[2], Exception) else 0}건"
         )
 
     # ── Circuit Breaker ──────────────────────────────────────────
     async def _check_circuit_breaker(self) -> bool:
-        """
-        일일 손실 한도 초과 시 신규 매수 차단. True=차단.
+        """. True=.
 
-        ✅ FIX v2.0.1: 자정 리셋 로직 추가
-                기존 코드는 hasattr 로 최초 1회만 초기화 →
-                봇이 자정을 넘겨도 기준값이 갱신되지 않는 버그 수정
-        """
+         FIX v2.0.1:    
+                  hasattr   1  →"""
         try:
             import datetime as _dt
             daily_loss_limit = getattr(
@@ -524,7 +519,7 @@ class TradingEngine:
             # ✅ FIX: 자정이 지나면 기준값 리셋
             if now.date() != self._day_start_date:
                 logger.info(
-                    f"🌅 자정 리셋 | 기준잔고 갱신: "
+                    f"   |  : "
                     f"₩{self._day_start_balance:,.0f} → ₩{current:,.0f}"
                 )
                 self._day_start_balance = current
@@ -541,9 +536,9 @@ class TradingEngine:
 
             if loss_pct >= daily_loss_limit:
                 logger.warning(
-                    f"🚨 Circuit Breaker 발동! "
-                    f"일일 손실 {loss_pct:.1%} "
-                    f"(한도 {daily_loss_limit:.1%}) "
+                    f" Circuit Breaker ! "
+                    f"  {loss_pct:.1%} "
+                    f"( {daily_loss_limit:.1%}) "
                     f"— 신규 매수 차단"
                 )
                 return True
@@ -565,24 +560,20 @@ class TradingEngine:
                             continue
                         await self._cycle()
                 elif self.state_machine.state == BotState.PAUSED:
-                    logger.debug("⏸️ 일시정지 중...")
+                    logger.debug("⏸  ...")
                     await asyncio.sleep(10)
                     continue
                 await asyncio.sleep(60)
             except asyncio.CancelledError:
                 break
             except Exception as e:
-                logger.error(f"루프 오류: {e}")
+                logger.error(f" : {e}")
                 await asyncio.sleep(30)
 
     async def _cycle(self):
-        """
-        단일 트레이딩 사이클
-
-        ✅ FIX v2.0.1: ML 배치 캐시 업데이트를 분석 실행 전으로 이동
-                기존: 분석 → 배치추론 저장 (이전 사이클 캐시 사용)
-                수정: 배치추론 저장 → 분석 (현재 사이클 캐시 사용)
-        """
+        """FIX v2.0.1: ML       
+                :  →   (   )
+                :   →  (   )"""
         _base    = list(self.settings.trading.target_markets)
         _dynamic = [
             m for m in getattr(self, "_dynamic_markets", [])
@@ -620,16 +611,16 @@ class TradingEngine:
                         markets.append(_sm)
                         self.markets = markets
                         _ws_added.append(_sm)
-                        logger.info(f"🔥 급등 코인 감시 추가: {_sm}")
+                        logger.info(f"    : {_sm}")
                 if _ws_added and hasattr(self, "ws_collector") and self.ws_collector:
                     try:
                         added = self.ws_collector.add_markets(_ws_added)
                         if added:
                             await self.ws_collector.resubscribe()
                     except Exception as _ws_e:
-                        logger.debug(f"WebSocket 동적 추가 실패: {_ws_e}")
+                        logger.debug(f"WebSocket   : {_ws_e}")
         except Exception as _se:
-            logger.debug(f"마켓 스캐너 오류: {_se}")
+            logger.debug(f"  : {_se}")
 
         await self._check_time_based_exits()
         await self._check_position_exits()
@@ -647,44 +638,44 @@ class TradingEngine:
             else:
                 self._ml_batch_cache = {}
         except Exception as _be:
-            logger.debug(f"배치 ML 추론 스킵: {_be}")
+            logger.debug(f" ML  : {_be}")
             self._ml_batch_cache = {}
 
         # ===== v2.1.0 시그널 평가 (ML 배치 캐시 기반) =====
         if self._ml_batch_cache:
-            logger.debug(f"🔍 시그널 평가 시작 ({len(self._ml_batch_cache)}개 코인)")
+            logger.debug(f"    ({len(self._ml_batch_cache)}개 코인)")
             for market, ml_pred in self._ml_batch_cache.items():
                 try:
                     if self.portfolio.is_position_open(market):
-                        logger.debug(f"{market} 이미 포지션 보유 - 스킵")
+                        logger.debug(f"{market}    - ")
                         continue
                     df = self.cache_manager.get_ohlcv(market)
                     if df is None or len(df) < 60:
-                        logger.debug(f"{market} 데이터 부족 ({len(df) if df is not None else 0}개)")
+                        logger.debug(f"{market}   ({len(df) if df is not None else 0}개)")
                         continue
                     ml_score = ml_pred.get('confidence', 0)
                     ml_signal = ml_pred.get('signal', 'UNKNOWN')
-                    logger.debug(f"{market} ML={ml_score:.3f} 신호={ml_signal}")
+                    logger.debug(f"{market} ML={ml_score:.3f} ={ml_signal}")
                     if ml_score > 0.1:
-                        logger.info(f"🎯 {market} 시그널 평가 시작 (ML={ml_score:.3f})")
+                        logger.info(f" {market}    (ML={ml_score:.3f})")
                         signal = await self._evaluate_entry_signals(market, df, ml_score)
                         if signal and signal.get('action') == 'BUY':
-                            logger.info(f"✅ {market} 진입 시그널 확정! ML={ml_score:.3f}")
+                            logger.info(f" {market}   ! ML={ml_score:.3f}")
                             await self._execute_buy(market, signal, df)
                         elif signal is None:
-                            logger.debug(f"{market} 필터 차단")
+                            logger.debug(f"{market}  ")
                     else:
-                        logger.debug(f"{market} ML 점수 낮음 ({ml_score:.3f})")
+                        logger.debug(f"{market} ML   ({ml_score:.3f})")
                 except Exception as e:
-                    logger.error(f"{market} 시그널 평가 오류: {e}", exc_info=True)
+                    logger.error(f"{market}   : {e}", exc_info=True)
         else:
-            logger.debug("ML 캐시 비어있음 - 시그널 평가 스킵")
+            logger.debug("ML   -   ")
         # ===============================
 
 
 
 
-        logger.debug(f"🔎 [v2.1.0] ML 캐시 크기: {len(self._ml_batch_cache)} | 내용: {list(self._ml_batch_cache.keys()) if self._ml_batch_cache else 'EMPTY'}")
+        logger.debug(f" [v2.1.0] ML  : {len(self._ml_batch_cache)} | 내용: {list(self._ml_batch_cache.keys()) if self._ml_batch_cache else 'EMPTY'}")
 
 
 
@@ -784,7 +775,7 @@ class TradingEngine:
 
                 if held_hours >= 72:
                     logger.info(
-                        f"⏰ 72h 강제청산 ({market}): "
+                        f" 72h  ({market}): "
                         f"보유={held_hours:.1f}h | 수익={profit_rate*100:.2f}%"
                     )
                     await self._execute_sell(market, "시간초과_72h_강제청산", current_price)
@@ -792,7 +783,7 @@ class TradingEngine:
 
                 if held_hours >= 48 and -0.01 <= profit_rate <= 0.01:
                     logger.info(
-                        f"⏰ 48h 횡보청산 ({market}): "
+                        f" 48h  ({market}): "
                         f"보유={held_hours:.1f}h | 수익={profit_rate*100:.2f}%"
                     )
                     await self._execute_sell(market, "횡보청산_48h", current_price)
@@ -800,14 +791,14 @@ class TradingEngine:
 
                 if held_hours >= 24 and profit_rate <= -0.02:
                     logger.info(
-                        f"⏰ 24h 손실청산 ({market}): "
+                        f" 24h  ({market}): "
                         f"보유={held_hours:.1f}h | 수익={profit_rate*100:.2f}%"
                     )
                     await self._execute_sell(market, "손실청산_24h", current_price)
                     continue
 
             except Exception as _te:
-                logger.debug(f"시간기반 청산 오류 ({market}): {_te}")
+                logger.debug(f"   ({market}): {_te}")
 
     # ── 포지션 청산 체크 ─────────────────────────────────────────
     async def _check_position_exits(self):
@@ -841,7 +832,7 @@ class TradingEngine:
                         basic_tp = _sl_levels.take_profit
                         if _profit_pct >= 0.03:
                             logger.info(
-                                f"🔄 SL 동적 이동 ({market}): "
+                                f" SL   ({market}): "
                                 f"SL={basic_sl:,.0f} | "
                                 f"수익={_profit_pct*100:.2f}% | "
                                 f"RR={_sl_levels.rr_ratio:.2f}"
@@ -854,7 +845,7 @@ class TradingEngine:
                             1 + getattr(self.settings.risk, "take_profit_pct", 0.05)
                         )
                 except Exception as _dyn_e:
-                    logger.debug(f"ATR 동적 계산 실패 ({market}): {_dyn_e}")
+                    logger.debug(f"ATR    ({market}): {_dyn_e}")
                     basic_sl = entry_price * (
                         1 - getattr(self.settings.risk, "stop_loss_pct", 0.03)
                     )
@@ -865,7 +856,7 @@ class TradingEngine:
                 if current_price <= basic_sl:
                     loss_pct = (current_price - entry_price) / entry_price * 100
                     logger.info(
-                        f"🔴 기본 손절 발동 ({market}): "
+                        f"    ({market}): "
                         f"현재={current_price:,.0f} ≤ SL={basic_sl:,.0f} "
                         f"({loss_pct:.2f}%)"
                     )
@@ -877,7 +868,7 @@ class TradingEngine:
                 if current_price >= basic_tp:
                     profit_pct = (current_price - entry_price) / entry_price * 100
                     logger.info(
-                        f"🟢 기본 익절 발동 ({market}): "
+                        f"    ({market}): "
                         f"현재={current_price:,.0f} ≥ TP={basic_tp:,.0f} "
                         f"({profit_pct:.2f}%)"
                     )
@@ -902,7 +893,7 @@ class TradingEngine:
                         _exit_sig = self.position_mgr_v2.check_exit(market, current_price)
                         if _exit_sig.should_exit:
                             logger.info(
-                                f"⚡ M4 청산 신호 ({market}): "
+                                f" M4   ({market}): "
                                 f"사유={_exit_sig.reason.value} | "
                                 f"비율={_exit_sig.volume_pct:.0%} | "
                                 f"{_exit_sig.message}"
@@ -910,7 +901,7 @@ class TradingEngine:
                             if _exit_sig.reason.value == "PARTIAL_EXIT":
                                 if _partial_done:
                                     logger.debug(
-                                        f"⏭️ M4 부분청산 스킵 ({market}): "
+                                        f"⏭ M4   ({market}): "
                                         f"PartialExit 이미 실행됨"
                                     )
                                 else:
@@ -931,10 +922,10 @@ class TradingEngine:
                                     current_price,
                                 )
                     except Exception as _m4_e:
-                        logger.debug(f"M4 청산 체크 스킵 ({market}): {_m4_e}")
+                        logger.debug(f"M4    ({market}): {_m4_e}")
 
             except Exception as _e:
-                logger.debug(f"포지션 청산 체크 오류 ({market}): {_e}")
+                logger.debug(f"    ({market}): {_e}")
 
     # ── 기존 포지션 재평가 ───────────────────────────────────────
     async def _analyze_existing_position(self, market: str) -> None:
@@ -982,7 +973,7 @@ class TradingEngine:
             )
 
             logger.debug(
-                f"📊 포지션 재평가 | {market} | "
+                f"   | {market} | "
                 f"ML={signal}({confidence:.2f}) | PnL={pnl_pct:+.2f}%"
             )
 
@@ -997,7 +988,7 @@ class TradingEngine:
 
                     if _profit_pct >= 0.03:
                         logger.info(
-                            f"🔄 SL 동적 이동 ({market}): "
+                            f" SL   ({market}): "
                             f"SL={_basic_sl:,.0f} | "
                             f"수익={_profit_pct*100:.2f}% | "
                             f"RR={_atr_levels.rr_ratio:.2f}"
@@ -1006,7 +997,7 @@ class TradingEngine:
                     if current_price <= _basic_sl:
                         _loss_pct = _profit_pct * 100
                         logger.info(
-                            f"🔴 ATR 손절 발동 ({market}): "
+                            f" ATR   ({market}): "
                             f"현재={current_price:,.0f} ≤ SL={_basic_sl:,.0f} "
                             f"({_loss_pct:.2f}%)"
                         )
@@ -1018,7 +1009,7 @@ class TradingEngine:
                     if current_price >= _basic_tp:
                         _profit_pct2 = _profit_pct * 100
                         logger.info(
-                            f"🟢 ATR 익절 발동 ({market}): "
+                            f" ATR   ({market}): "
                             f"현재={current_price:,.0f} ≥ TP={_basic_tp:,.0f} "
                             f"({_profit_pct2:.2f}%)"
                         )
@@ -1028,12 +1019,12 @@ class TradingEngine:
                         return
 
                 except Exception as _atr_e:
-                    logger.debug(f"ATR 동적 손절 체크 오류 ({market}): {_atr_e}")
+                    logger.debug(f"ATR     ({market}): {_atr_e}")
 
             if signal == "SELL" and confidence > 0.75 and pnl_pct > 1.0:
                 logger.info(
-                    f"🎯 ML 익절 실행 | {market} | "
-                    f"신뢰도={confidence:.2f} | 수익={pnl_pct:+.2f}%"
+                    f" ML   | {market} | "
+                    f"={confidence:.2f} | ={pnl_pct:+.2f}%"
                 )
                 await self._execute_sell(
                     market, f"ML익절_{pnl_pct:.1f}%", current_price
@@ -1043,7 +1034,7 @@ class TradingEngine:
         except Exception as e:
             import traceback
             logger.debug(
-                f"포지션 재평가 오류 ({market}): {e} | "
+                f"   ({market}): {e} | "
                 f"{traceback.format_exc().splitlines()[-1]}"
             )
 
@@ -1082,13 +1073,13 @@ class TradingEngine:
             open_pos         = list(self.portfolio.open_positions.keys())
             can_buy_corr, corr_reason = self.correlation_filter.can_buy(market, open_pos)
             if not can_buy_corr:
-                logger.debug(f"상관관계 차단 ({market}): {corr_reason}")
+                logger.debug(f"  ({market}): {corr_reason}")
                 return
 
             can_buy_kimchi, kimchi_reason, premium = self.kimchi_monitor.can_buy(market)
             if not can_buy_kimchi:
                 logger.debug(
-                    f"김치 프리미엄 차단 ({market}): {kimchi_reason} "
+                    f"   ({market}): {kimchi_reason} "
                     f"[프리미엄 {premium:.1f}%]"
                 )
                 return
@@ -1100,7 +1091,7 @@ class TradingEngine:
             try:
                 df_1d = await self.rest_collector.get_ohlcv(market, "day", 210)
                 if df_1d is None or len(df_1d) < 5:
-                    raise ValueError("일봉 데이터 없음")
+                    raise ValueError("  ")
                 _strategy_hint = (
                     "BEAR_REVERSAL"
                     if market in getattr(self, "_bear_reversal_markets", set())
@@ -1111,15 +1102,15 @@ class TradingEngine:
                 )
                 if not _trend["allowed"]:
                     logger.debug(
-                        f"[TrendFilter] 매수 차단 ({market}): {_trend['reason']}"
+                        f"[TrendFilter]   ({market}): {_trend['reason']}"
                     )
                     return
                 logger.debug(
                     f"[TrendFilter] {market}: {_trend['reason']} "
-                    f"(레짐={_trend.get('regime', '?')})"
+                    f"(={_trend.get('regime', '?')})"
                 )
             except Exception as _te:
-                logger.debug(f"[TrendFilter] 스킵 ({market}): {_te}")
+                logger.debug(f"[TrendFilter]  ({market}): {_te}")
 
             try:
                 _vp = self.volume_profile.analyze(df_1h)
@@ -1133,7 +1124,7 @@ class TradingEngine:
                     _res = _vp_sr.get("resistance",  0)
                     if _rr < 0.5 and _sup > 0 and _res > 0:
                         logger.info(
-                            f"[VolumeProfile] 매수 불리 ({market}): "
+                            f"[VolumeProfile]   ({market}): "
                             f"RR={_rr:.2f} 저항={_res:,.0f} 지지={_sup:,.0f}"
                         )
                         return
@@ -1143,7 +1134,7 @@ class TradingEngine:
                         f"VAH={_vp.vah:,.0f} VAL={_vp.val:,.0f} RR={_rr:.2f}"
                     )
             except Exception as _ve:
-                logger.debug(f"[VolumeProfile] 스킵 ({market}): {_ve}")
+                logger.debug(f"[VolumeProfile]  ({market}): {_ve}")
 
             df_processed = await self.candle_processor.process(market, df_1h, "60")
             if df_processed is None:
@@ -1158,7 +1149,7 @@ class TradingEngine:
                 return
             if regime == MarketRegime.BEAR_REVERSAL:
                 logger.info(
-                    f"🔄 BEAR_REVERSAL 감지 ({market}) → "
+                    f" BEAR_REVERSAL  ({market}) → "
                     f"역발상 매수 탐색 (포지션 50% 축소)"
                 )
                 self._bear_reversal_markets = getattr(
@@ -1176,11 +1167,11 @@ class TradingEngine:
             _in_pyramid  = getattr(self, "_current_pyramid_market", None) == market
 
             if is_dumping and not _is_bear_rev and not _in_pyramid:
-                logger.debug(f"덤핑 감지 ({market}): {dump_reason}")
+                logger.debug(f"  ({market}): {dump_reason}")
                 return
             elif is_dumping and _is_bear_rev:
                 logger.debug(
-                    f"⚡ BEAR_REVERSAL 덤핑 면제 ({market}): {dump_reason}"
+                    f" BEAR_REVERSAL   ({market}): {dump_reason}"
                 )
 
             signals  = await self._run_strategies(market, df_processed)
@@ -1207,7 +1198,7 @@ class TradingEngine:
                         ml_pred["confidence"] = ml_conf
                     ml_pred["ppo_agreement"] = False
                 logger.debug(
-                    f"ML+PPO 결합 ({market}): "
+                    f"ML+PPO  ({market}): "
                     f"ML={ml_pred.get('signal','?')}({ml_conf:.2f}) | "
                     f"PPO={ppo_pred.get('action','?')}({ppo_conf:.2f}) | "
                     f"일치={ml_pred.get('ppo_agreement', False)}"
@@ -1218,14 +1209,14 @@ class TradingEngine:
             fg_adj = self.fear_greed.get_signal_adjustment()
             if fg_adj.get("block_buy", False):
                 logger.info(
-                    f"공포탐욕 매수 차단 ({market}): "
+                    f"   ({market}): "
                     f"지수={self.fear_greed.index} ({self.fear_greed.label})"
                 )
                 return
             if ml_pred and fg_adj.get("mode") == "suppressed":
                 if ml_pred.get("confidence", 0) < 0.35:
                     logger.debug(
-                        f"공포탐욕 억제 ({market}): "
+                        f"  ({market}): "
                         f"지수={self.fear_greed.index} ({self.fear_greed.label})"
                     )
                     return
@@ -1246,14 +1237,14 @@ class TradingEngine:
                     _bear_count      = getattr(self, _bear_count_key, 0)
                     if _bear_count >= 6:
                         logger.info(
-                            f"⛔ BEAR_REVERSAL 일일 한도 초과 ({market}): "
+                            f" BEAR_REVERSAL    ({market}): "
                             f"{_bear_count}/6 → 강제 BUY 차단"
                         )
                         return
                     _max_p = self.settings.trading.max_positions
                     if self.portfolio.position_count >= int(_max_p * 0.5):
                         logger.info(
-                            f"⛔ BEAR_REVERSAL 포지션 50% 한도 ({market}): "
+                            f" BEAR_REVERSAL  50%  ({market}): "
                             f"{self.portfolio.position_count}/"
                             f"{int(_max_p*0.5)} → 차단"
                         )
@@ -1268,7 +1259,7 @@ class TradingEngine:
                                 ).total_seconds() // 60
                             )
                             logger.info(
-                                f"⏳ 손절 쿨다운 중 ({market}): "
+                                f"    ({market}): "
                                 f"{remaining}분 후 재매수 가능"
                             )
                             return
@@ -1277,13 +1268,13 @@ class TradingEngine:
                     _fg_idx = getattr(self.fear_greed, "index", 50)
                     if _fg_idx > 20:
                         logger.info(
-                            f"⛔ BEAR_REVERSAL 공포탐욕 조건 불충족 ({market}): "
+                            f" BEAR_REVERSAL    ({market}): "
                             f"지수={_fg_idx} > 20 → 강제 BUY 차단"
                         )
                         return
                     setattr(self, _bear_count_key, _bear_count + 1)
                     logger.info(
-                        f"⚡ BEAR_REVERSAL 강제 BUY 신호 생성 ({market}): "
+                        f" BEAR_REVERSAL  BUY   ({market}): "
                         f"오늘 {_bear_count+1}/6회"
                     )
                     combined = CombinedSignal(
@@ -1304,7 +1295,7 @@ class TradingEngine:
                     1.0, combined.confidence * (1 + vol_confidence_adj)
                 )
                 logger.debug(
-                    f"거래량 스파이크 보정 ({market}): "
+                    f"   ({market}): "
                     f"+{vol_confidence_adj:.2%} 신뢰도 향상"
                 )
 
@@ -1315,7 +1306,7 @@ class TradingEngine:
                     ob_signal  = ob_analyzer.analyze(market, ob_data)
                     can_buy_ob, ob_reason = ob_analyzer.can_buy(ob_signal)
                     if not can_buy_ob and combined.signal_type == SignalType.BUY:
-                        logger.debug(f"호가창 차단 ({market}): {ob_reason}")
+                        logger.debug(f"  ({market}): {ob_reason}")
                         return
                     ob_adj = ob_analyzer.get_confidence_adjustment(
                         ob_signal, trade_side="BUY"
@@ -1325,17 +1316,17 @@ class TradingEngine:
                             1.0, combined.confidence * (1 + ob_adj)
                         )
                         logger.debug(
-                            f"호가창 보정 ({market}): {ob_adj:+.2%} "
+                            f"  ({market}): {ob_adj:+.2%} "
                             f"→ 신뢰도={combined.confidence:.2f}"
                         )
                 except Exception as ob_e:
-                    logger.debug(f"호가창 분석 스킵 ({market}): {ob_e}")
+                    logger.debug(f"   ({market}): {ob_e}")
             else:
-                logger.debug(f"호가창 분석기 없음 ({market}) → 통과")
+                logger.debug(f"   ({market}) → 통과")
 
             can_buy_news, news_reason = self.news_analyzer.can_buy(market)
             if not can_buy_news and combined.signal_type == SignalType.BUY:
-                logger.debug(f"뉴스 감성 차단 ({market}): {news_reason}")
+                logger.debug(f"   ({market}): {news_reason}")
                 return
 
             news_score, news_boost = self.news_analyzer.get_signal_boost(market)
@@ -1343,7 +1334,7 @@ class TradingEngine:
                 original_score = combined.score
                 combined.score = combined.score - news_boost
                 logger.debug(
-                    f"뉴스 점수 보정 ({market}): "
+                    f"   ({market}): "
                     f"{original_score:.2f} → {combined.score:.2f} "
                     f"(boost={news_boost:+.2f}, 감성={news_score:+.3f})"
                 )
@@ -1386,7 +1377,7 @@ class TradingEngine:
                         if combined.signal_type == SignalType.BUY:
                             if _mtf_dir <= -1 and not _is_bear_rev:
                                 logger.info(
-                                    f"⛔ MTF 차단 ({market}): "
+                                    f" MTF  ({market}): "
                                     f"방향={_mtf_result.final_direction.name} | "
                                     f"{_mtf_result.reason}"
                                 )
@@ -1395,22 +1386,22 @@ class TradingEngine:
                                 _boost = min(0.3, abs(_mtf_score) * 0.2)
                                 combined.score = min(3.0, combined.score + _boost)
                                 logger.info(
-                                    f"📈 MTF 신호 보강 ({market}): "
+                                    f" MTF   ({market}): "
                                     f"+{_boost:.2f} → score={combined.score:.2f} | "
                                     f"TF수={len(_tf_data)}개 | {_mtf_result.reason}"
                                 )
                             else:
                                 logger.debug(
-                                    f"MTF 통과 ({market}): {_mtf_result.reason}"
+                                    f"MTF  ({market}): {_mtf_result.reason}"
                                 )
                         elif combined.signal_type == SignalType.SELL:
                             if _mtf_dir >= 1:
                                 logger.debug(
-                                    f"MTF SELL 약화 ({market}): "
+                                    f"MTF SELL  ({market}): "
                                     f"상위TF 상승중 | {_mtf_result.reason}"
                                 )
                 except Exception as _mtf_e:
-                    logger.debug(f"MTF 분석 스킵 ({market}): {_mtf_e}")
+                    logger.debug(f"MTF   ({market}): {_mtf_e}")
 
             try:
                 await self.db_manager.log_signal({
@@ -1423,13 +1414,13 @@ class TradingEngine:
                     "executed":    False,
                 })
             except Exception as _sig_e:
-                logger.debug(f"signal_log DB 저장 스킵: {_sig_e}")
+                logger.debug(f"signal_log DB  : {_sig_e}")
 
             _is_bear_rev = market in getattr(self, "_bear_reversal_markets", set())
             if _is_bear_rev and combined.signal_type != SignalType.SELL:
                 if combined.signal_type != SignalType.BUY:
                     logger.info(
-                        f"⚡ BEAR_REVERSAL 신호 상향 ({market}): "
+                        f" BEAR_REVERSAL   ({market}): "
                         f"{combined.signal_type.name} → BUY "
                         f"(score={combined.score:.2f})"
                     )
@@ -1449,7 +1440,7 @@ class TradingEngine:
                     ):
                         if combined.signal_type == SignalType.BUY:
                             logger.info(
-                                f"🏛️ 오더블록 SELL_ZONE 매수 차단 ({market}): "
+                                f"  SELL_ZONE   ({market}): "
                                 f"신뢰도={_ob_sig.confidence:.2f} "
                                 f"거리={_ob_sig.dist_bearish_pct:.1f}%"
                             )
@@ -1459,12 +1450,12 @@ class TradingEngine:
                         and _ob_sig.confidence >= 0.4
                     ):
                         logger.info(
-                            f"🏛️ 오더블록 BUY_ZONE ({market}): "
+                            f"  BUY_ZONE ({market}): "
                             f"신뢰도={_ob_sig.confidence:.2f} "
                             f"거리={_ob_sig.dist_bullish_pct:.1f}%"
                         )
             except Exception as _ob_e:
-                logger.debug(f"오더블록 탐지 스킵 ({market}): {_ob_e}")
+                logger.debug(f"   ({market}): {_ob_e}")
 
             if combined.signal_type == SignalType.BUY:
                 if market not in self.portfolio.open_positions:
@@ -1472,11 +1463,11 @@ class TradingEngine:
                     self._last_signal_time[market] = time.time()
                 else:
                     logger.debug(
-                        f"이미 포지션 보유 ({market}) → 중복 매수 스킵"
+                        f"   ({market}) → 중복 매수 스킵"
                     )
 
         except Exception as e:
-            logger.error(f"마켓 분석 오류 ({market}): {e}")
+            logger.error(f"   ({market}): {e}")
 
     # ── 전략 선택 / 실행 ────────────────────────────────────────
     def _get_preferred_strategies(self, market: str) -> list:
@@ -1521,7 +1512,7 @@ class TradingEngine:
         if not selected:
             selected = self._strategies
         logger.debug(
-            f"전략 선택 ({market}): {list(selected.keys())} "
+            f"  ({market}): {list(selected.keys())} "
             f"[전체 {len(self._strategies)}개 중 {len(selected)}개]"
         )
         for name, strategy in selected.items():
@@ -1532,20 +1523,20 @@ class TradingEngine:
         for result in results:
             if isinstance(result, Exception):
                 logger.debug(
-                    f"전략 실행 오류 ({market}): "
+                    f"   ({market}): "
                     f"{type(result).__name__}: {result}"
                 )
             elif result:
                 signals.append(result)
                 logger.debug(
-                    f"전략 신호 생성 ({market}): "
+                    f"   ({market}): "
                     f"signal={getattr(result,'signal','?')} "
                     f"score={getattr(result,'score',0):.2f} "
                     f"strategy={getattr(result,'strategy_name','?')}"
                 )
         if not signals:
             logger.debug(
-                f"전략 신호 없음 ({market}): "
+                f"   ({market}): "
                 f"0/{len(selected)}개 전략에서 신호 없음"
             )
         return signals
@@ -1594,7 +1585,7 @@ class TradingEngine:
                 )
             return result
         except Exception as e:
-            logger.error(f"ML 예측 오류 ({market}): {e}")
+            logger.error(f"ML   ({market}): {e}")
             return None
 
     async def _get_ml_prediction_batch(self, market_df_map: dict) -> dict:
@@ -1608,7 +1599,7 @@ class TradingEngine:
             elapsed = (__import__("time").perf_counter() - t_start) * 1000
             if results:
                 logger.info(
-                    f"⚡ 배치 ML 추론 완료: {len(results)}개 코인 | "
+                    f"  ML  : {len(results)}개 코인 | "
                     f"{elapsed:.1f}ms | "
                     f"코인당 {elapsed/len(results):.1f}ms"
                 )
@@ -1634,10 +1625,10 @@ class TradingEngine:
                         self._ml_predictor._is_loaded
                     )
                 except Exception as _db_e:
-                    logger.debug(f"배치 ML 대시보드 업데이트 스킵: {_db_e}")
+                    logger.debug(f" ML   : {_db_e}")
             return results
         except Exception as e:
-            logger.warning(f"배치 ML 추론 실패 → 개별 추론으로 폴백: {e}")
+            logger.warning(f" ML   →   : {e}")
             return {}
 
     async def _get_ppo_prediction(self, market: str, df) -> Optional[dict]:
@@ -1648,13 +1639,13 @@ class TradingEngine:
                 None, lambda: self._ppo_agent.predict_from_df(df, market)
             )
         except Exception as e:
-            logger.debug(f"PPO 예측 오류 ({market}): {e}")
+            logger.debug(f"PPO   ({market}): {e}")
             return None
 
     # ── 매수 실행 ────────────────────────────────────────────────
     
     async def _evaluate_entry_signals(self, market: str, df, ml_score: float):
-        """시그널 평가 (v2.0.4 복원 + v2.1.0 필터 통합)"""
+        """(v2.0.4  + v2.1.0  )"""
         try:
             # 1. ATR 변동성 필터 (v2.1.0)
             # 1. ATR 변동성 필터 (v2.1.0) - 자동 계산 추가
@@ -1665,19 +1656,19 @@ class TradingEngine:
                 if 'high' in df.columns and 'low' in df.columns:
                     recent_range = (df['high'].iloc[-14:].mean() - df['low'].iloc[-14:].mean())
                     atr = recent_range
-                    logger.debug(f"{market} ATR 컬럼 없음 → 수동 계산: {atr:.2f}")
+                    logger.debug(f"{market} ATR   →  : {atr:.2f}")
                 else:
                     atr = df['close'].iloc[-1] * 0.02  # 폴백: 현재가의 2%
-                    logger.debug(f"{market} ATR 폴백: 현재가의 2%")
+                    logger.debug(f"{market} ATR :  2%")
             
             price = df['close'].iloc[-1]
             volatility = (atr / price) * 100 if price > 0 else 0
             
             if volatility < 0.5 or volatility > 5.0:  # 🔧 v2.1.0 완화: 최소값 1.0→0.5 (정상 시장 대응)
-                logger.debug(f"{market} ATR 변동성 차단: {volatility:.2f}%")
-                logger.debug(f"{market} 조기 종료: unknown")  # 🔍 TRACE
+                logger.debug(f"{market} ATR  : {volatility:.2f}%")
+                logger.debug(f"{market}  : unknown")  # 🔍 TRACE
 
-                logger.debug(f"{market} 조기 종료: unknown")  # 🔍 TRACE
+                logger.debug(f"{market}  : unknown")  # 🔍 TRACE
 
                 return None
             
@@ -1690,13 +1681,13 @@ class TradingEngine:
                 else:
                     vp_rr = 999  # VolumeProfile 없으면 통과
             except Exception as e:
-                logger.debug(f'{market} VolumeProfile 계산 실패: {e}')
+                logger.debug(f'{market} VolumeProfile  : {e}')
                 vp_rr = 999  # 에러 시 통과
             if vp_rr < 0.8:  # 🔧 v2.1.0 완화: RR 1.0→0.8 (공격적 진입)
-                logger.debug(f"{market} VolumeProfile RR 미달: {vp_rr:.2f}")
-                logger.debug(f"{market} 조기 종료: unknown")  # 🔍 TRACE
+                logger.debug(f"{market} VolumeProfile RR : {vp_rr:.2f}")
+                logger.debug(f"{market}  : unknown")  # 🔍 TRACE
 
-                logger.debug(f"{market} 조기 종료: unknown")  # 🔍 TRACE
+                logger.debug(f"{market}  : unknown")  # 🔍 TRACE
 
                 return None
             
@@ -1704,10 +1695,10 @@ class TradingEngine:
             if hasattr(self, 'mtf_confirmation'):
                 mtf_result = await self.mtf_confirmation.check(market, df)
                 if not mtf_result.get('aligned', False):
-                    logger.debug(f"{market} MTF 불일치")
-                    logger.debug(f"{market} 조기 종료: unknown")  # 🔍 TRACE
+                    logger.debug(f"{market} MTF ")
+                    logger.debug(f"{market}  : unknown")  # 🔍 TRACE
 
-                    logger.debug(f"{market} 조기 종료: unknown")  # 🔍 TRACE
+                    logger.debug(f"{market}  : unknown")  # 🔍 TRACE
 
                     return None
             
@@ -1716,10 +1707,10 @@ class TradingEngine:
             buy_threshold = 0.4 if fgi > 30 else 0.3  # 🔧 v2.1.0 완화: 0.8→0.4, 0.6→0.3 (실전 데이터 수집)
             
             if ml_score < buy_threshold:
-                logger.debug(f"{market} ML 신호 약함: {ml_score:.3f} < {buy_threshold}")
-                logger.debug(f"{market} 조기 종료: unknown")  # 🔍 TRACE
+                logger.debug(f"{market} ML  : {ml_score:.3f} < {buy_threshold}")
+                logger.debug(f"{market}  : unknown")  # 🔍 TRACE
 
-                logger.debug(f"{market} 조기 종료: unknown")  # 🔍 TRACE
+                logger.debug(f"{market}  : unknown")  # 🔍 TRACE
 
                 return None
             
@@ -1736,7 +1727,7 @@ class TradingEngine:
                 kelly_fraction = 0.10
             
             logger.info(
-                f"✅ {market} 진입 시그널 생성 | ML: {ml_score:.3f} | "
+                f" {market}    | ML: {ml_score:.3f} | "
                 f"Kelly: {kelly_fraction:.1%} | ATR: {volatility:.2f}% | RR: {vp_rr:.2f}"
             )
             
@@ -1749,10 +1740,10 @@ class TradingEngine:
             }
             
         except Exception as e:
-            logger.error(f"{market} 시그널 평가 오류: {e}")
-            logger.debug(f"{market} 조기 종료: unknown")  # 🔍 TRACE
+            logger.error(f"{market}   : {e}")
+            logger.debug(f"{market}  : unknown")  # 🔍 TRACE
 
-            logger.debug(f"{market} 조기 종료: unknown")  # 🔍 TRACE
+            logger.debug(f"{market}  : unknown")  # 🔍 TRACE
 
             return None
 
@@ -1761,32 +1752,32 @@ class TradingEngine:
         _max_pos = self.settings.trading.max_positions
         if self.portfolio.position_count >= _max_pos:
             logger.info(
-                f"⛔ 포지션 한도 ({market}): "
+                f"   ({market}): "
                 f"{self.portfolio.position_count}/{_max_pos} → 매수 취소"
             )
             return
         if self.portfolio.is_position_open(market):
-            logger.debug(f"⛔ 중복 매수 차단 ({market}): 이미 포지션 존재")
+            logger.debug(f"    ({market}): 이미 포지션 존재")
             return
         if market in self._buying_markets:
-            logger.debug(f"⛔ 중복 매수 차단 ({market}): 매수 진행 중")
+            logger.debug(f"    ({market}): 매수 진행 중")
             return
         self._buying_markets.add(market)
 
         _symbol    = market.replace("KRW-", "")
         _can_buy, _buy_note = self._wallet.can_buy(_symbol)
         if not _can_buy:
-            logger.warning(f"🔒 SmartWallet 매수 차단: {_buy_note}")
+            logger.warning(f" SmartWallet  : {_buy_note}")
             self._buying_markets.discard(market)
             return
-        logger.info(f"🟢 SmartWallet: {_buy_note}")
+        logger.info(f" SmartWallet: {_buy_note}")
 
         krw = await self.adapter.get_balance("KRW")
         can_buy, reason = await self.risk_manager.can_open_position(
             market, krw, self.portfolio.position_count
         )
         if not can_buy:
-            logger.info(f"매수 차단 ({market}): {reason}")
+            logger.info(f"  ({market}): {reason}")
             self._buying_markets.discard(market)
             return
 
@@ -1799,7 +1790,7 @@ class TradingEngine:
                 self.settings.risk.buy_signal_threshold + fg_threshold_adj
             ):
                 logger.debug(
-                    f"공포탐욕 임계값 조정 차단 ({market}): "
+                    f"    ({market}): "
                     f"점수={signal.get('confidence', 0):.2f} < "
                     f"임계={self.settings.risk.buy_signal_threshold + fg_threshold_adj:.2f} "
                     f"(조정={fg_threshold_adj:+.2f})"
@@ -1814,14 +1805,14 @@ class TradingEngine:
             stop_loss   = _sl_levels_buy.stop_loss
             take_profit = _sl_levels_buy.take_profit
             logger.info(
-                f"📐 ATR-SL ({market}): "
+                f" ATR-SL ({market}): "
                 f"SL={stop_loss:,.0f} ({_sl_levels_buy.sl_pct*100:.2f}%) | "
                 f"TP={take_profit:,.0f} ({_sl_levels_buy.tp_pct*100:.2f}%) | "
                 f"RR={_sl_levels_buy.rr_ratio:.2f} | ATR={atr:,.0f}"
             )
         except Exception as _atr_e:
             logger.warning(
-                f"⚠️ ATR 계산 실패 ({market}): {_atr_e} → 고정비율 사용"
+                f" ATR   ({market}): {_atr_e} → 고정비율 사용"
             )
             atr         = float(last["close"]) * 0.02
             stop_loss   = float(last["close"]) * (
@@ -1844,7 +1835,7 @@ class TradingEngine:
         if getattr(signal, "bear_reversal", False):
             position_size *= 0.5
             logger.info(
-                f"⚡ BEAR_REVERSAL 포지션 50% 축소 ({market}): "
+                f" BEAR_REVERSAL  50%  ({market}): "
                 f"₩{position_size*2:,.0f} → ₩{position_size:,.0f}"
             )
 
@@ -1865,7 +1856,7 @@ class TradingEngine:
         _original_size = position_size
         position_size  = max(position_size * _buy_ratio, 20_000)
         logger.info(
-            f"📊 분할매수 결정 ({market}): {_buy_reason} | "
+            f"   ({market}): {_buy_reason} | "
             f"₩{_original_size:,.0f} → ₩{position_size:,.0f}"
         )
 
@@ -1876,12 +1867,12 @@ class TradingEngine:
             if krw >= _MIN_POSITION_KRW * 2:
                 position_size = _MIN_POSITION_KRW
                 logger.info(
-                    f"📏 포지션 최소값 적용 ({market}): "
+                    f"    ({market}): "
                     f"₩{position_size:,.0f} (자본 ₩{krw:,.0f})"
                 )
             else:
                 logger.debug(
-                    f"포지션 너무 작음 ({market}): "
+                    f"   ({market}): "
                     f"₩{position_size:,.0f} < 최소 ₩{_MIN_POSITION_KRW:,.0f}"
                 )
                 self._buying_markets.discard(market)
@@ -1890,13 +1881,13 @@ class TradingEngine:
         if position_size > _MAX_POSITION_KRW:
             position_size = _MAX_POSITION_KRW
             logger.info(
-                f"📏 포지션 최대값 적용 ({market}): "
+                f"    ({market}): "
                 f"₩{position_size:,.0f} (자본의 20%)"
             )
 
         if position_size < self.settings.trading.min_order_amount:
             logger.debug(
-                f"포지션 너무 작음 ({market}): "
+                f"   ({market}): "
                 f"₩{position_size:,.0f} < "
                 f"최소 ₩{self.settings.trading.min_order_amount:,.0f}"
             )
@@ -1905,7 +1896,7 @@ class TradingEngine:
 
         if self.portfolio.position_count >= self.settings.trading.max_positions:
             logger.info(
-                f"⛔ 포지션 한도 초과 ({market}): "
+                f"    ({market}): "
                 f"{self.portfolio.position_count}/"
                 f"{self.settings.trading.max_positions} → 매수 취소"
             )
@@ -1953,7 +1944,7 @@ class TradingEngine:
                         profit_rate=0.0, hold_hours=0.0,
                     )
             except Exception as _ppo_buy_e:
-                logger.debug(f"PPO BUY 경험 기록 실패: {_ppo_buy_e}")
+                logger.debug(f"PPO BUY   : {_ppo_buy_e}")
 
             if self.position_mgr_v2 is not None:
                 try:
@@ -1969,7 +1960,7 @@ class TradingEngine:
                     )
                     self.position_mgr_v2.add_position(_pos_v2)
                 except Exception as _pv2_e:
-                    logger.debug(f"PositionManagerV2 등록 스킵: {_pv2_e}")
+                    logger.debug(f"PositionManagerV2  : {_pv2_e}")
 
             self.partial_exit.add_position(
                 market=market,
@@ -2004,7 +1995,7 @@ class TradingEngine:
                     "reason":      req.reason,
                 })
             except Exception as _db_e:
-                logger.debug(f"BUY DB 저장 스킵: {_db_e}")
+                logger.debug(f"BUY DB  : {_db_e}")
 
             try:
                 await self.db_manager.log_signal({
@@ -2017,7 +2008,7 @@ class TradingEngine:
                     "executed":    True,
                 })
             except Exception as _sl_e:
-                logger.debug(f"signal_log executed 업데이트 스킵: {_sl_e}")
+                logger.debug(f"signal_log executed  : {_sl_e}")
 
         try:
             _exec_price = float(getattr(result, "executed_price",
@@ -2028,7 +2019,7 @@ class TradingEngine:
             if _exec_qty > 0 and _exec_price > 0:
                 self._wallet.record_buy(_symbol, _exec_qty, _exec_price)
         except Exception as _we:
-            logger.debug(f"SmartWallet record_buy 스킵: {_we}")
+            logger.debug(f"SmartWallet record_buy : {_we}")
 
     # ── 부분 청산 실행 ───────────────────────────────────────────
     async def _execute_partial_sell(
@@ -2045,7 +2036,7 @@ class TradingEngine:
         if _order_value < _min_order:
             if _pos_total_val >= _min_order:
                 logger.info(
-                    f"⚡ 부분청산 금액 부족 → 전량매도 전환 ({market}): "
+                    f"    →   ({market}): "
                     f"부분=₩{_order_value:,.0f} < 최소=₩{_min_order:,.0f} | "
                     f"전체포지션=₩{_pos_total_val:,.0f}"
                 )
@@ -2054,7 +2045,7 @@ class TradingEngine:
                 )
             else:
                 logger.warning(
-                    f"⚠️ 포지션 전체도 최소금액 미만 스킵 ({market}): "
+                    f"      ({market}): "
                     f"₩{_pos_total_val:,.0f} < ₩{_min_order:,.0f}"
                 )
             return
@@ -2104,7 +2095,7 @@ class TradingEngine:
                         profit_rate=profit_rate, hold_hours=_hold_hours,
                     )
             except Exception as _ppo_ps_e:
-                logger.debug(f"PPO PARTIAL SELL 경험 기록 실패: {_ppo_ps_e}")
+                logger.debug(f"PPO PARTIAL SELL   : {_ppo_ps_e}")
 
             pos.volume -= volume
             if pos.volume <= 0:
@@ -2115,11 +2106,11 @@ class TradingEngine:
                 self.partial_exit.remove_position(market)
             else:
                 logger.info(
-                    f"✂️ 부분 청산 완료 | {market} | "
-                    f"가격={result.executed_price:,.0f} | "
-                    f"수량={volume:.6f} | "
-                    f"수익={profit_rate:.2%} | "
-                    f"잔량={pos.volume:.6f}"
+                    f"    | {market} | "
+                    f"={result.executed_price:,.0f} | "
+                    f"={volume:.6f} | "
+                    f"={profit_rate:.2%} | "
+                    f"={pos.volume:.6f}"
                 )
 
             try:
@@ -2147,9 +2138,9 @@ class TradingEngine:
                     "mode":        _mode,
                     "timestamp":   _dt.datetime.now().isoformat(),
                 })
-                logger.debug(f"✅ 부분청산 DB 저장 완료 ({market}): {reason}")
+                logger.debug(f"  DB   ({market}): {reason}")
             except Exception as _db_e:
-                logger.debug(f"부분청산 DB 저장 스킵 ({market}): {_db_e}")
+                logger.debug(f" DB   ({market}): {_db_e}")
 
             log_trade(
                 "PARTIAL_SELL", market, result.executed_price,
@@ -2165,7 +2156,7 @@ class TradingEngine:
         self, market: str, reason: str, current_price: float = None
     ):
         if market in self._selling_markets:
-            logger.debug(f"매도 중복 스킵 ({market})")
+            logger.debug(f"   ({market})")
             return
         self._selling_markets.add(market)
         try:
@@ -2193,14 +2184,14 @@ class TradingEngine:
         else:
             if not _sell_dec["ok"]:
                 logger.warning(
-                    f"⛔ SmartWallet 매도 보류 ({_symbol}): {_sell_dec['note']}"
+                    f" SmartWallet   ({_symbol}): {_sell_dec['note']}"
                 )
                 return
             _wallet_sell_qty  = _sell_dec["qty"]
             _wallet_incl_dust = _sell_dec["includes_dust"]
             logger.info(
-                f"📤 SmartWallet 매도 결정 | {_symbol} | "
-                f"수량={_wallet_sell_qty:.8f} | {_sell_dec['note']}"
+                f" SmartWallet   | {_symbol} | "
+                f"={_wallet_sell_qty:.8f} | {_sell_dec['note']}"
             )
 
         pos = self.portfolio.get_position(market)
@@ -2249,10 +2240,10 @@ class TradingEngine:
                     )
                 logger.info(
                     f"[DB-SELL] {market} "
-                    f"profit={profit_rate:.2f}% 저장 완료"
+                    f"profit={profit_rate:.2f}%  "
                 )
             except Exception as _e:
-                logger.warning(f"[DB-SELL] 저장 실패: {_e}")
+                logger.warning(f"[DB-SELL]  : {_e}")
 
             try:
                 if self.ppo_online_trainer is not None:
@@ -2276,12 +2267,12 @@ class TradingEngine:
                     )
                     _buf = self.ppo_online_trainer.get_buffer_stats()
                     logger.info(
-                        f"🧠 PPO 경험 기록 ({market}): "
+                        f" PPO   ({market}): "
                         f"PnL={_pnl*100:.2f}% | 보유={_hold_h:.1f}h | "
                         f"버퍼={_buf.get('size',0)}/{_buf.get('max',1000)}"
                     )
             except Exception as _ppo_e:
-                logger.debug(f"PPO SELL 경험 기록 실패: {_ppo_e}")
+                logger.debug(f"PPO SELL   : {_ppo_e}")
 
             self.trailing_stop.remove_position(market)
             self.partial_exit.remove_position(market)
@@ -2294,7 +2285,7 @@ class TradingEngine:
                     _dt.datetime.now() + _dt.timedelta(hours=4)
                 )
                 logger.info(
-                    f"⏳ 손절 쿨다운 등록 ({market}): 4시간 재매수 금지"
+                    f"    ({market}): 4시간 재매수 금지"
                 )
                 _cd_until = (
                     _dt.datetime.now() + _dt.timedelta(hours=4)
@@ -2323,14 +2314,14 @@ class TradingEngine:
                     includes_dust=_wallet_incl_dust,
                 )
         except Exception as _we:
-            logger.debug(f"SmartWallet record_sell 스킵: {_we}")
+            logger.debug(f"SmartWallet record_sell : {_we}")
     # ── 초기화 헬퍼 ─────────────────────────────────────────────
     def _apply_walk_forward_params(self):
         try:
             from backtesting.walk_forward import WalkForwardRunner
             params = WalkForwardRunner.load_optimized_params()
             if not params:
-                logger.info("Walk-Forward 파라미터 없음 → 기본값 사용")
+                logger.info("Walk-Forward   →  ")
                 return
             applied = 0
             for strategy_name, info in params.items():
@@ -2341,8 +2332,8 @@ class TradingEngine:
                 if not is_active:
                     strategy.disable()
                     logger.info(
-                        f"  ❌ {strategy_name} 비활성화 "
-                        f"(OOS 샤프={info.get('oos_sharpe', 0):.3f})"
+                        f"   {strategy_name}  "
+                        f"(OOS ={info.get('oos_sharpe', 0):.3f})"
                     )
                 else:
                     if info.get("params"):
@@ -2355,14 +2346,14 @@ class TradingEngine:
                         new_weight = old_weight * weight_boost
                         self.signal_combiner.STRATEGY_WEIGHTS[strategy_name] = new_weight
                         logger.info(
-                            f"  ⚡ {strategy_name} 가중치 "
+                            f"   {strategy_name}  "
                             f"{old_weight:.1f} → {new_weight:.1f} "
                             f"(boost={weight_boost}x)"
                         )
                     applied += 1
             logger.success(f"✅ Walk-Forward 파라미터 적용: {applied}개 전략")
         except Exception as e:
-            logger.warning(f"Walk-Forward 파라미터 로드 실패 (기본값 사용): {e}")
+            logger.warning(f"Walk-Forward    ( ): {e}")
 
     def _load_strategies(self):
         from strategies.momentum.macd_cross import MACDCrossStrategy
@@ -2381,7 +2372,7 @@ class TradingEngine:
         ]
         for s in strategies:
             self._strategies[s.NAME] = s
-        logger.info(f"✅ {len(self._strategies)}개 전략 로드 완료")
+        logger.info(f" {len(self._strategies)}개 전략 로드 완료")
 
     async def _load_ml_model(self):
         try:
@@ -2399,7 +2390,7 @@ class TradingEngine:
             log_gpu_status()
             logger.success("✅ ML 앙상블 모델 로드 완료")
         except Exception as e:
-            logger.warning(f"ML 모델 로드 실패 (전략 전용 모드로 실행): {e}")
+            logger.warning(f"ML    (   ): {e}")
 
     # ── 마켓 스캐너 ──────────────────────────────────────────────
     async def _market_scanner(self) -> list:
@@ -2417,7 +2408,7 @@ class TradingEngine:
             fixed_markets = set(self.markets) if hasattr(self, "markets") else set()
             exclude       = set(cfg["exclude_markets"]) | fixed_markets
             scan_targets  = [m for m in all_markets if m not in exclude]
-            logger.debug(f"[Scanner] 전체 {len(scan_targets)}개 종목 스캔 시작")
+            logger.debug(f"[Scanner]  {len(scan_targets)}개 종목 스캔 시작")
 
             surge_candidates = []
             batch_size       = 20
@@ -2445,10 +2436,10 @@ class TradingEngine:
                     self._dynamic_markets.append(market)
                     new_markets.append(market)
                     logger.info(
-                        f"🚀 [Scanner] 급등 포착: {market} | "
-                        f"거래량 급증={candidate['vol_ratio']:.1f}x | "
-                        f"가격변화={candidate['price_change']:.2%} | "
-                        f"거래대금={candidate['trade_amount']:,.0f}원"
+                        f" [Scanner]  : {market} | "
+                        f" ={candidate['vol_ratio']:.1f}x | "
+                        f"={candidate['price_change']:.2%} | "
+                        f"={candidate['trade_amount']:,.0f}"
                     )
 
             if len(self._dynamic_markets) > cfg["max_dynamic_coins"]:
@@ -2458,18 +2449,18 @@ class TradingEngine:
 
             if new_markets:
                 logger.info(
-                    f"[Scanner] 새 급등 코인 {len(new_markets)}개 감시 추가: "
+                    f"[Scanner]    {len(new_markets)}개 감시 추가: "
                     f"{new_markets} | 동적풀 총 {len(self._dynamic_markets)}개"
                 )
             else:
                 logger.debug(
-                    f"[Scanner] 새 급등 코인 없음 | "
-                    f"현재 동적풀: {len(self._dynamic_markets)}개"
+                    f"[Scanner]     | "
+                    f" : {len(self._dynamic_markets)}개"
                 )
             return new_markets
 
         except Exception as e:
-            logger.warning(f"[Scanner] 스캔 오류: {e}")
+            logger.warning(f"[Scanner]  : {e}")
             return []
 
     async def _get_all_krw_markets(self) -> list:
@@ -2489,7 +2480,7 @@ class TradingEngine:
                 if item["market"].startswith("KRW-")
             ]
         except Exception as e:
-            logger.warning(f"[Scanner] 마켓 목록 조회 오류: {e}")
+            logger.warning(f"[Scanner]    : {e}")
             return []
 
     async def _check_surge(self, market: str, cfg: dict) -> dict:
@@ -2714,21 +2705,21 @@ class TradingEngine:
             }
             logger.info(
                 f"[Backtest v2] {market} | "
-                f"거래={total_trades} WR={win_rate:.1%} "
+                f"={total_trades} WR={win_rate:.1%} "
                 f"PF={profit_factor:.2f} Return={total_return:.2%} "
                 f"Sharpe={sharpe:.2f} MDD={mdd:.2%}"
             )
             return result
 
         except Exception as e:
-            logger.warning(f"[Backtest v2] {market} 오류: {e}")
+            logger.warning(f"[Backtest v2] {market} : {e}")
             return {"market": market, "error": str(e)}
 
     async def _run_backtest_all(self) -> dict:
         markets = list(self.markets) if hasattr(self, "markets") else []
         if not markets:
             return {}
-        logger.info(f"[Backtest v2] 전체 백테스트 시작 | {len(markets)}개 코인")
+        logger.info(f"[Backtest v2]    | {len(markets)}개 코인")
         tasks  = [self._run_backtest_v2(m) for m in markets]
         raw    = await asyncio.gather(*tasks, return_exceptions=True)
         results = {}
@@ -2749,7 +2740,7 @@ class TradingEngine:
             await self.telegram.send_message(" | ".join(lines))
         except Exception:
             pass
-        logger.info(f"[Backtest v2] 완료 | {len(results)}개 결과")
+        logger.info(f"[Backtest v2]  | {len(results)}개 결과")
         return results
 
     # ── PPO 초기화 / 훈련 ────────────────────────────────────────
@@ -2760,7 +2751,7 @@ class TradingEngine:
             if not all(deps.values()):
                 missing = [k for k, v in deps.items() if not v]
                 logger.info(
-                    f"🤖 PPO 에이전트 대기 중 (미설치: {missing})"
+                    f" PPO    (: {missing})"
                 )
                 return
             self._ppo_agent = PPOTradingAgent(use_gpu=(self._device == "cuda"))
@@ -2768,21 +2759,21 @@ class TradingEngine:
             if loaded:
                 logger.success("✅ PPO 모델 로드 완료 (저장된 비중 사용)")
             else:
-                logger.info("🤖 PPO 모델 없음 — 초기 데이터 수집 후 자동 훈련 시작")
+                logger.info(" PPO   —       ")
                 from datetime import datetime, timedelta
                 self.scheduler.add_job(
                     self._auto_train_ppo, "date",
                     run_date=datetime.now() + timedelta(minutes=10),
                     id="ppo_initial_train",
                 )
-                logger.info("🕒 PPO 자동 훈련: 엔진 시작 10분 후 시작 예약됨")
+                logger.info(" PPO  :   10   ")
         except Exception as e:
-            logger.warning(f"PPO 초기화 실패 (무시하고 계속): {e}")
+            logger.warning(f"PPO   ( ): {e}")
 
     async def _auto_train_ppo(
         self, total_timesteps: int = 200_000, notify: bool = True
     ):
-        logger.info("🤖 PPO 자동 훈련 시작 — 백그라운드 실행 중...")
+        logger.info(" PPO    —   ...")
         if notify:
             await self.telegram.send_message(
                 f"🤖 PPO 강화학습 훈련 시작\n"
@@ -2799,7 +2790,7 @@ class TradingEngine:
             markets   = self.settings.trading.target_markets
             processor = CandleProcessor()
 
-            logger.info("  훈련용 데이터 수집 중...")
+            logger.info("     ...")
             raw_dfs = []
             for m in markets:
                 try:
@@ -2821,12 +2812,12 @@ class TradingEngine:
                     pass
 
             if not processed_dfs:
-                logger.warning("PPO 훈련 데이터 부족 — 훈련 취소")
+                logger.warning("PPO    —  ")
                 return
 
             combined_df = pd.concat(processed_dfs, ignore_index=True)
             logger.info(
-                f"  훈련 데이터: {len(combined_df)}샘플 "
+                f"   : {len(combined_df)}샘플 "
                 f"({len(processed_dfs)}개 코인)"
             )
 
@@ -2865,10 +2856,10 @@ class TradingEngine:
                     replace_existing=True,
                 )
             else:
-                logger.warning(f"PPO 훈련 실패: {result.get('error')}")
+                logger.warning(f"PPO  : {result.get('error')}")
 
         except Exception as e:
-            logger.error(f"PPO 자동 훈련 오류: {e}")
+            logger.error(f"PPO   : {e}")
 
     # ── 포지션 복원 ──────────────────────────────────────────────
     async def _restore_positions_from_db(self):
@@ -2905,7 +2896,7 @@ class TradingEngine:
                         continue
                     if _price <= 0 or _volume <= 0:
                         logger.warning(
-                            f"포지션 복원 스킵 ({mkt}): 가격/수량 없음"
+                            f"   ({mkt}): 가격/수량 없음"
                         )
                         continue
 
@@ -2939,7 +2930,7 @@ class TradingEngine:
                             )
                             self.position_mgr_v2.add_position(_pv2)
                         except Exception as _rv2_e:
-                            logger.debug(f"M4 복원 스킵: {_rv2_e}")
+                            logger.debug(f"M4  : {_rv2_e}")
 
                     self.partial_exit.add_position(
                         market=mkt,
@@ -2958,9 +2949,9 @@ class TradingEngine:
                     restored       += 1
                     total_invested += _amount_krw
                     logger.info(
-                        f"♻️ 포지션 복원 | {mkt} | "
-                        f"매수가={_price:,.0f} | "
-                        f"금액=₩{_amount_krw:,.0f} | {_strategy}"
+                        f"   | {mkt} | "
+                        f"={_price:,.0f} | "
+                        f"=₩{_amount_krw:,.0f} | {_strategy}"
                     )
 
                     try:
@@ -2968,22 +2959,22 @@ class TradingEngine:
                         if _exited and _exited > 0:
                             self.partial_exit.restore_executed_levels(mkt, _exited)
                             logger.info(
-                                f"♻️ 부분청산 복원 | {mkt} | 누적={_exited:.0%}"
+                                f"   | {mkt} | ={_exited:.0%}"
                             )
                     except Exception as _pe_e:
-                        logger.debug(f"부분청산 복원 스킵 ({mkt}): {_pe_e}")
+                        logger.debug(f"   ({mkt}): {_pe_e}")
 
                 except Exception as _row_e:
                     logger.warning(
-                        f"행 복원 스킵 "
+                        f"   "
                         f"({row['market'] if row else '?'}): {_row_e}"
                     )
                     continue
 
             if restored:
                 logger.info(
-                    f"✅ 포지션 복원 완료: {restored}개 | "
-                    f"투자금=₩{total_invested:,.0f}"
+                    f"   : {restored} | "
+                    f"=₩{total_invested:,.0f}"
                 )
                 try:
                     _krw_cash = await self.adapter.get_balance("KRW")
@@ -2993,9 +2984,9 @@ class TradingEngine:
                     }
                     self.adapter.sync_paper_balance(_krw_cash, _open_pos)
                 except Exception as _sync_e:
-                    logger.debug(f"페이퍼 잔고 동기화 오류: {_sync_e}")
+                    logger.debug(f"   : {_sync_e}")
             else:
-                logger.info("📭 복원할 포지션 없음 (신규 시작)")
+                logger.info("    ( )")
 
             try:
                 from datetime import datetime as _dt_cls
@@ -3029,15 +3020,15 @@ class TradingEngine:
                     else f"잔여 {_remain}회"
                 )
                 logger.info(
-                    f"♻️  BEAR_REVERSAL 카운터 복원: "
-                    f"오늘 {_bear_today}회 → {_status}"
+                    f"  BEAR_REVERSAL  : "
+                    f" {_bear_today} → {_status}"
                 )
             except Exception as _br_e:
-                logger.warning(f"⚠️ BEAR_REVERSAL 카운터 복원 실패: {_br_e}")
+                logger.warning(f" BEAR_REVERSAL   : {_br_e}")
 
         except Exception as e:
             import traceback
-            logger.warning(f"⚠️ 포지션 복원 실패 (무시): {e}")
+            logger.warning(f"    (): {e}")
             logger.debug(traceback.format_exc())
 
     async def _restore_sl_cooldown(self):
@@ -3064,21 +3055,21 @@ class TradingEngine:
                                 (_until - now).total_seconds() // 60
                             )
                             logger.info(
-                                f"⏳ 쿨다운 복원 ({_mkt}): {_rem}분 남음"
+                                f"   ({_mkt}): {_rem}분 남음"
                             )
                             restored_count += 1
                         else:
                             await self.db_manager.delete_state(_key)
                     except Exception as _e:
-                        logger.debug(f"쿨다운 파싱 오류 [{_key}]: {_e}")
+                        logger.debug(f"   [{_key}]: {_e}")
                 if restored_count:
                     logger.info(
-                        f"✅ 손절 쿨다운 복원 완료: {restored_count}개 코인"
+                        f"    : {restored_count} "
                     )
                 else:
-                    logger.info("📭 복원할 손절 쿨다운 없음")
+                    logger.info("    ")
         except Exception as _e:
-            logger.warning(f"⚠️ 쿨다운 복원 실패 (무시): {_e}")
+            logger.warning(f"    (): {_e}")
 
     async def _save_initial_candles(self):
         markets = self.settings.trading.target_markets
@@ -3091,16 +3082,16 @@ class TradingEngine:
                 if df is not None and len(df) > 0:
                     self.cache_manager.set_ohlcv(market, "1h", df)
                     saved += 1
-                    logger.debug(f"💾 캔들 저장 | {market} | {len(df)}개")
+                    logger.debug(f"   | {market} | {len(df)}개")
             except Exception as e:
-                logger.debug(f"캔들 저장 실패 ({market}): {e}")
+                logger.debug(f"   ({market}): {e}")
         logger.info(
-            f"✅ 초기 캔들 NpyCache 저장 완료 | "
+            f"   NpyCache   | "
             f"{saved}/{len(markets)}개 코인"
         )
 
     async def _initial_data_fetch(self):
-        logger.info("📥 초기 데이터 수집 중...")
+        logger.info("    ...")
         markets = self.settings.trading.target_markets
         tasks   = [
             self.rest_collector.get_ohlcv(m, "minute60", 200)
@@ -3113,7 +3104,7 @@ class TradingEngine:
         )
         await self._save_initial_candles()
         logger.info(
-            f"✅ 초기 데이터 수집 완료 ({success}/{len(markets)}개 성공)"
+            f"     ({success}/{len(markets)}개 성공)"
         )
         try:
             raw_balances = await self.adapter.get_balances()
@@ -3121,20 +3112,20 @@ class TradingEngine:
                 self._wallet.scan_balances(raw_balances)
             self._wallet.print_status()
         except Exception as e:
-            logger.warning(f"SmartWallet 초기 스캔 실패: {e}")
+            logger.warning(f"SmartWallet   : {e}")
 
     # ── 스케줄된 작업 ────────────────────────────────────────────
     async def _run_auto_retrain(self):
         try:
-            logger.info("[AutoTrainer] 🔄 일일 자동 재학습 시작...")
+            logger.info("[AutoTrainer]     ...")
             result = await self.auto_trainer.run_if_needed()
             if result:
                 await self._load_ml_model()
-                logger.info("[AutoTrainer] ✅ 재학습 완료 + 새 모델 로드")
+                logger.info("[AutoTrainer]    +   ")
             else:
-                logger.info("[AutoTrainer] ℹ️  재학습 스킵 또는 롤백")
+                logger.info("[AutoTrainer]      ")
         except Exception as e:
-            logger.error(f"[AutoTrainer] 오류: {e}")
+            logger.error(f"[AutoTrainer] : {e}")
 
     def _register_schedules(self):
         from datetime import datetime, timedelta
@@ -3196,8 +3187,8 @@ class TradingEngine:
                 id="walk_forward_initial",
             )
             logger.info(
-                "🕒 Walk-Forward 최초 실행: 30분 후 예약됨 "
-                "(config/optimized_params.json 없음)"
+                " Walk-Forward  : 30   "
+                "(config/optimized_params.json )"
             )
         self.scheduler.add_job(
             lambda: __import__(
@@ -3217,7 +3208,7 @@ class TradingEngine:
             id="ppo_online_retrain",
         )
         logger.info(
-            f"✅ 스케줄러 등록 완료 "
+            f"    "
             f"({len(self.scheduler.get_jobs())}개 작업)"
         )
 
@@ -3326,7 +3317,7 @@ class TradingEngine:
                 )
             await self.telegram.send_message("\n".join(lines))
         except Exception as e:
-            logger.debug(f"포지션 요약 전송 오류: {e}")
+            logger.debug(f"   : {e}")
 
     async def _scheduled_performance_check(self):
         try:
@@ -3337,20 +3328,20 @@ class TradingEngine:
             metrics = self.performance_tracker.get_metrics()
             score   = await self.live_readiness.check(self.performance_tracker)
             logger.info(
-                f"성과 지표: win_rate={metrics.get('win_rate',0):.1%} "
+                f" : win_rate={metrics.get('win_rate',0):.1%} "
                 f"sharpe={metrics.get('sharpe_ratio',0):.2f} "
                 f"mdd={metrics.get('max_drawdown',0):.1%} "
                 f"live_score={score:.0f}/100"
             )
             if score >= 70:
-                logger.info("LiveReadiness 70점 이상 - Live 전환 검토 가능")
+                logger.info("LiveReadiness 70  - Live   ")
             elif score < 30 and len(trades) > 20:
                 await self.telegram.send_alert(
                     "WARNING",
                     f"LiveReadiness 점수 {score:.0f}/100 - 전략 점검 필요",
                 )
         except Exception as e:
-            logger.debug(f"성과 체크 오류: {e}")
+            logger.debug(f"  : {e}")
 
     async def _scheduled_price_update(self):
         pass  # ws_collector 실시간 처리
@@ -3362,7 +3353,7 @@ class TradingEngine:
                 if df is not None:
                     await self.candle_processor.process(market, df, "1440")
             except Exception as e:
-                logger.error(f"일봉 갱신 오류 ({market}): {e}")
+                logger.error(f"   ({market}): {e}")
 
     async def _scheduled_daily_report(self):
         stats     = self.portfolio.get_statistics()
@@ -3386,13 +3377,13 @@ class TradingEngine:
                 "win_rate":       report.get("win_rate",        0),
                 "trade_count":    report.get("trade_count",     0),
             })
-            logger.info("✅ daily_performance DB 저장 완료")
+            logger.info(" daily_performance DB  ")
         except Exception as _dpe:
-            logger.debug(f"daily_performance 저장 실패: {_dpe}")
+            logger.debug(f"daily_performance  : {_dpe}")
 
     async def _scheduled_model_retrain(self):
         if self._ml_predictor:
-            logger.info("🔄 ML 모델 재학습 시작...")
+            logger.info(" ML   ...")
             try:
                 from datetime import datetime
                 await self.db_manager.save_model_metrics({
@@ -3409,16 +3400,16 @@ class TradingEngine:
                     ),
                     "parameters": 12299965,
                 })
-                logger.info("✅ model_metrics DB 저장 완료")
+                logger.info(" model_metrics DB  ")
             except Exception as _mme:
-                logger.debug(f"model_metrics 저장 실패: {_mme}")
+                logger.debug(f"model_metrics  : {_mme}")
             try:
                 await asyncio.get_event_loop().run_in_executor(
                     None, self._ml_predictor.retrain
                 )
-                logger.info("✅ ML 모델 재학습 완료")
+                logger.info(" ML   ")
             except Exception as e:
-                logger.error(f"재학습 실패: {e}")
+                logger.error(f" : {e}")
 
     async def _scheduled_ppo_online_retrain(self):
         try:
@@ -3426,7 +3417,7 @@ class TradingEngine:
                 return
             stats = self.ppo_online_trainer.get_buffer_stats()
             logger.info(
-                f"[PPOOnline] 주간 재학습 시작 | "
+                f"[PPOOnline]    | "
                 f"buffer={stats.get('count',0)}개 | "
                 f"avg_profit={stats.get('avg_profit',0):.2%} | "
                 f"win_rate={stats.get('win_rate',0):.1%}"
@@ -3440,14 +3431,14 @@ class TradingEngine:
                     f"평균 수익률: {stats.get('avg_profit',0):.2%}\n"
                     f"승률: {stats.get('win_rate',0):.1%}"
                 )
-                logger.info("[PPOOnline] ✅ 주간 재학습 완료 + 모델 재로드")
+                logger.info("[PPOOnline]     +  ")
             else:
-                logger.info("[PPOOnline] ℹ️  재학습 스킵 (경험 부족 또는 실패)")
+                logger.info("[PPOOnline]     (   )")
         except Exception as e:
-            logger.error(f"[PPOOnline] 스케줄 오류: {e}")
+            logger.error(f"[PPOOnline]  : {e}")
 
     async def _scheduled_paper_report(self, hours: int = 24):
-        logger.info(f"📊 {hours}시간 페이퍼 트레이딩 리포트 생성 중...")
+        logger.info(f" {hours}     ...")
         try:
             data = await asyncio.get_event_loop().run_in_executor(
                 None,
@@ -3484,7 +3475,7 @@ class TradingEngine:
             await self.telegram.send_message(msg)
             logger.success("✅ 페이퍼 리포트 생성 완료")
         except Exception as e:
-            logger.error(f"페이퍼 리포트 생성 실패: {e}")
+            logger.error(f"   : {e}")
 
     async def _scheduled_kimchi_update(self):
         try:
@@ -3504,16 +3495,16 @@ class TradingEngine:
                 dashboard_state.signals["kimchi_premium"] = premium_val
             except Exception:
                 pass
-            logger.info(f"🌶️ 김치 프리미엄 갱신: {summary}")
+            logger.info(f"   : {summary}")
         except Exception as e:
-            logger.warning(f"김치 프리미엄 갱신 실패: {e}")
+            logger.warning(f"   : {e}")
 
     async def _scheduled_fear_greed_update(self):
         try:
             ok = await self.fear_greed.fetch()
             if ok:
                 logger.info(
-                    f"😱 공포탐욕 지수 갱신: {self.fear_greed.index} "
+                    f"   : {self.fear_greed.index} "
                     f"({self.fear_greed.label})"
                 )
                 idx = self.fear_greed.index or 50
@@ -3528,10 +3519,10 @@ class TradingEngine:
                         f"— 신규 매수 억제 모드"
                     )
         except Exception as e:
-            logger.warning(f"공포탐욕 지수 갱신 실패: {e}")
+            logger.warning(f"   : {e}")
 
     async def _scheduled_walk_forward(self):
-        logger.info("🔬 주간 Walk-Forward 최적화 시작...")
+        logger.info("  Walk-Forward  ...")
         try:
             from backtesting.walk_forward import run_weekly_walk_forward
             results    = await run_weekly_walk_forward()
@@ -3544,14 +3535,14 @@ class TradingEngine:
             )
             await self.telegram.send_message(msg)
         except Exception as e:
-            logger.error(f"Walk-Forward 스케줄 실패: {e}")
+            logger.error(f"Walk-Forward  : {e}")
 
     async def _scheduled_news_update(self):
         try:
             count = await self.news_analyzer.fetch_news()
-            logger.debug(f"뉴스 갱신 완료: {count}건")
+            logger.debug(f"  : {count}")
         except Exception as e:
-            logger.debug(f"뉴스 갱신 실패: {e}")
+            logger.debug(f"  : {e}")
 
     async def _ws_reconnect_loop(self):
         RECONNECT_DELAY = 5
@@ -3561,7 +3552,7 @@ class TradingEngine:
             try:
                 if self.ws_collector and not self.ws_collector.is_connected():
                     logger.warning(
-                        f"⚠️ WebSocket 연결 끊김 → {delay}초 후 재연결 시도"
+                        f" WebSocket   → {delay}   "
                     )
                     
                     # ===== 시그널 평가 및 진입 로직 (v2.1.0) =====
@@ -3580,32 +3571,32 @@ class TradingEngine:
                                         prediction = await self.ml_predictor.predict(market, df)
                                         ml_score = prediction.get('score', 0) if prediction else 0
                                     except Exception as e:
-                                        logger.debug(f"{market} ML 예측 실패: {e}")
+                                        logger.debug(f"{market} ML  : {e}")
                                         continue
                                 
                                 # 시그널 평가
                                 if ml_score > 0.1:  # 최소 임계값
                                     signal = await self._evaluate_entry_signals(market, df, ml_score)
                                     if signal and signal.get('action') == 'BUY':
-                                        logger.info(f"🎯 {market} 진입 시그널 확정")
+                                        logger.info(f" {market}   ")
                                         await self._execute_buy(market, signal, df)
                             
                             except Exception as e:
-                                logger.error(f"{market} 시그널 처리 오류: {e}")
+                                logger.error(f"{market}   : {e}")
                     
                     except Exception as e:
-                        logger.error(f"시그널 평가 루프 오류: {e}")
+                        logger.error(f"   : {e}")
                     # =================================================
 
                     await asyncio.sleep(delay)
                     await self.ws_collector.reconnect()
-                    logger.info("✅ WebSocket 재연결 성공")
+                    logger.info(" WebSocket  ")
                     delay = RECONNECT_DELAY
                 else:
                     delay = RECONNECT_DELAY
                     await asyncio.sleep(10)
             except Exception as e:
-                logger.error(f"❌ WebSocket 재연결 실패: {e}")
+                logger.error(f" WebSocket  : {e}")
                 delay = min(delay * 2, MAX_DELAY)
                 await asyncio.sleep(delay)
 
@@ -3750,5 +3741,5 @@ class TradingEngine:
             })
 
         except Exception as _e:
-            logger.debug(f"대시보드 업데이트 오류: {_e}")
+            logger.debug(f"  : {_e}")
 

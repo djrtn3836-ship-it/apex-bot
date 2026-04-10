@@ -7,7 +7,7 @@ from signals.signal_combiner import CombinedSignal, SignalType
 
 
 class TrendFollowing(BaseStrategy):
-    """추세 추종 전략 - EMA 크로스 + ADX"""
+    """- EMA  + ADX"""
 
     def __init__(self, settings: dict = None):
         super().__init__("TrendFollowing", settings)

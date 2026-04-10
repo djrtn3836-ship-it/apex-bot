@@ -1,7 +1,5 @@
-"""
-Apex Bot - 실전 전환 안전장치 (M2)
-페이퍼 → 실거래 전환 전 모든 조건 검증
-"""
+"""Apex Bot -    (M2)
+ →"""
 import os
 from dataclasses import dataclass, field
 from typing import Tuple, List, Dict
@@ -31,21 +29,19 @@ class LiveGuardReport:
 
 
 class LiveGuard:
-    """실전 전환 안전장치"""
+    """docstring"""
 
     def __init__(self, config: LiveGuardConfig = None):
         self.cfg = config or LiveGuardConfig()
         self._emergency_stop = False
-        logger.info("✅ LiveGuard 초기화")
+        logger.info(" LiveGuard ")
 
     # ── 실전 전환 적합성 검증 ────────────────────────────
     def check_readiness(self, stats: Dict) -> LiveGuardReport:
-        """
-        stats 예시:
+        """stats :
           { "win_rate": 0.55, "sharpe": 0.8, "mdd": -0.07,
             "expectancy": 0.003, "trade_days": 20,
-            "total_trades": 35, "telegram_ok": True }
-        """
+            "total_trades": 35, "telegram_ok": True }"""
         report = LiveGuardReport(checked_at=datetime.now().isoformat())
         checks = []
 
@@ -82,15 +78,15 @@ class LiveGuard:
                     )
 
         logger.info(
-            f"실전 전환 검증: {'✅ 통과' if report.passed else '❌ 미통과'} "
-            f"(점수={report.score:.1%})"
+            f"  : {' ' if report.passed else ' '} "
+            f"(={report.score:.1%})"
         )
         return report
 
     # ── 긴급 전체 청산 ───────────────────────────────────
     def emergency_stop(self) -> bool:
         self._emergency_stop = True
-        logger.critical("🚨 EMERGENCY STOP 발동 — 모든 포지션 즉시 청산 요청")
+        logger.critical(" EMERGENCY STOP  —     ")
         return True
 
     def is_emergency(self) -> bool:

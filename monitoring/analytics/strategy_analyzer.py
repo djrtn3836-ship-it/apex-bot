@@ -1,6 +1,4 @@
-"""
-Apex Bot - 전략별 성과 분석기 (M7-A)
-"""
+"""Apex Bot -    (M7-A)"""
 import pandas as pd
 import numpy as np
 from dataclasses import dataclass, field
@@ -25,7 +23,7 @@ class StrategyStats:
 
 
 class StrategyAnalyzer:
-    """전략별 성과 분석기"""
+    """docstring"""
 
     GRADE_THRESHOLDS = {
         "S": {"win_rate": 0.60, "sharpe": 1.5, "expectancy": 0.005},
@@ -35,13 +33,11 @@ class StrategyAnalyzer:
     }
 
     def __init__(self):
-        logger.info("✅ StrategyAnalyzer 초기화")
+        logger.info(" StrategyAnalyzer ")
 
     def analyze(self, trades_df: pd.DataFrame) -> Dict[str, StrategyStats]:
-        """
-        trades_df: trade_history DataFrame
-        컬럼: strategy, profit_rate, side
-        """
+        """trades_df: trade_history DataFrame
+        : strategy, profit_rate, side"""
         results = {}
         if trades_df.empty:
             return results
@@ -111,14 +107,14 @@ class StrategyAnalyzer:
 
     def print_report(self, results: Dict[str, StrategyStats]):
         print(f"\n{'='*60}")
-        print("  전략별 성과 분석 리포트")
+        print("     ")
         print(f"{'='*60}")
         for name, s in sorted(results.items(), key=lambda x: -x[1].expectancy):
             print(
                 f"  [{s.grade}] {name:<25} "
-                f"거래:{s.total_trades:3d} | "
-                f"승률:{s.win_rate:.0%} | "
-                f"샤프:{s.sharpe_ratio:.2f} | "
-                f"기대값:{s.expectancy:+.4f}"
+                f":{s.total_trades:3d} | "
+                f":{s.win_rate:.0%} | "
+                f":{s.sharpe_ratio:.2f} | "
+                f":{s.expectancy:+.4f}"
             )
         print("="*60)

@@ -14,7 +14,7 @@ for i, line in enumerate(lines):
         indent = len(line) - len(line.lstrip())
         ind = ' ' * indent
         lines[i] = f"{ind}if ml_signal and ml_confidence > 0.50:  # ML 단독 매수 방지\n"
-        print(f"✅ 수정 A: L{i+1} ml_confidence 조건문 문법 오류 수정")
+        print(f"  A: L{i+1} ml_confidence    ")
         break
 
 # ── 수정 B: L137~L138 if 본문 누락 수정 (index 136~137) ──────────────
@@ -33,7 +33,7 @@ for i, line in enumerate(lines):
             ind = ' ' * indent
             # 현재 라인 유지, 다음 라인(주석)을 실제 return으로 교체
             lines[i+1] = f"{ind}    return None  # BUY 동의율 미달 → HOLD\n"
-            print(f"✅ 수정 B: L{i+2} return None 주석 해제")
+            print(f"  B: L{i+2} return None  ")
         break
 
 # ── 수정 C: SELL pass 교체 ────────────────────────────────────────────
@@ -49,7 +49,7 @@ for i, line in enumerate(lines):
             f"{ind}):\n"
             f"{ind}    return None  # SELL 동의율 미달 → HOLD\n"
         )
-        print(f"✅ 수정 C: L{i+1} SELL pass → min_agreement 필터 교체")
+        print(f"  C: L{i+1} SELL pass → min_agreement  ")
         break
 
 with open('signals/signal_combiner.py', 'w', encoding='utf-8') as f:
@@ -59,18 +59,18 @@ with open('signals/signal_combiner.py', 'w', encoding='utf-8') as f:
 import py_compile, sys
 try:
     py_compile.compile('signals/signal_combiner.py', doraise=True)
-    print("\n✅ 문법 검증 통과 - SyntaxError 없음")
+    print("\n    - SyntaxError ")
 except py_compile.PyCompileError as e:
-    print(f"\n🔴 문법 오류 잔존: {e}")
+    print(f"\n   : {e}")
     sys.exit(1)
 
 # ── 최종 내용 확인 ────────────────────────────────────────────────────
 with open('signals/signal_combiner.py', 'r', encoding='utf-8') as f:
     final = f.read()
 
-print("\n── 최종 검증 ────────────────────────────────────────")
-print(f"pass 잔존:           {'있음 ⚠️' if 'pass  #' in final or '            pass' in final else '없음 ✅'}")
-print(f"콜론 중복 오류:       {'있음 ⚠️' if ':  #' in final and 'ml_confidence' in final else '없음 ✅'}")
-print(f"agreement_rate 필터: {'활성 ✅' if 'return None  # BUY' in final else '비활성 ⚠️'}")
-print(f"SELL 필터:           {'활성 ✅' if 'return None  # SELL' in final else '비활성 ⚠️'}")
-print("\n✅ fix_sc_final.py 완료")
+print("\n   ")
+print(f"pass :           {' ' if 'pass  #' in final or '            pass' in final else ' '}")
+print(f"  :       {' ' if ':  #' in final and 'ml_confidence' in final else ' '}")
+print(f"agreement_rate : {' ' if 'return None  # BUY' in final else ' '}")
+print(f"SELL :           {' ' if 'return None  # SELL' in final else ' '}")
+print("\n fix_sc_final.py ")

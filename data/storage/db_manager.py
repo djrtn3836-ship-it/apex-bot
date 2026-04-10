@@ -1,8 +1,6 @@
-﻿"""
-APEX BOT - 데이터베이스 관리자
-SQLite (aiosqlite) 기반 비동기 스토리지
-거래 기록 + 캔들 데이터 + 성과 이력 영구 저장
-"""
+﻿"""APEX BOT -  
+SQLite (aiosqlite)   
+  +   +"""
 import asyncio
 import json
 from pathlib import Path
@@ -15,20 +13,18 @@ try:
     AIOSQLITE_OK = True
 except ImportError:
     AIOSQLITE_OK = False
-    logger.warning("aiosqlite 미설치 - DB 저장 비활성화")
+    logger.warning("aiosqlite  - DB  ")
 
 from config.settings import get_settings
 
 
 class DatabaseManager:
-    """
-    비동기 SQLite 데이터베이스 관리
-    - TRADE_HISTORY: 거래 내역
-    - CANDLE_DATA: OHLCV 캐시
-    - PERFORMANCE: 일일 성과
-    - SIGNAL_LOG: 신호 이력
-    - MODEL_METRICS: ML 모델 성과
-    """
+    """SQLite  
+    - TRADE_HISTORY:  
+    - CANDLE_DATA: OHLCV 
+    - PERFORMANCE:  
+    - SIGNAL_LOG:  
+    - MODEL_METRICS: ML"""
 
     def __init__(self):
         self.settings = get_settings()
@@ -37,9 +33,9 @@ class DatabaseManager:
         self._lock = asyncio.Lock()
 
     async def initialize(self):
-        """DB 초기화 및 테이블 생성"""
+        """DB"""
         if not AIOSQLITE_OK:
-            logger.warning("DB 비활성화 - 메모리 모드로 실행")
+            logger.warning("DB  -   ")
             return
 
         self.db_path.parent.mkdir(parents=True, exist_ok=True)
@@ -55,10 +51,10 @@ class DatabaseManager:
         await self._conn.commit()
 
         await self._create_tables()
-        logger.info(f"✅ DB 초기화: {self.db_path}")
+        logger.info(f" DB : {self.db_path}")
 
     async def _create_tables(self):
-        """테이블 스키마 생성"""
+        """docstring"""
         schemas = [
             # 거래 내역
             """
@@ -138,7 +134,7 @@ class DatabaseManager:
 
     # ── 거래 기록 ─────────────────────────────────────────────────
     async def insert_trade(self, trade: Dict) -> bool:
-        """거래 내역 저장"""
+        """docstring"""
         if not self._conn:
             return False
         try:
@@ -167,11 +163,11 @@ class DatabaseManager:
                 await self._conn.commit()
             return True
         except Exception as e:
-            logger.error(f"거래 기록 저장 실패: {e}")
+            logger.error(f"   : {e}")
             return False
 
     async def get_trades(self, market: str = None, limit: int = 100) -> List[Dict]:
-        """거래 내역 조회"""
+        """docstring"""
         if not self._conn:
             return []
         try:
@@ -186,12 +182,12 @@ class DatabaseManager:
                 rows = await cursor.fetchall()
                 return [dict(row) for row in rows]
         except Exception as e:
-            logger.error(f"거래 내역 조회 실패: {e}")
+            logger.error(f"   : {e}")
             return []
 
     # ── 성과 기록 ─────────────────────────────────────────────────
     async def save_daily_performance(self, perf: Dict) -> bool:
-        """일일 성과 저장"""
+        """docstring"""
         if not self._conn:
             return False
         try:
@@ -216,12 +212,12 @@ class DatabaseManager:
                 await self._conn.commit()
             return True
         except Exception as e:
-            logger.error(f"성과 저장 실패: {e}")
+            logger.error(f"  : {e}")
             return False
 
     # ── 신호 기록 ─────────────────────────────────────────────────
     async def log_signal(self, signal: Dict) -> bool:
-        """신호 이력 저장"""
+        """docstring"""
         if not self._conn:
             return False
         try:
@@ -247,12 +243,12 @@ class DatabaseManager:
                 await self._conn.commit()
             return True
         except Exception as e:
-            logger.error(f"신호 기록 저장 실패: {e}")
+            logger.error(f"   : {e}")
             return False
 
     # ── ML 모델 메트릭 ────────────────────────────────────────────
     async def save_model_metrics(self, metrics: Dict) -> bool:
-        """ML 모델 성과 저장"""
+        """ML"""
         if not self._conn:
             return False
         try:
@@ -277,12 +273,12 @@ class DatabaseManager:
                 await self._conn.commit()
             return True
         except Exception as e:
-            logger.error(f"모델 메트릭 저장 실패: {e}")
+            logger.error(f"   : {e}")
             return False
 
 
     async def set_state(self, key: str, value: str) -> bool:
-        """bot_state 테이블에 key-value 저장 (upsert)"""
+        """bot_state  key-value  (upsert)"""
         try:
             await self._conn.execute(
                 """INSERT INTO bot_state (key, value, updated_at)
@@ -294,11 +290,11 @@ class DatabaseManager:
             await self._conn.commit()
             return True
         except Exception as e:
-            logger.error(f"set_state 오류 [{key}]: {e}")
+            logger.error(f"set_state  [{key}]: {e}")
             return False
 
     async def get_state(self, key: str) -> str | None:
-        """bot_state 테이블에서 key 조회"""
+        """bot_state  key"""
         try:
             async with self._conn.execute(
                 "SELECT value FROM bot_state WHERE key = ?", (key,)
@@ -306,29 +302,27 @@ class DatabaseManager:
                 row = await cur.fetchone()
                 return row[0] if row else None
         except Exception as e:
-            logger.error(f"get_state 오류 [{key}]: {e}")
+            logger.error(f"get_state  [{key}]: {e}")
             return None
 
     async def delete_state(self, key: str) -> bool:
-        """bot_state 테이블에서 key 삭제"""
+        """bot_state  key"""
         try:
             await self._conn.execute("DELETE FROM bot_state WHERE key = ?", (key,))
             await self._conn.commit()
             return True
         except Exception as e:
-            logger.error(f"delete_state 오류 [{key}]: {e}")
+            logger.error(f"delete_state  [{key}]: {e}")
             return False
     async def close(self):
-        """DB 연결 종료"""
+        """DB"""
         if self._conn:
             await self._conn.close()
-            logger.info("DB 연결 종료")
+            logger.info("DB  ")
 
     async def get_partial_exit_ratio(self, market: str) -> float:
-        """
-        오늘 해당 마켓의 PARTIAL_SELL 누적 청산 비율 반환
-        trade_history의 volume 합산 / 최초 BUY volume 으로 계산
-        """
+        """PARTIAL_SELL    
+        trade_history volume  /  BUY volume"""
         try:
             today = __import__("datetime").date.today().isoformat()
             rows = await self._conn.execute(

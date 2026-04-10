@@ -23,10 +23,10 @@ SAVE_METHOD = [
     "                if df is not None and len(df) > 0:",
     "                    self.cache_manager.set_ohlcv(market, '1h', df)",
     "                    saved += 1",
-    "                    logger.debug(f'💾 캔들 저장 | {market} | {len(df)}개')",
+    "                    logger.debug(f'   | {market} | {len(df)}개')",
     "            except Exception as e:",
-    "                logger.debug(f'캔들 저장 실패 ({market}): {e}')",
-    "        logger.info(f'✅ 초기 캔들 NpyCache 저장 완료 | {saved}/{len(markets)}개 코인')",
+    "                logger.debug(f'   ({market}): {e}')",
+    "        logger.info(f'   NpyCache   | {saved}/{len(markets)}개 코인')",
     "",
 ]
 
@@ -44,15 +44,15 @@ for i, ln in enumerate(lines):
         break
 
 if insert_idx is None:
-    print("❌ _initial_data_fetch 위치를 찾지 못했습니다.")
+    print(" _initial_data_fetch   .")
     exit(1)
 
 if any("async def _save_initial_candles" in ln for ln in lines):
-    print("⚠️  _save_initial_candles 이미 존재 – 삽입 건너뜀")
+    print("  _save_initial_candles   –  ")
 else:
     for j, method_line in enumerate(SAVE_METHOD):
         lines.insert(insert_idx + j, method_line)
-    print(f"✅ FIX-2: _save_initial_candles 삽입 완료 (L{insert_idx})")
+    print(f" FIX-2: _save_initial_candles   (L{insert_idx})")
 
 # ── FIX-4: _initial_data_fetch 완료 로그 직후에 호출 삽입 ────────────────────
 # 삽입 위치 재탐색 (메서드 삽입으로 라인 번호 변경됨)
@@ -80,17 +80,17 @@ if target_idx:
     call_line = f"{pad}await self._save_initial_candles()"
     if "await self._save_initial_candles()" not in "\n".join(lines[target_idx-2:target_idx+2]):
         lines.insert(target_idx, call_line)
-        print(f"✅ FIX-4: _save_initial_candles 호출 삽입 완료 (L{target_idx})")
+        print(f" FIX-4: _save_initial_candles    (L{target_idx})")
     else:
-        print("⚠️  FIX-4: 호출 이미 존재")
+        print("  FIX-4:   ")
 else:
-    print("⚠️  FIX-4: 삽입 위치 못 찾음 – L349 _initial_data_fetch 호출 직후에 삽입")
+    print("  FIX-4:     – L349 _initial_data_fetch   ")
     for i, ln in enumerate(lines):
         if "await self._initial_data_fetch()" in ln:
             indent = len(ln) - len(ln.lstrip())
             pad = " " * indent
             lines.insert(i + 1, f"{pad}await self._save_initial_candles()")
-            print(f"✅ FIX-4 fallback: L{i+1}에 삽입 완료")
+            print(f" FIX-4 fallback: L{i+1}  ")
             break
 
 # ── 저장 ─────────────────────────────────────────────────────────────────────
@@ -98,17 +98,17 @@ ENGINE.write_text("\n".join(lines), encoding="utf-8")
 
 try:
     py_compile.compile(str(ENGINE), doraise=True)
-    print("\n✅ engine.py 문법 OK – 모든 수정 완료")
-    print("   다음: python start_paper.py")
+    print("\n engine.py  OK –   ")
+    print("   : python start_paper.py")
 except py_compile.PyCompileError as e:
     import re as _re
     m = _re.search(r'line (\d+)', str(e))
     if m:
         err_line = int(m.group(1))
         err_lines = ENGINE.read_text(encoding="utf-8").splitlines()
-        print(f"\n❌ 문법 오류 (L{err_line}): {e}")
+        print(f"\n   (L{err_line}): {e}")
         for idx in range(max(0, err_line-4), min(len(err_lines), err_line+4)):
             print(f"  L{idx+1}: {err_lines[idx]}")
     shutil.copy(ENGINE.with_suffix(".py.bak_candle2"), ENGINE)
-    print("🔄 engine.py 원본 복구 완료")
+    print(" engine.py   ")
     exit(1)

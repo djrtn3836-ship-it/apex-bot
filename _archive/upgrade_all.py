@@ -1,12 +1,10 @@
-"""
-upgrade_all.py
-APEX BOT 전체 고도화 - 미완성 모듈 일괄 완성
-1. 호가창 분석 엔진 (매수벽/매도벽/Spoofing)
-2. OrderBook 기반 신호 생성
-3. ML 모델 훈련 데이터 파이프라인
-4. 전략 앙상블 가중치 최적화
-5. 대시보드 고도화
-"""
+"""upgrade_all.py
+APEX BOT   -    
+1.    (//Spoofing)
+2. OrderBook   
+3. ML    
+4.    
+5."""
 import os
 from pathlib import Path
 
@@ -14,10 +12,8 @@ from pathlib import Path
 # FILE 1: data/processors/orderbook_analyzer.py
 # 호가창 분석 - 매수벽/매도벽/Spoofing/불균형 감지
 # ──────────────────────────────────────────────────────────────
-ORDERBOOK_ANALYZER = '''"""
-APEX BOT - 호가창 분석 엔진
-매수벽/매도벽 감지, Spoofing 탐지, 호가 불균형 분석
-"""
+ORDERBOOK_ANALYZER = '''"""APEX BOT -   
+/ , Spoofing ,"""
 import numpy as np
 from dataclasses import dataclass, field
 from typing import Dict, List, Optional, Tuple
@@ -27,7 +23,7 @@ from loguru import logger
 
 @dataclass
 class OrderBookSignal:
-    """호가창 분석 결과"""
+    """docstring"""
     market: str
     bid_wall_price: float = 0.0       # 매수벽 가격
     bid_wall_size: float = 0.0        # 매수벽 수량
@@ -43,16 +39,12 @@ class OrderBookSignal:
 
 
 class OrderBookAnalyzer:
-    """
-    실시간 호가창 분석기
-    
-    분석 항목:
-    1. 매수벽/매도벽 감지 (대형 주문 탐지)
-    2. Spoofing 감지 (주문 출현→사라짐 패턴)
-    3. 호가 불균형 지수 (bid/ask 물량 비교)
-    4. 스프레드 분석
-    5. 벽 돌파 감지
-    """
+    """:
+    1. /  (  )
+    2. Spoofing  ( → )
+    3.    (bid/ask  )
+    4.  
+    5."""
     
     def __init__(self, 
                  wall_threshold: float = 5.0,      # 평균 대비 N배 이상 = 벽
@@ -68,10 +60,7 @@ class OrderBookAnalyzer:
         self._last_signal: Dict[str, OrderBookSignal] = {}
     
     def analyze(self, market: str, orderbook: dict) -> Optional[OrderBookSignal]:
-        """
-        호가창 데이터 분석
-        
-        orderbook 형식 (업비트 API):
+        """orderbook  ( API):
         {
             "orderbook_units": [
                 {"ask_price": float, "bid_price": float, 
@@ -79,8 +68,7 @@ class OrderBookAnalyzer:
                 ...
             ],
             "timestamp": int
-        }
-        """
+        }"""
         try:
             units = orderbook.get("orderbook_units", [])
             if not units:
@@ -137,11 +125,11 @@ class OrderBookAnalyzer:
             return signal
             
         except Exception as e:
-            logger.debug(f"호가창 분석 오류 ({market}): {e}")
+            logger.debug(f"   ({market}): {e}")
             return None
     
     def _detect_wall(self, orders: List[Tuple], side: str) -> Optional[Tuple]:
-        """매수벽/매도벽 감지 - 평균 수량 대비 N배 이상인 호가"""
+        """/  -    N"""
         if len(orders) < 3:
             return None
         
@@ -157,12 +145,9 @@ class OrderBookAnalyzer:
         return None
     
     def _calc_imbalance(self, bids: List[Tuple], asks: List[Tuple]) -> float:
-        """
-        호가 불균형 지수
-        +1.0 = 완전 매수 우세 (강한 매수 압력)
-        -1.0 = 완전 매도 우세 (강한 매도 압력)
-         0.0 = 균형
-        """
+        """+1.0 =    (  )
+        -1.0 =    (  )
+         0.0 ="""
         bid_volume = sum(size for _, size in bids)
         ask_volume = sum(size for _, size in asks)
         total = bid_volume + ask_volume
@@ -173,7 +158,7 @@ class OrderBookAnalyzer:
         return (bid_volume - ask_volume) / total
     
     def _calc_pressure(self, imbalance: float) -> str:
-        """불균형 지수 → 압력 판단"""
+        """→"""
         if imbalance >= 0.3:
             return "STRONG_BUY"
         elif imbalance >= 0.1:
@@ -186,11 +171,9 @@ class OrderBookAnalyzer:
     
     def _detect_spoofing(self, market: str, 
                           bids: List[Tuple], asks: List[Tuple]) -> Optional[str]:
-        """
-        스푸핑 감지:
-        대형 주문이 나타났다가 빠르게 사라지는 패턴
-        → 가짜 벽으로 시장 참여자를 속이는 행위
-        """
+        """:
+             
+        →"""
         if market not in self._ob_history:
             self._ob_history[market] = deque(maxlen=self.spoofing_window)
             return None
@@ -211,21 +194,21 @@ class OrderBookAnalyzer:
         for price, size in prev_bids.items():
             if size > np.mean([s for _, s in bids]) * self.wall_threshold:
                 if price not in curr_bid_dict or curr_bid_dict[price] < size * 0.3:
-                    logger.debug(f"🚨 매수 스푸핑 감지 ({market}): {price:,} × {size:.4f} 소멸")
+                    logger.debug(f"    ({market}): {price:,} × {size:.4f} 소멸")
                     return "BUY_SPOOF"
         
         # 대형 매도 주문이 사라짐 → 매도 스푸핑
         for price, size in prev_asks.items():
             if size > np.mean([s for _, s in asks]) * self.wall_threshold:
                 if price not in curr_ask_dict or curr_ask_dict[price] < size * 0.3:
-                    logger.debug(f"🚨 매도 스푸핑 감지 ({market}): {price:,} × {size:.4f} 소멸")
+                    logger.debug(f"    ({market}): {price:,} × {size:.4f} 소멸")
                     return "SELL_SPOOF"
         
         return None
     
     def _detect_wall_breakout(self, market: str,
                                bids: List[Tuple], asks: List[Tuple]) -> Optional[str]:
-        """벽 돌파 감지 - 이전에 있던 벽이 돌파됨"""
+        """-"""
         if market not in self._wall_history:
             self._wall_history[market] = deque(maxlen=5)
             return None
@@ -241,19 +224,19 @@ class OrderBookAnalyzer:
         
         # 이전 매도벽을 현재 최우선 매수가가 넘음 → 돌파
         if prev_wall.get("ask_wall") and current_best_bid >= prev_wall["ask_wall"] * 0.999:
-            logger.info(f"🚀 매도벽 돌파! ({market}): {prev_wall['ask_wall']:,}")
+            logger.info(f"  ! ({market}): {prev_wall['ask_wall']:,}")
             return "BULL_BREAKOUT"
         
         # 이전 매수벽을 현재 최우선 매도가가 뚫음 → 하방 돌파
         if prev_wall.get("bid_wall") and current_best_ask <= prev_wall["bid_wall"] * 1.001:
-            logger.info(f"🔻 매수벽 붕괴! ({market}): {prev_wall['bid_wall']:,}")
+            logger.info(f"  ! ({market}): {prev_wall['bid_wall']:,}")
             return "BEAR_BREAKOUT"
         
         return None
     
     def _update_history(self, market: str, bids: List[Tuple], 
                          asks: List[Tuple], signal: OrderBookSignal):
-        """히스토리 업데이트"""
+        """docstring"""
         if market not in self._ob_history:
             self._ob_history[market] = deque(maxlen=self.spoofing_window)
         
@@ -271,11 +254,11 @@ class OrderBookAnalyzer:
         })
     
     def get_signal(self, market: str) -> Optional[OrderBookSignal]:
-        """최근 분석 결과 반환"""
+        """docstring"""
         return self._last_signal.get(market)
     
     def get_summary(self, market: str) -> dict:
-        """대시보드용 요약 정보"""
+        """docstring"""
         sig = self._last_signal.get(market)
         if not sig:
             return {}
@@ -296,32 +279,23 @@ class OrderBookAnalyzer:
 # FILE 2: signals/filters/orderbook_filter.py
 # 호가창 신호를 전략 신호에 통합
 # ──────────────────────────────────────────────────────────────
-ORDERBOOK_FILTER = '''"""
-APEX BOT - 호가창 필터
-호가창 분석 결과를 매수/매도 신호 필터로 활용
-"""
+ORDERBOOK_FILTER = '''"""APEX BOT -  
+   /"""
 from typing import Optional
 from loguru import logger
 from data.processors.orderbook_analyzer import OrderBookAnalyzer, OrderBookSignal
 
 
 class OrderBookFilter:
-    """
-    호가창 기반 매매 필터
-    
-    - 매수 차단: 강한 매도벽 존재, 매도 스푸핑 감지
-    - 매수 허용: 매수벽 지지, 호가 불균형 매수 우세
-    - 매도 신호: 매수벽 붕괴, 매도 스푸핑
-    """
+    """-  :   ,   
+    -  :  ,    
+    -  :  ,"""
     
     def __init__(self, analyzer: OrderBookAnalyzer = None):
         self.analyzer = analyzer or OrderBookAnalyzer()
     
     def can_buy(self, market: str, orderbook: dict = None) -> tuple:
-        """
-        매수 가능 여부 판단
-        Returns: (can_buy: bool, reason: str, signal: OrderBookSignal)
-        """
+        """Returns: (can_buy: bool, reason: str, signal: OrderBookSignal)"""
         if orderbook:
             sig = self.analyzer.analyze(market, orderbook)
         else:
@@ -349,10 +323,7 @@ class OrderBookFilter:
         return True, "호가창 중립", sig
     
     def get_confidence_boost(self, market: str) -> float:
-        """
-        호가창 기반 신뢰도 보정
-        Returns: -0.2 ~ +0.2 범위의 신뢰도 조정값
-        """
+        """Returns: -0.2 ~ +0.2"""
         sig = self.analyzer.get_signal(market)
         if not sig:
             return 0.0
@@ -390,10 +361,8 @@ class OrderBookFilter:
 # FILE 3: models/train/data_pipeline.py
 # ML 훈련 데이터 파이프라인
 # ──────────────────────────────────────────────────────────────
-ML_PIPELINE = '''"""
-APEX BOT - ML 훈련 데이터 파이프라인
-업비트 실제 데이터로 ML 모델 훈련용 피처 생성
-"""
+ML_PIPELINE = '''"""APEX BOT - ML   
+   ML"""
 import numpy as np
 import pandas as pd
 from typing import Tuple, Optional
@@ -401,15 +370,13 @@ from loguru import logger
 
 
 class MLDataPipeline:
-    """
-    ML 훈련/추론용 피처 엔지니어링
+    """ML /  
     
-    총 피처 수: 60개
-    - 가격 피처: 15개
-    - 기술지표: 25개  
-    - 거래량: 10개
-    - 시장구조: 10개
-    """
+      : 60
+    -  : 15
+    - : 25  
+    - : 10
+    - : 10"""
     
     FEATURE_NAMES = []
     
@@ -418,7 +385,7 @@ class MLDataPipeline:
         self.predict_horizon = predict_horizon
     
     def create_features(self, df: pd.DataFrame) -> Optional[np.ndarray]:
-        """캔들 데이터 → ML 피처 행렬"""
+        """→ ML"""
         try:
             if len(df) < self.lookback + 30:
                 return None
@@ -566,11 +533,11 @@ class MLDataPipeline:
             return features.values
             
         except Exception as e:
-            logger.error(f"피처 생성 오류: {e}")
+            logger.error(f"  : {e}")
             return None
     
     def create_sequences(self, features: np.ndarray, labels: np.ndarray = None) -> Tuple:
-        """시퀀스 데이터 생성 (LSTM 입력용)"""
+        """(LSTM )"""
         X, y = [], []
         
         for i in range(self.lookback, len(features)):
@@ -585,11 +552,8 @@ class MLDataPipeline:
         return X, None
     
     def create_labels(self, df: pd.DataFrame, threshold: float = 0.005) -> np.ndarray:
-        """
-        레이블 생성
-        0 = HOLD, 1 = BUY, 2 = SELL
-        threshold: 수익률 임계값 (기본 0.5%)
-        """
+        """0 = HOLD, 1 = BUY, 2 = SELL
+        threshold:   ( 0.5%)"""
         future_ret = df["close"].pct_change(self.predict_horizon).shift(-self.predict_horizon)
         
         labels = np.zeros(len(df))
@@ -603,10 +567,8 @@ class MLDataPipeline:
 # FILE 4: signals/filters/volume_profile.py
 # 거래량 프로파일 분석 (Volume Profile / POC)
 # ──────────────────────────────────────────────────────────────
-VOLUME_PROFILE = '''"""
-APEX BOT - 거래량 프로파일 분석
-POC(Point of Control), HVN/LVN, Value Area 계산
-"""
+VOLUME_PROFILE = '''"""APEX BOT -   
+POC(Point of Control), HVN/LVN, Value Area"""
 import numpy as np
 import pandas as pd
 from typing import Dict, Optional, Tuple
@@ -625,20 +587,17 @@ class VolumeProfileResult:
     
 
 class VolumeProfileAnalyzer:
-    """
-    거래량 프로파일 분석
-    - POC: 가장 많이 거래된 가격대 (강한 지지/저항)
-    - Value Area: 전체 거래량의 70% 집중 구간
-    - HVN: 거래량 밀집 구간 (저항/지지 강함)
-    - LVN: 거래량 희박 구간 (가격 빠르게 통과)
-    """
+    """- POC:     ( /)
+    - Value Area:   70%  
+    - HVN:    (/ )
+    - LVN:    (  )"""
     
     def __init__(self, bins: int = 50, value_area_pct: float = 0.70):
         self.bins = bins
         self.value_area_pct = value_area_pct
     
     def analyze(self, df: pd.DataFrame) -> Optional[VolumeProfileResult]:
-        """거래량 프로파일 계산"""
+        """docstring"""
         try:
             if len(df) < 20:
                 return None
@@ -733,11 +692,11 @@ class VolumeProfileAnalyzer:
             )
             
         except Exception as e:
-            logger.debug(f"거래량 프로파일 오류: {e}")
+            logger.debug(f"  : {e}")
             return None
     
     def get_nearest_support_resistance(self, df: pd.DataFrame, current_price: float) -> Dict:
-        """현재가 기준 가장 가까운 지지/저항 반환"""
+        """/"""
         result = self.analyze(df)
         if not result:
             return {}
@@ -766,18 +725,18 @@ FILES = {
     "signals/filters/volume_profile.py": VOLUME_PROFILE,
 }
 
-print("🚀 APEX BOT 고도화 시작...\n")
+print(" APEX BOT  ...\n")
 success = 0
 for path, content in FILES.items():
     p = Path(path)
     p.parent.mkdir(parents=True, exist_ok=True)
     p.write_text(content, encoding="utf-8")
     lines = len(content.splitlines())
-    print(f"✅ {path} ({lines}줄)")
+    print(f" {path} ({lines})")
     success += 1
 
-print(f"\n✅ {success}/{len(FILES)}개 파일 생성 완료")
-print("\n📋 다음 단계:")
-print("  1. python upgrade_all.py 실행 완료")
-print("  2. engine.py에 OrderBookAnalyzer 연동 필요")
-print("  3. python start_paper.py 로 재시작")
+print(f"\n {success}/{len(FILES)}개 파일 생성 완료")
+print("\n  :")
+print("  1. python upgrade_all.py  ")
+print("  2. engine.py OrderBookAnalyzer  ")
+print("  3. python start_paper.py  ")

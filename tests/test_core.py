@@ -1,7 +1,5 @@
-"""
-APEX BOT - 핵심 모듈 단위 테스트
-pytest 기반, API 키 불필요 (paper 모드)
-"""
+"""APEX BOT -    
+pytest , API   (paper )"""
 import os
 import sys
 import pytest
@@ -20,7 +18,7 @@ sys.path.insert(0, str(Path(__file__).parent.parent))
 # ── 공통 픽스처 ──────────────────────────────────────────────────
 @pytest.fixture(scope="session", autouse=True)
 def paper_settings():
-    """세션 전체에 paper 설정 주입"""
+    """paper"""
     from config.settings import Settings
     import config.settings as sm
     sm._settings = Settings(mode="paper")
@@ -29,7 +27,7 @@ def paper_settings():
 
 @pytest.fixture
 def sample_ohlcv(n=200):
-    """표준 OHLCV 샘플 DataFrame"""
+    """OHLCV  DataFrame"""
     np.random.seed(42)
     close = pd.Series(50_000_000 + np.cumsum(np.random.randn(n) * 500_000), dtype=float)
     close = close.clip(lower=1_000_000)  # 음수 방지

@@ -1,8 +1,6 @@
-"""
-APEX BOT - 페이퍼 트레이딩 24시간 성과 리포트 생성기
-DB의 trade_history / daily_performance / signal_log 를 읽어
-HTML + JSON + 콘솔 요약을 자동으로 생성한다.
-"""
+"""APEX BOT -   24   
+DB trade_history / daily_performance / signal_log  
+HTML + JSON +    ."""
 from __future__ import annotations
 
 import json
@@ -20,7 +18,7 @@ from config.settings import get_settings
 from utils.helpers import now_kst
 
 def _safe_parse_timestamp(df):
-    """혼합 타임스탬프 형식 안전 파싱 (T 포함/미포함 모두 처리)"""
+    """(T /  )"""
     if 'timestamp' in df.columns:
         try:
             df['timestamp'] = pd.to_datetime(df['timestamp'], format='mixed')
@@ -49,14 +47,12 @@ COLORS = {
 
 
 class PaperReport:
-    """
-    페이퍼 트레이딩 성과 분석 & HTML 리포트 생성
+    """& HTML  
 
-    사용법:
+    :
         report = PaperReport()
-        report.generate()          # reports/ 에 HTML + JSON 저장
-        report.print_summary()     # 콘솔 출력만
-    """
+        report.generate()          # reports/  HTML + JSON 
+        report.print_summary()     #"""
 
     VERSION = "1.0.0"
 
@@ -78,8 +74,8 @@ class PaperReport:
     # ================================================================
 
     def generate(self) -> Dict:
-        """리포트 생성 메인 엔트리"""
-        logger.info(f"📊 {self.hours}시간 페이퍼 트레이딩 리포트 생성 시작...")
+        """docstring"""
+        logger.info(f" {self.hours}     ...")
 
         trades     = self._load_trades()
         signals    = self._load_signals()
@@ -123,7 +119,7 @@ class PaperReport:
         return data
 
     def print_summary(self, data: Optional[Dict] = None) -> None:
-        """콘솔 요약 출력"""
+        """docstring"""
         if data is None:
             trades     = self._load_trades()
             daily_perf = self._load_daily_performance()
@@ -137,54 +133,54 @@ class PaperReport:
         pnl_sign = "+" if m["total_pnl_pct"] >= 0 else ""
 
         print(f"\n{sep}")
-        print(f"  ⚡ APEX BOT  페이퍼 트레이딩 {self.hours}시간 리포트")
+        print(f"   APEX BOT    {self.hours} ")
         print(sep)
-        print(f"  기간   : {data['meta']['since'][:16] if 'meta' in data else ''}"
+        print(f"     : {data['meta']['since'][:16] if 'meta' in data else ''}"
               f"  →  {data['meta']['until'][:16] if 'meta' in data else ''}")
-        print(f"  초기자본 : ₩{m['initial_capital']:>15,.0f}")
-        print(f"  현재자산 : ₩{m['current_capital']:>15,.0f}  "
+        print(f"   : ₩{m['initial_capital']:>15,.0f}")
+        print(f"   : ₩{m['current_capital']:>15,.0f}  "
               f"({pnl_sign}{m['total_pnl_pct']:.2f}%)")
-        print(f"  순손익   : ₩{m['total_pnl_krw']:>+15,.0f}")
+        print(f"     : ₩{m['total_pnl_krw']:>+15,.0f}")
         print(sep)
-        print(f"  총 거래수  : {m['total_trades']:>5}회  "
-              f"(매수 {m['buy_count']} / 매도 {m['sell_count']})")
-        print(f"  승률       : {m['win_rate']:>6.1f}%  "
-              f"(승 {m['win_count']} / 패 {m['loss_count']})")
-        print(f"  평균 수익  : {m['avg_win_pct']:>+6.2f}%  /  "
-              f"평균 손실 : {m['avg_loss_pct']:>+6.2f}%")
-        print(f"  수익비율   : {m['profit_factor']:>6.2f}  "
-              f"기대값: {m['expectancy']:>+6.4f}")
-        print(f"  샤프비율   : {m['sharpe_ratio']:>6.3f}  "
-              f"소르티노: {m['sortino_ratio']:>6.3f}")
-        print(f"  최대드로다운 : {m['max_drawdown_pct']:>5.2f}%")
-        print(f"  총 수수료  : ₩{m['total_fees_krw']:>10,.0f}")
+        print(f"     : {m['total_trades']:>5}  "
+              f"( {m['buy_count']} /  {m['sell_count']})")
+        print(f"         : {m['win_rate']:>6.1f}%  "
+              f"( {m['win_count']} /  {m['loss_count']})")
+        print(f"     : {m['avg_win_pct']:>+6.2f}%  /  "
+              f"  : {m['avg_loss_pct']:>+6.2f}%")
+        print(f"     : {m['profit_factor']:>6.2f}  "
+              f": {m['expectancy']:>+6.4f}")
+        print(f"     : {m['sharpe_ratio']:>6.3f}  "
+              f": {m['sortino_ratio']:>6.3f}")
+        print(f"   : {m['max_drawdown_pct']:>5.2f}%")
+        print(f"     : ₩{m['total_fees_krw']:>10,.0f}")
         print(sep)
 
         # 전략별
         sb = data.get("strategy_breakdown", {})
         if sb:
-            print("  [전략별 성과]")
+            print("  [ ]")
             for sname, sv in sorted(sb.items(),
                                     key=lambda x: x[1].get("pnl_pct", 0),
                                     reverse=True):
                 bar = "▲" if sv["pnl_pct"] >= 0 else "▼"
                 print(f"    {bar} {sname:<22} "
-                      f"거래:{sv['trades']:>3}  "
-                      f"승률:{sv['win_rate']:>5.1f}%  "
-                      f"손익:{sv['pnl_pct']:>+6.2f}%")
+                      f":{sv['trades']:>3}  "
+                      f":{sv['win_rate']:>5.1f}%  "
+                      f":{sv['pnl_pct']:>+6.2f}%")
 
         # 코인별
         cb = data.get("coin_breakdown", {})
         if cb:
-            print("  [코인별 성과]")
+            print("  [ ]")
             for cname, cv in sorted(cb.items(),
                                     key=lambda x: x[1].get("pnl_pct", 0),
                                     reverse=True):
                 bar = "▲" if cv["pnl_pct"] >= 0 else "▼"
                 print(f"    {bar} {cname:<12} "
-                      f"거래:{cv['trades']:>3}  "
-                      f"승률:{cv['win_rate']:>5.1f}%  "
-                      f"손익:{cv['pnl_pct']:>+6.2f}%")
+                      f":{cv['trades']:>3}  "
+                      f":{cv['win_rate']:>5.1f}%  "
+                      f":{cv['pnl_pct']:>+6.2f}%")
         print(sep + "\n")
 
     # ================================================================
@@ -210,7 +206,7 @@ class PaperReport:
             df["fee"]         = pd.to_numeric(df["fee"],          errors="coerce").fillna(0)
             return df
         except Exception as e:
-            logger.warning(f"trade_history 로드 실패: {e}")
+            logger.warning(f"trade_history  : {e}")
             return pd.DataFrame()
 
     def _load_signals(self) -> pd.DataFrame:
@@ -226,7 +222,7 @@ class PaperReport:
             conn.close()
             return df
         except Exception as e:
-            logger.warning(f"signal_log 로드 실패: {e}")
+            logger.warning(f"signal_log  : {e}")
             return pd.DataFrame()
 
     def _load_daily_performance(self) -> pd.DataFrame:
@@ -239,7 +235,7 @@ class PaperReport:
             conn.close()
             return df
         except Exception as e:
-            logger.warning(f"daily_performance 로드 실패: {e}")
+            logger.warning(f"daily_performance  : {e}")
             return pd.DataFrame()
 
     # ================================================================
@@ -575,7 +571,7 @@ class PaperReport:
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1.0">
-<title>APEX BOT {meta['hours']}h 리포트 · {meta['generated']}</title>
+<title>APEX BOT {meta['hours']}h  · {meta['generated']}</title>
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
 <style>
 *{{margin:0;padding:0;box-sizing:border-box}}
@@ -632,21 +628,21 @@ tr:hover td{{background:{COLORS['header']}80}}
 <!-- Header -->
 <div class="header">
   <div>
-    <h1>⚡ APEX BOT</h1>
+    <h1> APEX BOT</h1>
     <div style="color:{COLORS['muted']};font-size:13px;margin-top:4px">
-      페이퍼 트레이딩 {meta['hours']}시간 성과 리포트
+        {meta['hours']}  
     </div>
   </div>
   <span class="badge">PAPER MODE</span>
   <div class="meta">
-    생성일시 : {meta['generated']}<br>
-    분석기간 : {meta['since'][:16]}  →  {meta['until'][:16]}
+     : {meta['generated']}<br>
+     : {meta['since'][:16]}  →  {meta['until'][:16]}
   </div>
 </div>
 
-<!-- 핵심 지표 -->
+<!--   -->
 <div class="section">
-  <div class="section-title">핵심 성과 지표</div>
+  <div class="section-title">  </div>
   <div class="grid-4">
 
     <div class="grade-card">
@@ -654,11 +650,11 @@ tr:hover td{{background:{COLORS['header']}80}}
       <div style="color:{grade_color};font-size:15px;font-weight:700;margin-top:4px">
         {grade_desc}
       </div>
-      <div class="grade-desc">종합 등급 (샤프·승률·DD 복합)</div>
+      <div class="grade-desc">  (··DD )</div>
     </div>
 
     <div class="card">
-      <div class="label">총 손익</div>
+      <div class="label"> </div>
       <div class="value" style="color:{pnl_color}">
         {fmt_pct(m['total_pnl_pct'], show_sign=True)}
       </div>
@@ -666,130 +662,130 @@ tr:hover td{{background:{COLORS['header']}80}}
     </div>
 
     <div class="card">
-      <div class="label">현재 자산</div>
+      <div class="label"> </div>
       <div class="value">{fmt_krw(m['current_capital'])}</div>
-      <div class="sub">초기: {fmt_krw(m['initial_capital'])}</div>
+      <div class="sub">: {fmt_krw(m['initial_capital'])}</div>
     </div>
 
     <div class="card">
-      <div class="label">최대 드로다운</div>
+      <div class="label"> </div>
       <div class="value" style="color:{COLORS['red']}">
         -{m['max_drawdown_pct']:.2f}%
       </div>
-      <div class="sub">리스크 한도: -10%</div>
+      <div class="sub"> : -10%</div>
     </div>
 
   </div>
 
   <div class="grid-4">
     <div class="card">
-      <div class="label">총 거래수</div>
+      <div class="label"> </div>
       <div class="value">{m['total_trades']}</div>
-      <div class="sub">매수 {m['buy_count']} / 매도 {m['sell_count']}</div>
+      <div class="sub"> {m['buy_count']} /  {m['sell_count']}</div>
     </div>
     <div class="card">
-      <div class="label">승률</div>
+      <div class="label"></div>
       <div class="value" style="color:{'#00ff88' if m['win_rate']>=50 else '#ff4757'}">
         {m['win_rate']:.1f}%
       </div>
-      <div class="sub">승 {m['win_count']} / 패 {m['loss_count']}</div>
+      <div class="sub"> {m['win_count']} /  {m['loss_count']}</div>
     </div>
     <div class="card">
-      <div class="label">샤프 비율</div>
+      <div class="label"> </div>
       <div class="value" style="color:{'#00ff88' if m['sharpe_ratio']>=1 else '#ff4757'}">
         {m['sharpe_ratio']:.3f}
       </div>
-      <div class="sub">소르티노 : {m['sortino_ratio']:.3f}</div>
+      <div class="sub"> : {m['sortino_ratio']:.3f}</div>
     </div>
     <div class="card">
-      <div class="label">수익비율 (PF)</div>
+      <div class="label"> (PF)</div>
       <div class="value" style="color:{'#00ff88' if m['profit_factor']>=1 else '#ff4757'}">
         {pf_str}
       </div>
-      <div class="sub">기대값 : {m['expectancy']:+.4f}</div>
+      <div class="sub"> : {m['expectancy']:+.4f}</div>
     </div>
   </div>
 
   <div class="grid-4">
     <div class="card">
-      <div class="label">평균 수익 거래</div>
+      <div class="label">  </div>
       <div class="value" style="color:{COLORS['green']}">{m['avg_win_pct']:+.2f}%</div>
     </div>
     <div class="card">
-      <div class="label">평균 손실 거래</div>
+      <div class="label">  </div>
       <div class="value" style="color:{COLORS['red']}">{m['avg_loss_pct']:+.2f}%</div>
     </div>
     <div class="card">
-      <div class="label">연속 최대 승</div>
-      <div class="value" style="color:{COLORS['green']}">{m['max_consec_wins']}연승</div>
+      <div class="label">  </div>
+      <div class="value" style="color:{COLORS['green']}">{m['max_consec_wins']}</div>
     </div>
     <div class="card">
-      <div class="label">연속 최대 패</div>
-      <div class="value" style="color:{COLORS['red']}">{m['max_consec_losses']}연패</div>
+      <div class="label">  </div>
+      <div class="value" style="color:{COLORS['red']}">{m['max_consec_losses']}</div>
     </div>
   </div>
 </div>
 
-<!-- 차트 -->
+<!--  -->
 <div class="section">
-  <div class="section-title">자산 & 드로다운 차트</div>
+  <div class="section-title"> &  </div>
   <div class="grid-2">
     <div class="chart-card">
-      <div class="chart-title">📈 포트폴리오 가치 변화</div>
+      <div class="chart-title">   </div>
       <canvas id="equityChart" height="200"></canvas>
     </div>
     <div class="chart-card">
-      <div class="chart-title">📉 드로다운 추이</div>
+      <div class="chart-title">  </div>
       <canvas id="ddChart" height="200"></canvas>
     </div>
   </div>
   <div class="chart-card" style="margin-top:14px">
-    <div class="chart-title">⏱️ 시간대별 손익 (KRW)</div>
+    <div class="chart-title">⏱   (KRW)</div>
     <canvas id="hourlyChart" height="120"></canvas>
   </div>
 </div>
 
-<!-- 전략별 성과 -->
+<!--   -->
 <div class="section">
-  <div class="section-title">전략별 성과 분석</div>
+  <div class="section-title">  </div>
   <table>
     <thead>
-      <tr><th>전략명</th><th>거래수</th><th>승률</th>
-          <th>평균 손익</th><th>평균 수익</th><th>평균 손실</th></tr>
+      <tr><th></th><th></th><th></th>
+          <th> </th><th> </th><th> </th></tr>
     </thead>
     <tbody>{strategy_rows()}</tbody>
   </table>
 </div>
 
-<!-- 코인별 성과 -->
+<!--   -->
 <div class="section">
-  <div class="section-title">코인별 성과 분석</div>
+  <div class="section-title">  </div>
   <table>
     <thead>
-      <tr><th>코인</th><th>거래수</th><th>승률</th><th>평균 손익</th></tr>
+      <tr><th></th><th></th><th></th><th> </th></tr>
     </thead>
     <tbody>{coin_rows()}</tbody>
   </table>
 </div>
 
-<!-- 신호 통계 -->
+<!--   -->
 <div class="section">
-  <div class="section-title">신호 & 실행 통계</div>
+  <div class="section-title"> &  </div>
   <div class="grid-4">
     <div class="card">
-      <div class="label">총 신호 발생</div>
+      <div class="label">  </div>
       <div class="value">{ss.get('total', 0)}</div>
     </div>
     <div class="card">
-      <div class="label">실행된 신호</div>
+      <div class="label"> </div>
       <div class="value">{ss.get('executed', 0)}</div>
     </div>
     <div class="card">
-      <div class="label">신호 실행률</div>
+      <div class="label"> </div>
       <div class="value">{ss.get('execution_rate', 0):.1f}%</div>
     </div>
     <div class="card">
-      <div class="label">총 수수료</div>
+      <div class="label"> </div>
       <div class="value" style="color:{COLORS['red']}">
         ₩{int(m['total_fees_krw']):,}
       </div>
@@ -797,25 +793,25 @@ tr:hover td{{background:{COLORS['header']}80}}
   </div>
 </div>
 
-<!-- 최근 거래 내역 -->
+<!--    -->
 <div class="section">
-  <div class="section-title">최근 거래 내역 (최신 30건)</div>
+  <div class="section-title">   ( 30)</div>
   <table>
     <thead>
-      <tr><th>시간</th><th>코인</th><th>구분</th><th>가격</th>
-          <th>금액</th><th>수익률</th><th>전략</th></tr>
+      <tr><th></th><th></th><th></th><th></th>
+          <th></th><th></th><th></th></tr>
     </thead>
     <tbody>{trade_rows()}</tbody>
   </table>
 </div>
 
 <div class="footer">
-  ⚡ APEX BOT v{self.VERSION} · 페이퍼 트레이딩 리포트 · {meta['generated']} ·
-  본 리포트는 시뮬레이션 결과이며 실제 수익을 보장하지 않습니다.
+   APEX BOT v{self.VERSION} ·    · {meta['generated']} ·
+         .
 </div>
 
 <script>
-// ── 공통 차트 옵션 ───────────────────────────────────────────────
+//     
 const commonOpts = {{
   responsive: true,
   animation: {{ duration: 600 }},
@@ -831,7 +827,7 @@ const commonOpts = {{
   }},
 }};
 
-// ── 에쿼티 곡선 ─────────────────────────────────────────────────
+//    
 const eqLabels = {equity_labels};
 const eqValues = {equity_values};
 if (eqValues.length > 0) {{
@@ -840,7 +836,7 @@ if (eqValues.length > 0) {{
     data: {{
       labels: eqLabels,
       datasets: [{{
-        label: '포트폴리오 (₩)',
+        label: ' (₩)',
         data: eqValues,
         borderColor: '{COLORS['accent']}',
         backgroundColor: '{COLORS['accent']}18',
@@ -851,10 +847,10 @@ if (eqValues.length > 0) {{
   }});
 }} else {{
   document.getElementById('equityChart').parentElement.innerHTML +=
-    '<p style="color:#8892b0;text-align:center;margin-top:20px">아직 거래 데이터 없음</p>';
+    '<p style="color:#8892b0;text-align:center;margin-top:20px">   </p>';
 }}
 
-// ── 드로다운 ────────────────────────────────────────────────────
+//   
 const ddValues = {dd_values};
 if (ddValues.length > 0) {{
   new Chart(document.getElementById('ddChart'), {{
@@ -862,7 +858,7 @@ if (ddValues.length > 0) {{
     data: {{
       labels: eqLabels,
       datasets: [{{
-        label: '드로다운 (%)',
+        label: ' (%)',
         data: ddValues,
         borderColor: '{COLORS['red']}',
         backgroundColor: '{COLORS['red']}18',
@@ -873,10 +869,10 @@ if (ddValues.length > 0) {{
   }});
 }} else {{
   document.getElementById('ddChart').parentElement.innerHTML +=
-    '<p style="color:#8892b0;text-align:center;margin-top:20px">아직 드로다운 없음</p>';
+    '<p style="color:#8892b0;text-align:center;margin-top:20px">  </p>';
 }}
 
-// ── 시간대별 손익 ───────────────────────────────────────────────
+//    
 const hLabels = {hourly_labels};
 const hValues = {hourly_values};
 const hColors = {hourly_colors};
@@ -886,7 +882,7 @@ if (hValues.length > 0) {{
     data: {{
       labels: hLabels,
       datasets: [{{
-        label: '시간대별 손익 (₩)',
+        label: '  (₩)',
         data: hValues,
         backgroundColor: hColors,
         borderRadius: 4,
@@ -896,7 +892,7 @@ if (hValues.length > 0) {{
   }});
 }} else {{
   document.getElementById('hourlyChart').parentElement.innerHTML +=
-    '<p style="color:#8892b0;text-align:center;margin-top:20px">아직 거래 데이터 없음</p>';
+    '<p style="color:#8892b0;text-align:center;margin-top:20px">   </p>';
 }}
 </script>
 </body>
@@ -904,14 +900,14 @@ if (hValues.length > 0) {{
 
         with open(path, "w", encoding="utf-8") as f:
             f.write(html)
-        logger.info(f"📄 HTML 리포트: {path}")
+        logger.info(f" HTML : {path}")
 
     # ================================================================
     #  Grade
     # ================================================================
 
     def _grade(self, m: Dict) -> Tuple[str, str, str]:
-        """샤프·승률·드로다운 복합 종합 등급 산출"""
+        """··"""
         score = 0
         score += min(m["sharpe_ratio"] * 20, 30)         # 샤프 (max 30)
         score += min(m["win_rate"] * 0.4, 20)            # 승률 (max 20)
@@ -933,7 +929,7 @@ if (hValues.length > 0) {{
 def generate_paper_report(hours: int = 24,
                           db_path: Optional[str] = None,
                           output_dir: Optional[str] = None) -> Dict:
-    """엔진 스케줄러 & CLI에서 호출하는 래퍼"""
+    """& CLI"""
     report = PaperReport(db_path=db_path, output_dir=output_dir, hours=hours)
     return report.generate()
 

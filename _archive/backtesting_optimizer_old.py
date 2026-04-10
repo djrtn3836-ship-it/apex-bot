@@ -1,7 +1,5 @@
-"""
-APEX BOT - 전략 파라미터 최적화
-Optuna 기반 하이퍼파라미터 탐색 + Walk-Forward 검증
-"""
+"""APEX BOT -   
+Optuna    + Walk-Forward"""
 import asyncio
 from typing import Dict, Optional, Callable, Any
 from loguru import logger
@@ -12,7 +10,7 @@ try:
     OPTUNA_OK = True
 except ImportError:
     OPTUNA_OK = False
-    logger.warning("Optuna 미설치 - 최적화 비활성화")
+    logger.warning("Optuna  -  ")
 
 import pandas as pd
 import numpy as np
@@ -22,13 +20,11 @@ from config.settings import get_settings
 
 
 class StrategyOptimizer:
-    """
-    Optuna 기반 전략 파라미터 최적화
+    """Optuna    
 
-    최적화 목표: 샤프 비율 최대화 (드로다운 패널티 포함)
-    방법: TPE Sampler + Pruner (불량 trial 조기 종료)
-    교차검증: Walk-Forward (과적합 방지)
-    """
+     :    (  )
+    : TPE Sampler + Pruner ( trial  )
+    : Walk-Forward ( )"""
 
     OPTIMIZATION_METRIC = "sharpe_ratio"  # 최적화 지표
 
@@ -46,24 +42,20 @@ class StrategyOptimizer:
         n_jobs: int = 1,
         timeout: int = 3600,
     ) -> Dict:
-        """
-        전략 파라미터 최적화
-
-        Args:
-            df: OHLCV + 지표 DataFrame
-            strategy_class: 최적화할 전략 클래스
+        """Args:
+            df: OHLCV +  DataFrame
+            strategy_class:   
             param_space: {param_name: (type, min, max) or [choices]}
-            n_trials: Optuna 시도 횟수
-            timeout: 최대 시간 (초)
+            n_trials: Optuna  
+            timeout:   ()
 
         Returns:
-            best_params: 최적 파라미터 딕셔너리
-        """
+            best_params:"""
         if not OPTUNA_OK:
-            logger.error("Optuna 미설치 - 최적화 불가")
+            logger.error("Optuna  -  ")
             return {}
 
-        logger.info(f"🔍 최적화 시작 | {strategy_class.__name__} | {n_trials}번 탐색")
+        logger.info(f"   | {strategy_class.__name__} | {n_trials} ")
 
         study = optuna.create_study(
             direction="maximize",
@@ -100,7 +92,7 @@ class StrategyOptimizer:
                 return float(score)
 
             except Exception as e:
-                logger.error(f"Trial 오류: {e}")
+                logger.error(f"Trial : {e}")
                 return -999.0
 
         # 최적화 실행 (별도 스레드)
@@ -114,17 +106,17 @@ class StrategyOptimizer:
         best_params = study.best_params
         best_value = study.best_value
 
-        logger.info(f"✅ 최적화 완료 | 최적 점수={best_value:.3f}")
-        logger.info(f"   최적 파라미터: {best_params}")
+        logger.info(f"   |  ={best_value:.3f}")
+        logger.info(f"    : {best_params}")
 
         # Walk-Forward 검증
         if len(df) > 500:
             wf_score = await self._walk_forward_validate(
                 df, strategy_class, best_params, market
             )
-            logger.info(f"   Walk-Forward 검증 점수: {wf_score:.3f}")
+            logger.info(f"   Walk-Forward  : {wf_score:.3f}")
             if abs(wf_score - best_value) > best_value * 0.5:
-                logger.warning("⚠️ 과적합 의심: Walk-Forward 성과 편차 50% 이상")
+                logger.warning("  : Walk-Forward   50% ")
 
         return {
             "best_params": best_params,
@@ -135,7 +127,7 @@ class StrategyOptimizer:
         }
 
     def _sample_params(self, trial: "optuna.Trial", param_space: Dict) -> Dict:
-        """Optuna trial에서 파라미터 샘플링"""
+        """Optuna trial"""
         params = {}
         for name, spec in param_space.items():
             if isinstance(spec, list):
@@ -151,7 +143,7 @@ class StrategyOptimizer:
         return params
 
     def _create_signal_fn(self, strategy, market: str) -> Callable:
-        """전략에서 신호 함수 생성"""
+        """docstring"""
         from strategies.base_strategy import SignalType
 
         def signal_fn(df: pd.DataFrame) -> pd.Series:
@@ -177,7 +169,7 @@ class StrategyOptimizer:
         market: str,
         n_splits: int = 3,
     ) -> float:
-        """Walk-Forward 검증"""
+        """Walk-Forward"""
         strategy = strategy_class()
         for k, v in params.items():
             if hasattr(strategy, k):

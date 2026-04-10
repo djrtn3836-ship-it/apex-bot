@@ -1,12 +1,10 @@
-"""
-APEX BOT 종합 상태 모니터
-실행: python monitor.py
+"""APEX BOT   
+: python monitor.py
 
-수정 이력:
-  v1.1 - net/10000 퍼센트 계산 오류 수정 (net / 초기자본 * 100)
-       - DB 연결 try/finally 로 안전하게 닫기
-       - 초기자본 settings 에서 읽도록 통일
-"""
+ :
+  v1.1 - net/10000     (net /  * 100)
+       - DB  try/finally   
+       -  settings"""
 import sqlite3
 from pathlib import Path
 from datetime import datetime
@@ -24,13 +22,13 @@ except Exception:
 DB_PATH = "database/apex_bot.db"
 
 print("=" * 60)
-print(f"  📊 APEX BOT 상태 보고서  [{datetime.now().strftime('%Y-%m-%d %H:%M')}]")
+print(f"   APEX BOT    [{datetime.now().strftime('%Y-%m-%d %H:%M')}]")
 print("=" * 60)
 
 # ── DB 존재 확인 ─────────────────────────────────────────────────
 if not Path(DB_PATH).exists():
-    print(f"\n  ❌ DB 파일 없음: {DB_PATH}")
-    print("     봇을 한 번 실행하면 자동 생성됩니다.\n")
+    print(f"\n   DB  : {DB_PATH}")
+    print("          .\n")
     exit(0)
 
 # ✅ FIX: try/finally 로 DB 연결 안전하게 닫기
@@ -70,17 +68,17 @@ try:
     # ✅ FIX: 퍼센트 = 순손익 / 초기자본 * 100
     net_pct = net / INITIAL_CAPITAL * 100 if INITIAL_CAPITAL > 0 else 0
 
-    print(f"\n  💰 거래 성과")
-    print(f"     총 거래   : {row[0]}건")
-    print(f"     승률      : {win_rate}%  (승 {wins} / 패 {losses})")
+    print(f"\n    ")
+    print(f"         : {row[0]}")
+    print(f"           : {win_rate}%  ( {wins} /  {losses})")
     # profit_rate 는 % 단위로 DB 저장 (예: 2.5 = 2.5%)
-    print(f"     평균 수익 : {row[3]}%")
-    print(f"     최고 수익 : {row[4]}%")
-    print(f"     최대 손실 : {row[5]}%")
-    print(f"     순손익    : ₩{net:+,.0f}  ({net_pct:+.2f}%)")
+    print(f"       : {row[3]}%")
+    print(f"       : {row[4]}%")
+    print(f"       : {row[5]}%")
+    print(f"         : ₩{net:+,.0f}  ({net_pct:+.2f}%)")
 
     # ── 2. 전략별 성과 ───────────────────────────────────────────
-    print(f"\n  📈 전략별 성과")
+    print(f"\n    ")
     cur.execute("""
         SELECT
             strategy,
@@ -98,11 +96,11 @@ try:
         bar = "🟢" if (s[3] or 0) > 0 else "🔴"
         print(
             f"     {bar} {s[0]:<22} "
-            f"승률{wr:>3}% | 평균{s[3]:>7}% | 누적{s[4]:>8}%"
+            f"{wr:>3}% | {s[3]:>7}% | {s[4]:>8}%"
         )
 
     # ── 3. 종목별 성과 ───────────────────────────────────────────
-    print(f"\n  💎 종목별 성과")
+    print(f"\n    ")
     cur.execute("""
         SELECT
             market,
@@ -116,8 +114,8 @@ try:
     for m in cur.fetchall():
         icon = "✅" if (m[2] or 0) >= 0 else "❌"
         print(
-            f"     {icon} {m[0]:<12} {m[1]:>3}건 | "
-            f"누적{m[2]:>8}% | 최근:{str(m[3])[:16]}"
+            f"     {icon} {m[0]:<12} {m[1]:>3} | "
+            f"{m[2]:>8}% | :{str(m[3])[:16]}"
         )
 
     # ── 4. 오늘 거래 ─────────────────────────────────────────────
@@ -130,7 +128,7 @@ try:
         LIMIT 10
     """)
     today_trades = cur.fetchall()
-    print(f"\n  📅 오늘 거래 ({today}) — {len(today_trades)}건")
+    print(f"\n     ({today}) — {len(today_trades)}건")
     if today_trades:
         for t in today_trades:
             icon   = "🟢" if t[0] == "BUY" else ("✅" if (t[3] or 0) > 0 else "❌")
@@ -140,10 +138,10 @@ try:
                 f"{profit:>8} | {t[4]} | {str(t[5])[11:16]}"
             )
     else:
-        print("     오늘 거래 없음")
+        print("       ")
 
     # ── 5. 파일 위치 ─────────────────────────────────────────────
-    print(f"\n  📂 파일 위치")
+    print(f"\n    ")
     paths = {
         "거래 DB":   "database/apex_bot.db",
         "로그 폴더": "logs/",
@@ -153,7 +151,7 @@ try:
     }
     for name, path in paths.items():
         if path.startswith("http"):
-            print(f"     🌐 {name:<10} : {path}")
+            print(f"      {name:<10} : {path}")
         else:
             exists = "✅" if Path(path).exists() else "❌"
             print(f"     {exists} {name:<10} : {path}")
@@ -164,12 +162,12 @@ try:
         reverse=True,
     )
     if log_files:
-        print(f"\n  📋 최신 로그 파일:")
+        print(f"\n     :")
         for lf in log_files[:3]:
             size = lf.stat().st_size // 1024
-            print(f"     📄 {lf}  ({size}KB)")
+            print(f"      {lf}  ({size}KB)")
     else:
-        print("\n  ⚠️  로그 파일 없음 — logs/ 폴더 확인 필요")
+        print("\n       — logs/   ")
 
     print("\n" + "=" * 60)
 

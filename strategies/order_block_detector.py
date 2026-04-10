@@ -1,17 +1,15 @@
-"""
-APEX BOT - 오더블록 탐지기 v1.0
-스마트머니 개념 기반 기관 매수/매도 흔적 탐지
-────────────────────────────────────────────
-정의:
-  Bullish OB: 강한 상승 직전의 마지막 하락 캔들 (기관 매수 흔적)
-  Bearish OB: 강한 하락 직전의 마지막 상승 캔들 (기관 매도 흔적)
+"""APEX BOT -   v1.0
+    /  
 
-탐지 조건:
-  1. 충격 이동: 이후 N캔들이 ATR의 2배 이상 이동
-  2. OB 캔들:   이동 방향 반대 캔들 (몸통 ATR 10% 이상)
-  3. 신선도:    이후 가격이 OB 영역 재진입 안 한 것만 유효
-  4. 거리:      현재가 기준 2% 이내 OB만 활성 신호로 처리
-"""
+:
+  Bullish OB:       (  )
+  Bearish OB:       (  )
+
+ :
+  1.  :  N ATR 2  
+  2. OB :       ( ATR 10% )
+  3. :      OB      
+  4. :        2%  OB"""
 from __future__ import annotations
 
 from dataclasses import dataclass, field
@@ -46,14 +44,11 @@ class OrderBlockSignal:
 
 
 class OrderBlockDetector:
-    """
-    오더블록 탐지기
-    Parameters
+    """Parameters
     ----------
-    impulse_mult : float  충격 이동 ATR 배수 (기본 2.0)
-    lookback     : int    탐지 캔들 수 (기본 100)
-    max_obs      : int    최대 유지 OB 수 (기본 5)
-    """
+    impulse_mult : float    ATR  ( 2.0)
+    lookback     : int       ( 100)
+    max_obs      : int      OB  ( 5)"""
 
     def __init__(
         self,
@@ -102,7 +97,7 @@ class OrderBlockDetector:
             return self._build_signal(bullish_obs, bearish_obs, current_price)
 
         except Exception as e:
-            logger.debug(f"오더블록 탐지 오류: {e}")
+            logger.debug(f"  : {e}")
             return OrderBlockSignal()
 
     def _check_bullish(self, df: pd.DataFrame, i: int, atr: float) -> Optional[OrderBlock]:

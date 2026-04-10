@@ -1,22 +1,20 @@
 from __future__ import annotations
-"""
-SmartWallet v1.0
-════════════════
-코인 하나 = 하나의 독립 지갑.
-지갑 안에 Layer 0/1/2 로 수량을 분리 관리.
+"""SmartWallet v1.0
 
-Layer 0 (HOLD)  : 장기보유. 절대 불가침.
-Layer 1 (DUST)  : 짜투리. 단독 매도 안 함.
-                  가격 상승 시 자동 SELLABLE 업그레이드.
-                  매도 신호 강할 때 bot 합산 청산.
-Layer 2 (BOT)   : 봇 트랜잭션 단위 추적.
-                  매도 신호 강도에 따라 청산 비율 자동 결정.
+  =   .
+  Layer 0/1/2    .
 
-핵심 철학:
-  - 짜투리는 "짐"이 아니라 "공짜 수량"으로 취급
-  - 매도 시 항상 짜투리를 먼저 소진 (FIFO 역순)
-  - 실거래 잔고와 매 사이클 동기화
-"""
+Layer 0 (HOLD)  : .  .
+Layer 1 (DUST)  : .    .
+                      SELLABLE .
+                      bot  .
+Layer 2 (BOT)   :    .
+                         .
+
+ :
+  -  ""  " " 
+  -       (FIFO )
+  -"""
 
 import time
 import json
@@ -50,7 +48,7 @@ class DustState(Enum):
 
 @dataclass
 class BotTransaction:
-    """봇이 실행한 개별 매수 트랜잭션"""
+    """docstring"""
     tx_id    : str
     qty      : float
     price    : float
@@ -64,10 +62,8 @@ class BotTransaction:
 
 @dataclass
 class CoinWallet:
-    """
-    코인 하나의 완전한 지갑.
-    Layer 0/1/2 를 모두 포함.
-    """
+    """.
+    Layer 0/1/2   ."""
     symbol: str
 
     # Layer 0: HOLD
@@ -101,7 +97,7 @@ class CoinWallet:
 
     @property
     def total_sellable_qty(self) -> float:
-        """봇이 매도할 수 있는 전체 수량 (BOT + DUST 합산)"""
+        """(BOT + DUST )"""
         return self.bot_qty + (
             self.dust_qty if self.dust_state != DustState.PENDING
             or self.bot_qty > 0    # 봇 포지션 있으면 항상 합산
@@ -128,14 +124,14 @@ class CoinWallet:
             if self.dust_state != DustState.ORPHAN:
                 self.dust_state = DustState.ORPHAN
                 logger.warning(
-                    f"👻 {self.symbol}: 짜투리 {self.dust_qty:.8f}개 "
-                    f"→ {days:.0f}일 방치 → 고아 포지션 지정"
+                    f" {self.symbol}:  {self.dust_qty:.8f} "
+                    f"→ {days:.0f}  →   "
                 )
         elif val >= UPBIT_MIN_KRW and self.dust_state == DustState.PENDING:
             self.dust_state = DustState.SELLABLE
             logger.info(
-                f"⬆️  {self.symbol}: 짜투리 ₩{val:,.0f} ≥ ₩{UPBIT_MIN_KRW:,} "
-                f"→ SELLABLE 업그레이드"
+                f"  {self.symbol}:  ₩{val:,.0f} ≥ ₩{UPBIT_MIN_KRW:,} "
+                f"→ SELLABLE "
             )
 
     def __repr__(self):
@@ -153,10 +149,8 @@ class CoinWallet:
 # ══════════════════════════════════════════════════════════════
 
 class SmartSellDecider:
-    """
-    신호 강도 + 지갑 상태를 보고
-    최적의 청산 수량과 방식을 결정.
-    """
+    """+   
+        ."""
 
     @staticmethod
     def decide(
@@ -164,16 +158,14 @@ class SmartSellDecider:
         current_price: float,
         confidence   : float,        # 0.0 ~ 1.0 매도 신호 강도
     ) -> dict:
-        """
-        Returns:
+        """Returns:
             {
               "ok"        : bool,
-              "qty"       : float,    # 실제 매도 수량
-              "strategy"  : str,      # 청산 전략명
+              "qty"       : float,    #   
+              "strategy"  : str,      #  
               "note"      : str,
               "includes_dust": bool,
-            }
-        """
+            }"""
         bot_qty  = wallet.bot_qty
         dust_qty = wallet.dust_qty
         hold_qty = wallet.hold_qty
@@ -280,10 +272,8 @@ class SmartSellDecider:
 # ══════════════════════════════════════════════════════════════
 
 class SmartWalletManager:
-    """
-    모든 코인의 지갑을 통합 관리.
-    engine.py 에서 이 클래스만 사용하면 됨.
-    """
+    """.
+    engine.py     ."""
     HOLD_CONFIG = Path("config/hold_coins.json")
 
     def __init__(self):
@@ -292,8 +282,8 @@ class SmartWalletManager:
         self._decider  = SmartSellDecider()
         self._load_hold_config()
         logger.info(
-            f"✅ SmartWalletManager 초기화 | "
-            f"HOLD 지정={sorted(self._hold_set) or '없음'}"
+            f" SmartWalletManager  | "
+            f"HOLD ={sorted(self._hold_set) or '없음'}"
         )
 
     def _load_hold_config(self):
@@ -306,7 +296,7 @@ class SmartWalletManager:
                     s.upper() for s in cfg.get("hold_coins", [])
                 }
             except Exception as e:
-                logger.warning(f"hold_coins.json 로드 실패: {e}")
+                logger.warning(f"hold_coins.json  : {e}")
 
     # ═══════════════════════════════════════════════════════════
     # 봇 시작 시 실제 잔고 스캔
@@ -315,16 +305,14 @@ class SmartWalletManager:
         # 타입 안전 처리: list 가 아니면 빈 스캔
         if not isinstance(balances, list):
             logger.warning(
-                f"scan_balances: list 필요, {type(balances).__name__} 수신 → 스킵"
+                f"scan_balances: list , {type(balances).__name__} 수신 → 스킵"
             )
             return {}
-        """
-        업비트 실제 잔고를 받아 지갑 초기화.
-        매 사이클마다 호출해서 실거래 잔고와 동기화 가능.
-        """
-        logger.info("─" * 65)
-        logger.info("  🏦 SmartWallet 잔고 스캔")
-        logger.info("─" * 65)
+        """.
+              ."""
+        logger.info("" * 65)
+        logger.info("   SmartWallet  ")
+        logger.info("" * 65)
 
         for b in balances:
             sym    = b.get("currency", "").upper()
@@ -350,9 +338,9 @@ class SmartWalletManager:
                 drift    = abs(actual - expected)
                 if drift > 1e-6:
                     logger.warning(
-                        f"⚠️  {sym}: 잔고 불일치 감지 | "
-                        f"기대={expected:.8f} 실제={actual:.8f} "
-                        f"차이={drift:.8f} → 자동 조정"
+                        f"  {sym}:    | "
+                        f"={expected:.8f} ={actual:.8f} "
+                        f"={drift:.8f} →  "
                     )
                     # 차이를 DUST layer 에 흡수
                     wallet.dust_qty = max(0.0, wallet.dust_qty + (actual - expected))
@@ -385,16 +373,14 @@ class SmartWalletManager:
             self._wallets[sym] = wallet
             logger.info(f"  {sym:>8} | {tag}")
 
-        logger.info("─" * 65)
+        logger.info("" * 65)
 
     # ═══════════════════════════════════════════════════════════
     # 매수 전 체크
     # ═══════════════════════════════════════════════════════════
     def can_buy(self, symbol: str) -> tuple[bool, str]:
-        """
-        True  → 매수 가능
-        False → HOLD 차단
-        """
+        """True  →  
+        False → HOLD"""
         wallet = self._wallets.get(symbol)
 
         if wallet and wallet.is_hold and wallet.bot_qty < 1e-10:
@@ -412,7 +398,7 @@ class SmartWalletManager:
     # 매수 완료 후 기록
     # ═══════════════════════════════════════════════════════════
     def record_buy(self, symbol: str, qty: float, price: float):
-        """봇 매수 완료 직후 호출"""
+        """docstring"""
         wallet = self._get_or_create(symbol)
 
         tx = BotTransaction(
@@ -426,15 +412,15 @@ class SmartWalletManager:
         if wallet.dust_qty > 1e-10:
             wallet.dust_state = DustState.PENDING
             logger.info(
-                f"🔗 {symbol}: 짜투리 {wallet.dust_qty:.8f}개 "
-                f"→ 다음 매도 시 자동 합산 예약"
+                f" {symbol}:  {wallet.dust_qty:.8f} "
+                f"→      "
             )
 
         logger.info(
-            f"📌 매수 기록 | {symbol} | TX#{tx.tx_id} | "
+            f"   | {symbol} | TX#{tx.tx_id} | "
             f"+{qty:.8f} @ ₩{price:,.0f} | "
-            f"누적 bot={wallet.bot_qty:.8f} | "
-            f"dust대기={wallet.dust_qty:.8f}"
+            f" bot={wallet.bot_qty:.8f} | "
+            f"dust={wallet.dust_qty:.8f}"
         )
 
     # ═══════════════════════════════════════════════════════════
@@ -446,15 +432,13 @@ class SmartWalletManager:
         current_price: float,
         confidence   : float = 1.0,
     ) -> dict:
-        """
-        매도 직전 호출. 반환된 qty 로 실제 주문.
+        """.  qty   .
 
         confidence:
-            0.8 이상 → 전량 청산 (짜투리 포함)
-            0.55~0.8 → 50% 청산 (짜투리 포함)
-            0.35~0.55→ 25% 청산 (짜투리 제외)
-            0.35 미만 → 보류
-        """
+            0.8  →   ( )
+            0.55~0.8 → 50%  ( )
+            0.35~0.55→ 25%  ( )
+            0.35  →"""
         wallet = self._wallets.get(symbol)
         if wallet is None:
             return {
@@ -471,14 +455,14 @@ class SmartWalletManager:
 
         if result["ok"]:
             logger.info(
-                f"📤 매도 결정 | {symbol} | "
-                f"수량={result['qty']:.8f} | "
-                f"전략={result['strategy']} | "
+                f"   | {symbol} | "
+                f"={result['qty']:.8f} | "
+                f"={result['strategy']} | "
                 f"{result['note']}"
             )
         else:
             logger.warning(
-                f"⛔ 매도 보류 | {symbol} | {result['note']}"
+                f"   | {symbol} | {result['note']}"
             )
 
         return result
@@ -492,10 +476,8 @@ class SmartWalletManager:
         sold_qty      : float,
         includes_dust : bool = False,
     ):
-        """
-        매도 완료 후 수량 차감.
-        FIFO 역순: 가장 최근 매수분부터 차감 (세금 최적화).
-        """
+        """.
+        FIFO :     ( )."""
         wallet = self._wallets.get(symbol)
         if wallet is None:
             return
@@ -508,7 +490,7 @@ class SmartWalletManager:
             wallet.dust_qty  = max(0.0, wallet.dust_qty - dust_used)
             remaining       -= dust_used
             logger.info(
-                f"🧹 {symbol}: 짜투리 {dust_used:.8f}개 청산 완료"
+                f" {symbol}:  {dust_used:.8f}  "
             )
 
         # BOT 트랜잭션 FIFO 역순 차감
@@ -528,10 +510,10 @@ class SmartWalletManager:
         # 지갑 완전 청산
         if wallet.bot_qty < 1e-10 and wallet.dust_qty < 1e-10:
             self._wallets.pop(symbol, None)
-            logger.info(f"🗑️  {symbol}: 지갑 완전 청산")
+            logger.info(f"  {symbol}:   ")
         else:
             logger.info(
-                f"📉 {symbol}: 매도 후 잔여 | "
+                f" {symbol}:    | "
                 f"bot={wallet.bot_qty:.8f} | "
                 f"dust={wallet.dust_qty:.8f}"
             )
@@ -551,7 +533,7 @@ class SmartWalletManager:
         return self._wallets.get(symbol)
 
     def get_orphan_report(self) -> list[dict]:
-        """30일 이상 방치된 고아 짜투리 보고서"""
+        """30"""
         return [
             {
                 "symbol"    : w.symbol,
@@ -565,9 +547,9 @@ class SmartWalletManager:
 
     def print_status(self, current_prices: dict[str, float] | None = None):
         prices = current_prices or {}
-        logger.info("═" * 65)
-        logger.info("  🏦 SmartWallet 전체 현황")
-        logger.info("═" * 65)
+        logger.info("" * 65)
+        logger.info("   SmartWallet  ")
+        logger.info("" * 65)
         for sym, w in self._wallets.items():
             px  = prices.get(sym, 0)
             val = w.total_value(px) if px else 0
@@ -581,7 +563,7 @@ class SmartWalletManager:
         orphans = self.get_orphan_report()
         if orphans:
             logger.warning(
-                f"  👻 고아 짜투리 {len(orphans)}개 → "
+                f"     {len(orphans)}개 → "
                 f"reports/orphan_dust.json 확인"
             )
-        logger.info("═" * 65)
+        logger.info("" * 65)

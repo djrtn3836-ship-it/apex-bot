@@ -1,13 +1,11 @@
-﻿"""
-Williams %R 전략 - 라리 윌리엄스
-과매수/과매도 + 다이버전스
-"""
+﻿"""Williams %R  -  
+/ +"""
 from typing import Dict, Optional
 from signals.base_strategy import BaseStrategy, SignalType
 import pandas as pd
 
 class WilliamsRStrategy(BaseStrategy):
-    """Williams %R 오실레이터 전략"""
+    """Williams %R"""
     
     def __init__(self, period: int = 14):
         super().__init__()
@@ -15,14 +13,14 @@ class WilliamsRStrategy(BaseStrategy):
         self.name = "Williams_R"
     
     def calculate_indicator(self, df: pd.DataFrame) -> pd.DataFrame:
-        """Williams %R 계산"""
+        """Williams %R"""
         high = df["high"].rolling(self.period).max()
         low = df["low"].rolling(self.period).min()
         df["williams_r"] = -100 * (high - df["close"]) / (high - low)
         return df
     
     def generate_signal(self, df: pd.DataFrame, **kwargs) -> Optional[Dict]:
-        """신호 생성"""
+        """docstring"""
         df = self.calculate_indicator(df)
         
         if len(df) < self.period + 5:

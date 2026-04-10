@@ -1,7 +1,5 @@
-"""
-APEX BOT - 이벤트 버스 (Event-Driven Architecture 핵심)
-asyncio 기반 pub/sub 패턴으로 모듈 간 완전한 디커플링 구현
-"""
+"""APEX BOT -   (Event-Driven Architecture )
+asyncio  pub/sub"""
 import asyncio
 from collections import defaultdict
 from dataclasses import dataclass, field
@@ -14,7 +12,7 @@ logger = logging.getLogger(__name__)
 
 
 class EventType(Enum):
-    """이벤트 타입 정의"""
+    """docstring"""
     # 데이터 이벤트
     CANDLE_UPDATED    = auto()   # 새 캔들 데이터
     TICK_RECEIVED     = auto()   # 체결 틱
@@ -53,7 +51,7 @@ class EventType(Enum):
 
 @dataclass
 class Event:
-    """이벤트 데이터 구조"""
+    """docstring"""
     type: EventType
     data: Any
     source: str = "unknown"
@@ -65,12 +63,9 @@ class Event:
 
 
 class EventBus:
-    """
-    비동기 이벤트 버스
-    - asyncio.Queue 기반 우선순위 처리
-    - 다중 구독자 지원
-    - 에러 격리 (한 구독자 실패가 다른 구독자에 영향 없음)
-    """
+    """- asyncio.Queue   
+    -   
+    -   (      )"""
 
     def __init__(self):
         self._subscribers: Dict[EventType, List[Callable]] = defaultdict(list)
@@ -80,25 +75,25 @@ class EventBus:
         self._error_count: int = 0
 
     def subscribe(self, event_type: EventType, handler: Callable[..., Coroutine]):
-        """이벤트 구독 등록"""
+        """docstring"""
         self._subscribers[event_type].append(handler)
-        logger.debug(f"📌 구독 등록: {event_type.name} → {handler.__qualname__}")
+        logger.debug(f"  : {event_type.name} → {handler.__qualname__}")
 
     def unsubscribe(self, event_type: EventType, handler: Callable):
-        """이벤트 구독 해제"""
+        """docstring"""
         if handler in self._subscribers[event_type]:
             self._subscribers[event_type].remove(handler)
 
     async def publish(self, event: Event):
-        """이벤트 발행 (비동기 큐에 추가)"""
+        """(  )"""
         await self._queue.put((event.priority, event))
 
     async def publish_sync(self, event: Event):
-        """이벤트 즉시 처리 (동기식, 고우선순위용)"""
+        """(, )"""
         await self._dispatch(event)
 
     async def _dispatch(self, event: Event):
-        """구독자들에게 이벤트 전달"""
+        """docstring"""
         handlers = self._subscribers.get(event.type, [])
         if not handlers:
             return
@@ -115,12 +110,12 @@ class EventBus:
             await asyncio.gather(*tasks, return_exceptions=True)
 
     async def _safe_call(self, handler: Callable, event: Event):
-        """안전한 핸들러 호출 (에러 격리)"""
+        """( )"""
         try:
             await handler(event)
         except Exception as e:
             self._error_count += 1
-            logger.error(f"❌ 이벤트 핸들러 오류 [{handler.__qualname__}]: {e}")
+            logger.error(f"    [{handler.__qualname__}]: {e}")
             # 에러 이벤트 발행 (재귀 방지)
             if event.type != EventType.ERROR_OCCURRED:
                 error_event = Event(
@@ -132,9 +127,9 @@ class EventBus:
                 await self._queue.put((1, error_event))
 
     async def run(self):
-        """이벤트 처리 루프 시작"""
+        """docstring"""
         self._running = True
-        logger.info("🚀 이벤트 버스 시작")
+        logger.info("   ")
 
         while self._running:
             try:
@@ -149,12 +144,12 @@ class EventBus:
             except asyncio.CancelledError:
                 break
             except Exception as e:
-                logger.error(f"❌ 이벤트 버스 오류: {e}")
+                logger.error(f"   : {e}")
 
-        logger.info(f"🛑 이벤트 버스 종료 (처리: {self._processed_count}, 에러: {self._error_count})")
+        logger.info(f"    (: {self._processed_count}, : {self._error_count})")
 
     async def stop(self):
-        """이벤트 버스 중지"""
+        """docstring"""
         self._running = False
 
     @property

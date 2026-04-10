@@ -1,7 +1,5 @@
-"""
-APEX BOT - 상태 머신
-봇의 생명주기 관리 (IDLE → RUNNING → PAUSED → STOPPED)
-"""
+"""APEX BOT -  
+   (IDLE → RUNNING → PAUSED → STOPPED)"""
 from enum import Enum, auto
 from datetime import datetime, timedelta
 from typing import Optional
@@ -21,12 +19,9 @@ class BotState(Enum):
 
 
 class StateMachine:
-    """
-    봇 상태 머신
-    - 유효한 상태 전환만 허용
-    - 서킷브레이커 자동 관리
-    - 재시작 타이머 관리
-    """
+    """-    
+    -   
+    -"""
 
     # 허용된 상태 전환 맵
     VALID_TRANSITIONS = {
@@ -60,7 +55,7 @@ class StateMachine:
 
     @property
     def can_trade(self) -> bool:
-        """거래 가능 여부"""
+        """docstring"""
         if self._state != BotState.RUNNING:
             return False
         if self._circuit_break_until and datetime.now() < self._circuit_break_until:
@@ -68,10 +63,10 @@ class StateMachine:
         return True
 
     def transition(self, new_state: BotState, reason: str = "") -> bool:
-        """상태 전환"""
+        """docstring"""
         if new_state not in self.VALID_TRANSITIONS.get(self._state, []):
             logger.warning(
-                f"⚠️ 유효하지 않은 상태 전환: {self._state.name} → {new_state.name}"
+                f"    : {self._state.name} → {new_state.name}"
             )
             return False
 
@@ -90,26 +85,26 @@ class StateMachine:
             BotState.IDLE: "⚪",
         }
         emoji = emoji_map.get(new_state, "")
-        logger.info(f"{emoji} 상태 전환: {self._previous_state.name} → {new_state.name} | {reason}")
+        logger.info(f"{emoji}  : {self._previous_state.name} → {new_state.name} | {reason}")
         return True
 
     def activate_circuit_breaker(self, hours: int = 48, reason: str = "드로다운 한도 초과"):
-        """서킷브레이커 발동"""
+        """docstring"""
         self._circuit_break_until = datetime.now() + timedelta(hours=hours)
         self.transition(BotState.CIRCUIT_BREAK, reason)
         logger.critical(
-            f"🚨 서킷브레이커 발동! {hours}시간 거래 중단\n"
-            f"   사유: {reason}\n"
-            f"   재시작 예정: {self._circuit_break_until.strftime('%Y-%m-%d %H:%M:%S')}"
+            f"  ! {hours}  \n"
+            f"   : {reason}\n"
+            f"    : {self._circuit_break_until.strftime('%Y-%m-%d %H:%M:%S')}"
         )
 
     def check_circuit_breaker_reset(self) -> bool:
-        """서킷브레이커 해제 여부 확인"""
+        """docstring"""
         if (self._state == BotState.CIRCUIT_BREAK and
                 self._circuit_break_until and
                 datetime.now() >= self._circuit_break_until):
             self.transition(BotState.RUNNING, "서킷브레이커 자동 해제")
-            logger.info("✅ 서킷브레이커 해제, 거래 재개")
+            logger.info("  ,  ")
             return True
         return False
 

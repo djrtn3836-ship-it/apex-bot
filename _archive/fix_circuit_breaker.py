@@ -22,7 +22,7 @@ for i in range(435, 460):
             dup_end = i
             break
 
-print(f"중복 범위: L{dup_start+1} ~ L{dup_end}")
+print(f" : L{dup_start+1} ~ L{dup_end}")
 
 import shutil
 shutil.copy('core/engine.py', 'core/engine.py.bak_cb')
@@ -42,27 +42,27 @@ for i, line in enumerate(lines):
         else:
             skip = True  # 두 번째부터 스킵
             second_cb_found = True
-            print(f"중복 제거 시작: L{i+1}")
+            print(f"  : L{i+1}")
         continue
     if skip:
         if 'async def _main_loop' in line:
             skip = False
-            print(f"중복 제거 완료: L{i+1}까지")
+            print(f"  : L{i+1}")
             new_lines.append(line)
         # else: 스킵 (중복 버전 제거)
         continue
     new_lines.append(line)
 
 if not second_cb_found:
-    print("중복 버전을 찾지 못했습니다 - 수동 확인 필요")
+    print("    -   ")
 else:
     with open('core/engine.py', 'w', encoding='utf-8') as f:
         f.writelines(new_lines)
-    print(f"✅ 중복 _check_circuit_breaker 제거 완료")
-    print(f"   L411 버전(올바른 settings.risk.daily_loss_limit 참조)만 유지됨")
+    print(f"  _check_circuit_breaker  ")
+    print(f"   L411 ( settings.risk.daily_loss_limit )만 유지됨")
 
 # 검증
 with open('core/engine.py', 'r', encoding='utf-8') as f:
     content = f.read()
 count = content.count('async def _check_circuit_breaker')
-print(f"남은 _check_circuit_breaker 정의 수: {count}개 (정상=1)")
+print(f" _check_circuit_breaker  : {count} (=1)")

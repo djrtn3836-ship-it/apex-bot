@@ -1,14 +1,12 @@
-"""
-APEX BOT - 시장 레짐 감지기 v2.0
-추세/횡보/변동성/베어반전 국면 자동 분류
+"""APEX BOT -    v2.0
+///   
 
-Step 3 고도화:
-  - BEAR_REVERSAL 신규 레짐 추가
-    조건: RSI≤28 + Fear&Greed≤20 + BB%≤0.05 중 2개 이상
-    → 하락장이지만 극단적 과매도 → 역발상 매수 허용
-  - 레짐별 허용 전략 세분화 (TRENDING_DOWN 완전 차단 해제)
-  - 허스트 지수 계산 수치 안정화 (log(0) 방지)
-"""
+Step 3 :
+  - BEAR_REVERSAL   
+    : RSI≤28 + Fear&Greed≤20 + BB%≤0.05  2 
+    →    →   
+  -     (TRENDING_DOWN   )
+  -      (log(0) )"""
 import numpy as np
 import pandas as pd
 from typing import Dict, Optional, Tuple, List
@@ -41,17 +39,13 @@ REGIME_ALLOWED_STRATEGIES: Dict[str, Optional[List[str]]] = {
 
 
 class RegimeDetector:
-    """
-    시장 레짐 자동 감지기
-
-    사용 지표:
-    - ADX: 추세 강도
-    - ATR / 역사적 변동성: 변동성 측정
-    - 볼린저 밴드 폭: 횡보 판단
-    - 허스트 지수: 추세 vs 평균회귀 성향
-    - EMA 정렬: 추세 방향
-    - RSI + BB%: BEAR_REVERSAL 감지
-    """
+    """:
+    - ADX:  
+    - ATR /  :  
+    -   :  
+    -  :  vs  
+    - EMA :  
+    - RSI + BB%: BEAR_REVERSAL"""
 
     def __init__(self):
         self.adx_trend_threshold  = 25
@@ -68,12 +62,8 @@ class RegimeDetector:
         timeframe: str = "60",
         fear_greed_index: Optional[int] = None,
     ) -> MarketRegime:
-        """
-        시장 레짐 감지
-
-        Args:
-            fear_greed_index: 공포탐욕 지수 (BEAR_REVERSAL 감지용)
-        """
+        """Args:
+            fear_greed_index:   (BEAR_REVERSAL )"""
         if df is None or len(df) < 50:
             return MarketRegime.UNKNOWN
 
@@ -129,15 +119,15 @@ class RegimeDetector:
 
             self._cache[market] = regime
             logger.debug(
-                f"레짐 감지 | {market} | {regime.value} | "
-                f"ADX={adx:.1f} BB폭={bb_width:.3f} "
-                f"허스트={hurst:.3f} RSI={rsi:.1f}"
+                f"  | {market} | {regime.value} | "
+                f"ADX={adx:.1f} BB={bb_width:.3f} "
+                f"={hurst:.3f} RSI={rsi:.1f}"
                 + (f" FG={fear_greed_index}" if fear_greed_index else "")
             )
             return regime
 
         except Exception as e:
-            logger.error(f"레짐 감지 오류 ({market}): {e}")
+            logger.error(f"   ({market}): {e}")
             return MarketRegime.UNKNOWN
 
     def _detect_impl(
@@ -147,12 +137,8 @@ class RegimeDetector:
         timeframe: str = "60",
         fear_greed_index: Optional[int] = None,
     ) -> MarketRegime:
-        """
-        시장 레짐 감지
-
-        Args:
-            fear_greed_index: 공포탐욕 지수 (BEAR_REVERSAL 감지용)
-        """
+        """Args:
+            fear_greed_index:   (BEAR_REVERSAL )"""
         if df is None or len(df) < 50:
             return MarketRegime.UNKNOWN
 
@@ -208,15 +194,15 @@ class RegimeDetector:
 
             self._cache[market] = regime
             logger.debug(
-                f"레짐 감지 | {market} | {regime.value} | "
-                f"ADX={adx:.1f} BB폭={bb_width:.3f} "
-                f"허스트={hurst:.3f} RSI={rsi:.1f}"
+                f"  | {market} | {regime.value} | "
+                f"ADX={adx:.1f} BB={bb_width:.3f} "
+                f"={hurst:.3f} RSI={rsi:.1f}"
                 + (f" FG={fear_greed_index}" if fear_greed_index else "")
             )
             return regime
 
         except Exception as e:
-            logger.error(f"레짐 감지 오류 ({market}): {e}")
+            logger.error(f"   ({market}): {e}")
             return MarketRegime.UNKNOWN
 
     def _check_bear_reversal(
@@ -228,11 +214,9 @@ class RegimeDetector:
         di_minus: float,
         di_plus: float,
     ) -> bool:
-        """
-        ✅ Step 3 신규: BEAR_REVERSAL 조건 체크
-        RSI≤28 + Fear&Greed≤20 + BB%≤0.05 중 2개 이상
-        + 하락 추세 조건 (ADX>20 이고 DI- > DI+)
-        """
+        """Step 3 : BEAR_REVERSAL  
+        RSI≤28 + Fear&Greed≤20 + BB%≤0.05  2 
+        +    (ADX>20  DI- > DI+)"""
         # 실제 하락장인지 확인 (약한 하락도 포함)
         is_downtrend = (adx > 20 and di_minus > di_plus) or (di_minus > di_plus * 1.3)
 
@@ -261,7 +245,7 @@ class RegimeDetector:
         hurst: float, ema_bull_aligned: bool, ema_bear_aligned: bool,
         price: float, ema200: float,
     ) -> MarketRegime:
-        """레짐 분류 결정 트리"""
+        """docstring"""
 
         # 고변동성 (방향 불명)
         if atr_pct > 5.0 or historical_vol > 100:
@@ -293,10 +277,8 @@ class RegimeDetector:
 
     @staticmethod
     def _calc_hurst(series: pd.Series, lags: range = None) -> float:
-        """
-        ✅ Step 3 수정: 허스트 지수 계산 안정화
-        log(0) 방지 + 최소 데이터 수 체크 강화
-        """
+        """Step 3 :    
+        log(0)  +"""
         if len(series) < 20:
             return 0.5
 
@@ -340,11 +322,11 @@ class RegimeDetector:
             return 0.5
 
     def get_allowed_strategies(self, regime: MarketRegime) -> Optional[List[str]]:
-        """레짐별 허용 전략 목록 (None = 모두 허용)"""
+        """(None =  )"""
         return REGIME_ALLOWED_STRATEGIES.get(regime.value, None)
 
     def get_regime_strategy_preference(self, regime: MarketRegime) -> Dict:
-        """레짐별 전략 선호도 반환 (하위 호환)"""
+        """( )"""
         allowed = self.get_allowed_strategies(regime)
         preferences = {
             MarketRegime.TRENDING_UP: {
@@ -381,7 +363,7 @@ class RegimeDetector:
         return self._cache.get(market, MarketRegime.UNKNOWN)
 
     def is_tradeable(self, regime: MarketRegime) -> bool:
-        """해당 레짐에서 매수 가능 여부"""
+        """docstring"""
         allowed = self.get_allowed_strategies(regime)
         # allowed가 빈 리스트면 거래 불가, None이면 모두 허용
         return allowed is None or len(allowed) > 0

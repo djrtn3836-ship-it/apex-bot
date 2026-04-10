@@ -1,8 +1,6 @@
-"""
-APEX BOT - 기술지표 유틸리티
-pandas 기반 순수 Python 지표 (TA-Lib 없어도 동작)
-GPU 가속 가능 (cupy 선택)
-"""
+"""APEX BOT -  
+pandas   Python  (TA-Lib  )
+GPU   (cupy )"""
 import numpy as np
 import pandas as pd
 from typing import Tuple, Optional
@@ -23,7 +21,7 @@ def wma(series: pd.Series, period: int) -> pd.Series:
 
 
 def hull_ma(series: pd.Series, period: int) -> pd.Series:
-    """Hull Moving Average (빠른 반응)"""
+    """Hull Moving Average ( )"""
     half = period // 2
     sqrt_p = int(np.sqrt(period))
     return wma(2 * wma(series, half) - wma(series, period), sqrt_p)
@@ -183,7 +181,7 @@ def ichimoku(high: pd.Series, low: pd.Series) -> dict:
 
 # ── 허스트 지수 ───────────────────────────────────────────────────
 def hurst_exponent(series: pd.Series, max_lag: int = 20) -> float:
-    """추세성 측정 (H>0.5: 추세, H<0.5: 평균회귀)"""
+    """(H>0.5: , H<0.5: )"""
     lags = range(2, min(max_lag, len(series) // 2))
     log_returns = np.log(series / series.shift(1)).dropna().values
     rs_vals = []
@@ -204,7 +202,7 @@ def hurst_exponent(series: pd.Series, max_lag: int = 20) -> float:
 
 # ── 일괄 지표 계산 ────────────────────────────────────────────────
 def add_all_indicators(df: pd.DataFrame) -> pd.DataFrame:
-    """DataFrame에 모든 핵심 지표 일괄 추가"""
+    """DataFrame"""
     c, h, l, v = df["close"], df["high"], df["low"], df["volume"]
 
     # 이동평균
@@ -256,7 +254,7 @@ def add_all_indicators(df: pd.DataFrame) -> pd.DataFrame:
 
 
 class TechnicalIndicators:
-    """기술적 지표 함수 네임스페이스 래퍼 (하위 호환용)"""
+    """( )"""
     ema = staticmethod(ema)
     sma = staticmethod(sma)
     rsi = staticmethod(rsi)
