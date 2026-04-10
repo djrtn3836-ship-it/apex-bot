@@ -48,11 +48,11 @@ class TradingConfig:
 class RiskConfig:
     """ъ????"""
     max_risk_per_trade: float = 0.02
-    kelly_fraction: float = 0.25
+    kelly_fraction: float = 0.30
     min_position_size: float = 5000
-    atr_stop_multiplier: float = 1.5
-    atr_target_multiplier: float = 3.0
-    trailing_stop_activation: float = 0.03
+    atr_stop_multiplier: float = 1.8
+    atr_target_multiplier: float = 3.5
+    trailing_stop_activation: float = 0.025
     trailing_stop_distance: float = 0.015
     daily_loss_limit: float = 0.05
     total_drawdown_limit: float = 0.10

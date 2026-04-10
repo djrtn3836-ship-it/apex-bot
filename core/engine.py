@@ -316,6 +316,7 @@ class TradingEngine:
 
         self._market_prices:     Dict[str, float] = {}
         self._last_signal_time:  Dict[str, float] = {}
+        self._sell_cooldown:     Dict[str, float] = {}  # market -> sell_time, prevent rebuy for 10min
         self._signal_cooldown    = 300
         self._device             = "cpu"
         self._buying_markets:    set = set()
@@ -1022,8 +1023,8 @@ class TradingEngine:
                     logger.debug(f"ATR     ({market}): {_atr_e}")
 
             if signal == "SELL" and (
-                (confidence >= 0.58 and pnl_pct <= -0.5) or
-                (confidence >= 0.52 and pnl_pct >= 0.3)
+                (confidence >= 0.52 and pnl_pct <= -0.2) or
+                (confidence >= 0.52 and pnl_pct >= 0.2)
             ):
                 logger.info(
                     f" ML   | {market} | "
@@ -1787,6 +1788,29 @@ class TradingEngine:
             logger.debug(f"    ({market}): 매수 진행 중")
             return
         self._buying_markets.add(market)
+        # [FIX B] ML=SELL 신호이면 매수 차단
+        import time as _time_b
+        _ml_pred_b = self._ml_predictions.get(market, {})
+        if isinstance(_ml_pred_b, dict):
+            _ml_sig_b  = _ml_pred_b.get("signal", "HOLD")
+            _ml_conf_b = float(_ml_pred_b.get("confidence", 0))
+            if _ml_sig_b == "SELL" and _ml_conf_b >= 0.45:
+                logger.warning(
+                    f"[ML-BLOCK] {market}: ML=SELL({_ml_conf_b:.2f}) → BUY 차단"
+                )
+                self._buying_markets.discard(market)
+                return
+        # [FIX A-2] Sell Cooldown 체크 (10분 재매수 방지)
+        if not hasattr(self, "_sell_cooldown"):
+            self._sell_cooldown = {}
+        _now_b   = _time_b.time()
+        _last_sell_b = self._sell_cooldown.get(market, 0)
+        if _now_b - _last_sell_b < 600:
+            logger.info(
+                f"[COOLDOWN] {market}: 매도 후 {int(_now_b - _last_sell_b)}초 경과 → 재매수 대기 (10분)"
+            )
+            self._buying_markets.discard(market)
+            return
 
         _symbol    = market.replace("KRW-", "")
         _can_buy, _buy_note = self._wallet.can_buy(_symbol)
@@ -2108,7 +2132,10 @@ class TradingEngine:
                     _hold_hours = 0.0
                     if _entry_time:
                         if isinstance(_entry_time, str):
-                            _entry_time = _dt_ps.datetime.fromisoformat(_entry_time)
+                            try:
+                                _entry_time = _dt_ps.datetime.fromisoformat(_entry_time)
+                            except (TypeError, ValueError):
+                                _entry_time = _dt_ps.datetime.now()
                         elif isinstance(_entry_time, float):
                             _entry_time = _dt_ps.datetime.fromtimestamp(_entry_time)
                         _hold_hours = (
@@ -2266,6 +2293,12 @@ class TradingEngine:
                     f"[DB-SELL] {market} "
                     f"profit={profit_rate:.2f}%  "
                 )
+                # [FIX A-2] sell cooldown 기록
+                import time as _time_a
+                if not hasattr(self, "_sell_cooldown"):
+                    self._sell_cooldown = {}
+                self._sell_cooldown[market] = _time_a.time()
+                logger.debug(f"[COOLDOWN-SET] {market}: 매도 시각 기록 완료")
             except Exception as _e:
                 logger.warning(f"[DB-SELL]  : {_e}")
 
@@ -2280,10 +2313,17 @@ class TradingEngine:
                     _hold_h  = 0.0
                     if _etime:
                         if isinstance(_etime, str):
-                            _etime = _ppo_dt.datetime.fromisoformat(_etime)
+                            try:
+                                _etime = _ppo_dt.datetime.fromisoformat(_etime)
+                            except (TypeError, ValueError):
+                                _etime = _ppo_dt.datetime.now()
                         elif isinstance(_etime, (int, float)):
-                            _etime = _ppo_dt.datetime.fromtimestamp(_etime)
-                            _etime = _ppo_dt.datetime.fromisoformat(_etime)
+                            try:
+                                _etime = _ppo_dt.datetime.fromtimestamp(_etime)
+                            except (TypeError, OSError):
+                                _etime = _ppo_dt.datetime.now()
+                        elif not isinstance(_etime, _ppo_dt.datetime):
+                            _etime = _ppo_dt.datetime.now()
                         _hold_h = (
                             _ppo_dt.datetime.now() - _etime
                         ).total_seconds() / 3600
