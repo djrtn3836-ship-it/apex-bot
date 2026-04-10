@@ -42,7 +42,7 @@ class TradingConfig:
     min_order_amount: int = 5000
     fee_rate: float = 0.0005
     slippage_rate: float = 0.001
-    max_positions: int = 10
+    max_positions: int = 3
     max_position_ratio: float = 0.20
 
 
@@ -50,7 +50,7 @@ class TradingConfig:
 class RiskConfig:
     """리스크 관리 설정"""
     max_risk_per_trade: float = 0.02
-    kelly_fraction: float = 0.5
+    kelly_fraction: float = 0.25
     min_position_size: float = 5000
     atr_stop_multiplier: float = 1.5
     atr_target_multiplier: float = 3.0
@@ -61,7 +61,7 @@ class RiskConfig:
     monthly_loss_limit: float = 0.15
     consecutive_loss_limit: int = 5
     buy_signal_threshold: float = 0.35
-    sell_signal_threshold: float = -1.2
+    sell_signal_threshold: float = 0.35
 
 
 @dataclass
