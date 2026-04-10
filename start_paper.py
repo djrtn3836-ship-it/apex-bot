@@ -41,9 +41,11 @@ print()
 # ── PPO 경고 억제 + 봇 실행 ────────────────────────
 env = os.environ.copy()
 env["PYTHONWARNINGS"] = "ignore::UserWarning:stable_baselines3"
+env["PYTHONIOENCODING"] = "utf-8"
+env["PYTHONUTF8"] = "1"
 
 result = subprocess.run(
-    [sys.executable, "main.py", "--mode", "paper"],
+    [sys.executable, "-X", "utf8", "main.py", "--mode", "paper"],
     env=env
 )
 sys.exit(result.returncode)
