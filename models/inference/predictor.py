@@ -62,6 +62,7 @@ class MLPredictor:
 
     CLASS_NAMES    = ["BUY", "HOLD", "SELL"]
     MIN_CONFIDENCE = 0.40  # lowered further: catch BUY/SELL at 0.40+
+    TEMPERATURE    = 0.5   # Temperature Scaling: 신뢰도 분포 날카롭게 (0.5 = sharp)
     SEQ_LEN        = 60
 
     def __init__(self):
@@ -180,7 +181,7 @@ class MLPredictor:
                 )
                 return {"signal": "HOLD", "confidence": 0.0, "buy_prob": 0.0, "hold_prob": 1.0, "sell_prob": 0.0, "model_agreement": 0.0}
 
-            proba   = F.softmax(proba_raw, dim=-1)
+            proba   = F.softmax(proba_raw / self.TEMPERATURE, dim=-1)
             proba_np = proba.cpu().float().numpy()[0]
 
             signal_idx = int(proba_np.argmax())
@@ -257,7 +258,7 @@ class MLPredictor:
             if not isinstance(proba_raw, torch.Tensor):
                 return {}
 
-            proba    = F.softmax(proba_raw, dim=-1)
+            proba    = F.softmax(proba_raw / self.TEMPERATURE, dim=-1)
             proba_np = proba.cpu().float().numpy()
 
             for i, market in enumerate(valid_markets):
