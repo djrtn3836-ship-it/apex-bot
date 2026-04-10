@@ -3,7 +3,6 @@ __pycache__/
 *.pyc
 *.pyo
 database/
-models/saved/
 logs/
 reports/
 *.bak
