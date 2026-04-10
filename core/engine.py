@@ -777,6 +777,8 @@ class TradingEngine:
                     except Exception:
                         continue
 
+                elif isinstance(entry_time, float):
+                    entry_time = datetime.datetime.fromtimestamp(entry_time)
                 held_hours  = (now - entry_time).total_seconds() / 3600
                 profit_rate = (current_price - pos.entry_price) / pos.entry_price
 
