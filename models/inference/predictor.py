@@ -61,7 +61,7 @@ class MLPredictor:
     """
 
     CLASS_NAMES    = ["BUY", "HOLD", "SELL"]
-    MIN_CONFIDENCE = 0.40  # lowered further: catch BUY/SELL at 0.40+
+    MIN_CONFIDENCE = 0.38  # lowered further: catch BUY/SELL at 0.40+
     TEMPERATURE    = 0.5   # Temperature Scaling: 신뢰도 분포 날카롭게 (0.5 = sharp)
     SEQ_LEN        = 60
 

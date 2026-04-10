@@ -1030,8 +1030,9 @@ class TradingEngine:
                     logger.debug(f"ATR     ({market}): {_atr_e}")
 
             if signal == "SELL" and (
-                (confidence >= 0.52 and pnl_pct <= -0.2) or
-                (confidence >= 0.52 and pnl_pct >= 0.2)
+                (confidence >= 0.45 and pnl_pct <= -0.3) or
+                (confidence >= 0.45 and pnl_pct >= 0.3) or
+                (confidence >= 0.42 and pnl_pct >= 1.0)
             ):
                 logger.info(
                     f" ML   | {market} | "
@@ -1801,7 +1802,7 @@ class TradingEngine:
         if isinstance(_ml_pred_b, dict):
             _ml_sig_b  = _ml_pred_b.get("signal", "HOLD")
             _ml_conf_b = float(_ml_pred_b.get("confidence", 0))
-            if _ml_sig_b == "SELL" and _ml_conf_b >= 0.45:
+            if _ml_sig_b == "SELL" and _ml_conf_b >= 0.42:
                 logger.warning(
                     f"[ML-BLOCK] {market}: ML=SELL({_ml_conf_b:.2f}) → BUY 차단"
                 )
