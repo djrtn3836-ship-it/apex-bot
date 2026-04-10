@@ -49,7 +49,7 @@ class TrendFilter:
             h4_check = self._check_h4(h4_df)
             if not h4_check["trending"]:
                 result["reason"] += f" | 4H:{h4_check['reason']}"
-
+        """Returns: TRENDING_UP | TRENDING_DOWN | RANGING | VOLATILE"""
         return result
 
     def get_regime(self, df: pd.DataFrame) -> str:
