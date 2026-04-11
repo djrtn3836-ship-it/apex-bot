@@ -1800,6 +1800,19 @@ class TradingEngine:
 
     async def _execute_buy(self, market: str, signal: CombinedSignal, df):
         _max_pos = self.settings.trading.max_positions
+        # [FIX-CD] 매도 후 10분 쿨다운 체크
+        _cd_last = self._sell_cooldown.get(market)
+        if (_cd_last is not None and
+                (datetime.now() - _cd_last).total_seconds() < 600):
+            _cd_remain = 600 - (datetime.now() - _cd_last).total_seconds()
+            logger.info(f'[COOLDOWN] {market}: 매도 후 {_cd_remain:.0f}초 남음 → BUY 차단')
+        # [FIX-CD] 매도 후 10분 쿨다운 체크
+        _cd_last = self._sell_cooldown.get(market)
+        if (_cd_last is not None and
+                (datetime.now() - _cd_last).total_seconds() < 600):
+            _cd_remain = 600 - (datetime.now() - _cd_last).total_seconds()
+            logger.info(f'[COOLDOWN] {market}: 매도 후 {_cd_remain:.0f}초 남음 → BUY 차단')
+            return
         if self.portfolio.position_count >= _max_pos:
             logger.info(
                 f"   ({market}): "
@@ -1828,13 +1841,20 @@ class TradingEngine:
         # [FIX A-2] Sell Cooldown 체크 (10분 재매수 방지)
         if not hasattr(self, "_sell_cooldown"):
             self._sell_cooldown = {}
-        _now_b   = _time_b.time()
-        _last_sell_b = self._sell_cooldown.get(market, 0)
-        if _now_b - _last_sell_b < 600:
-            logger.info(
-                f"[COOLDOWN] {market}: 매도 후 {int(_now_b - _last_sell_b)}초 경과 → 재매수 대기 (10분)"
-            )
-            self._buying_markets.discard(market)
+        # [FIX-CD] datetime 기반 쿨다운 체크
+        _cd_val = self._sell_cooldown.get(market)
+        if _cd_val is not None:
+            if isinstance(_cd_val, (int, float)):
+                _cd_val = datetime.fromtimestamp(_cd_val)
+                self._sell_cooldown[market] = _cd_val
+            _cd_elapsed = (datetime.now() - _cd_val).total_seconds()
+            if _cd_elapsed < 600:
+                logger.info(
+                    f'[COOLDOWN] {market}: 매도 후 {int(_cd_elapsed)}초 경과 → '
+                    f'재매수 대기 ({int(600 - _cd_elapsed)}초 남음)'
+                )
+                self._buying_markets.discard(market)
+                return
             return
 
         _symbol    = market.replace("KRW-", "")
@@ -2322,7 +2342,7 @@ class TradingEngine:
                 import time as _time_a
                 if not hasattr(self, "_sell_cooldown"):
                     self._sell_cooldown = {}
-                self._sell_cooldown[market] = _time_a.time()
+                self._sell_cooldown[market] = datetime.now()  # [FIX-CD] datetime으로 통일
                 logger.debug(f"[COOLDOWN-SET] {market}: 매도 시각 기록 완료")
                 self._save_cooldown_to_db()  # [FIX1] DB 저장
             except Exception as _e:
