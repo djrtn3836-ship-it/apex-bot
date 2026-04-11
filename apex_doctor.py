@@ -85,7 +85,7 @@ print('【3】 거래 성과')
 conn = sqlite3.connect('database/apex_bot.db')
 cur  = conn.cursor()
 
-cur.execute("SELECT COUNT(*), SUM(CASE WHEN profit_rate>0 THEN 1 ELSE 0 END), ROUND(AVG(profit_rate),4), ROUND(MIN(profit_rate),4), ROUND(MAX(profit_rate),4) FROM trade_history WHERE side='SELL'")
+cur.execute("SELECT COUNT(*), SUM(CASE WHEN profit_rate>0 THEN 1 ELSE 0 END), ROUND(AVG(profit_rate),4), ROUND(MIN(profit_rate),4), ROUND(MAX(profit_rate),4) FROM trade_history WHERE side='SELL' AND timestamp >= '2026-04-11T14:30:00'")
 total, wins, avg, worst, best = cur.fetchone()
 wr = round(wins/total*100,1) if total else 0
 check('승률', 'OK' if wr>=55 else ('WARN' if wr>=40 else 'ERROR'), str(wr)+'% (목표 55%)')
