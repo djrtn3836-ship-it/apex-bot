@@ -23,7 +23,7 @@ class AutoTrainer:
     BACKUP_PATH  = Path("models/saved/ensemble_backup.pt")
     MIN_IMPROVE  = 0.005    # val_acc 최소 향상 허용폭 (0.5%)
     RETRAIN_DAYS = 3        # 강제 재학습 주기 (일) — v4 적용 후 3일
-    TRAIN_SCRIPT = "run_ml_train_v4.py"
+    TRAIN_SCRIPT = "train_retrain.py"
     TIMEOUT_SEC  = 2400     # 최대 학습 시간 40분 (v4 증가)
 
     def __init__(self):
