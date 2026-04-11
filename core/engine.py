@@ -861,7 +861,7 @@ class TradingEngine:
                             )
                     else:
                         basic_sl = entry_price * (
-                            1 - getattr(self.settings.risk, "stop_loss_pct", 0.03)
+                            1 - getattr(self.settings.risk, "stop_loss_pct", 0.015)
                         )
                         basic_tp = entry_price * (
                             1 + getattr(self.settings.risk, "take_profit_pct", 0.05)
@@ -869,7 +869,7 @@ class TradingEngine:
                 except Exception as _dyn_e:
                     logger.debug(f"ATR    ({market}): {_dyn_e}")
                     basic_sl = entry_price * (
-                        1 - getattr(self.settings.risk, "stop_loss_pct", 0.03)
+                        1 - getattr(self.settings.risk, "stop_loss_pct", 0.015)
                     )
                     basic_tp = entry_price * (
                         1 + getattr(self.settings.risk, "take_profit_pct", 0.05)
