@@ -657,6 +657,7 @@ class TradingEngine:
             if _batch_df_map:
                 _batch_results       = await self._get_ml_prediction_batch(_batch_df_map)
                 self._ml_batch_cache = _batch_results  # ✅ 분석 전에 저장
+                self._ml_predictions = _batch_results  # [FIX] _ml_batch_cache 동기화
             else:
                 self._ml_batch_cache = {}
         except Exception as _be:
