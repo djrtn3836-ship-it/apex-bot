@@ -127,7 +127,7 @@ class PortfolioManager:
             position.entry_price,
             exit_price,
             self.settings.trading.fee_rate,
-        ) * 100
+        )
 
         proceeds = exit_price * position.volume - fee
 

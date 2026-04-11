@@ -2164,7 +2164,7 @@ class TradingEngine:
 
         if result.executed_price > 0:
             profit_rate = (
-                (result.executed_price - pos.entry_price) / pos.entry_price
+                (result.executed_price - pos.entry_price) / pos.entry_price * 100
             )
 
             try:
@@ -2221,7 +2221,7 @@ class TradingEngine:
                     if getattr(self.settings, "paper_mode", True)
                     else "live"
                 )
-                self.db_manager.insert_trade({
+                await self.db_manager.insert_trade({
                     "market":      market,
                     "side":        "SELL",
                     "price":       result.executed_price,
@@ -2321,7 +2321,7 @@ class TradingEngine:
                     "amount_krw":  proceeds,
                     "fee":         result.fee if hasattr(result, "fee") else 0.0,
                     # ✅ close_position 반환값은 이미 % 단위 → DB 저장 시 그대로 사용
-                    "profit_rate": profit_rate,
+                    "profit_rate": profit_rate * 100,
                     "strategy":    getattr(pos, "strategy", "unknown"),
                     "reason":      reason,
                     "mode":        "paper",
