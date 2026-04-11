@@ -204,6 +204,19 @@ def calc_exit_plan(entry_price: float, atr: float, position_krw: float) -> dict:
     }
 
 
+
+def _find_free_port(start_port: int = 8888) -> int:
+    import socket as _s
+    port = start_port
+    while port < start_port + 100:
+        try:
+            with _s.socket(_s.AF_INET, _s.SOCK_STREAM) as sock:
+                sock.bind(('', port))
+                return port
+        except OSError:
+            port += 1
+    return start_port
+
 class TradingEngine:
     """APEX BOT   v2.0.0"""
 
@@ -316,7 +329,8 @@ class TradingEngine:
 
         self._market_prices:     Dict[str, float] = {}
         self._last_signal_time:  Dict[str, float] = {}
-        self._sell_cooldown:     Dict[str, float] = {}  # market -> sell_time, prevent rebuy for 10min
+        self._sell_cooldown:     Dict[str, datetime] = {}  # market -> sell_time, prevent rebuy for 10min
+        self._ml_predictions: dict = {}  # ML 예측 캐시
         self._signal_cooldown    = 300
         self._device             = "cpu"
         self._buying_markets:    set = set()
@@ -1034,7 +1048,8 @@ class TradingEngine:
                 (confidence >= 0.45 and pnl_pct >= 0.3) or
                 (confidence >= 0.42 and pnl_pct >= 1.0) or
                 (pnl_pct >= 1.5) or
-                (pnl_pct <= -1.5 and confidence >= 0.38)
+                (pnl_pct <= -1.5 and confidence >= 0.38) or
+                (pnl_pct >= self._time_based_tp_threshold(market))  # [FIX3] 시간 기반 익절
             ):
                 logger.info(
                     f" ML   | {market} | "
@@ -2309,6 +2324,7 @@ class TradingEngine:
                     self._sell_cooldown = {}
                 self._sell_cooldown[market] = _time_a.time()
                 logger.debug(f"[COOLDOWN-SET] {market}: 매도 시각 기록 완료")
+                self._save_cooldown_to_db()  # [FIX1] DB 저장
             except Exception as _e:
                 logger.warning(f"[DB-SELL]  : {_e}")
 
@@ -3820,3 +3836,74 @@ class TradingEngine:
         except Exception as _e:
             logger.debug(f"  : {_e}")
 
+
+    def _load_cooldown_from_db(self) -> dict:
+        """DB bot_state 테이블에서 sell cooldown 복원."""
+        import json, sqlite3 as _sq
+        result: dict = {}
+        try:
+            db_file = "database/apex_bot.db"
+            conn = _sq.connect(db_file)
+            cur  = conn.cursor()
+            cur.execute("SELECT value FROM bot_state WHERE key='sell_cooldown' LIMIT 1")
+            row = cur.fetchone()
+            conn.close()
+            if row:
+                raw = json.loads(row[0])
+                result = {k: datetime.fromisoformat(v) for k, v in raw.items()}
+                print(f"  [COOLDOWN-RESTORE] {len(result)}개 복원")
+        except Exception as e:
+            print(f"  [COOLDOWN-RESTORE ERR] {e}")
+        return result
+
+    def _save_cooldown_to_db(self):
+        """sell cooldown 데이터를 DB bot_state에 저장."""
+        import json, sqlite3 as _sq
+        try:
+            db_file = "database/apex_bot.db"
+            data = {k: v.isoformat() for k, v in self._sell_cooldown.items()
+                    if isinstance(v, datetime)}
+            conn = _sq.connect(db_file)
+            cur  = conn.cursor()
+            cur.execute("""
+                INSERT INTO bot_state(key, value, updated_at)
+                VALUES('sell_cooldown', ?, datetime('now','localtime'))
+                ON CONFLICT(key) DO UPDATE
+                SET value=excluded.value, updated_at=excluded.updated_at
+            """, (json.dumps(data),))
+            conn.commit()
+            conn.close()
+        except Exception as e:
+            print(f"  [COOLDOWN-SAVE ERR] {e}")
+
+    def _get_hold_hours(self, market: str) -> float:
+        """포지션 보유 시간(시간)을 반환."""
+        try:
+            pos = self._portfolio.get(market) or {}
+            entry_time = pos.get("entry_time") or pos.get("timestamp")
+            if entry_time is None:
+                return 0.0
+            if isinstance(entry_time, str):
+                from datetime import datetime as _dt
+                entry_time = _dt.fromisoformat(entry_time)
+            elif isinstance(entry_time, (int, float)):
+                from datetime import datetime as _dt
+                ts = entry_time / 1000 if entry_time > 1e10 else entry_time
+                entry_time = _dt.fromtimestamp(ts)
+            from datetime import datetime as _dt2
+            return (_dt2.now() - entry_time).total_seconds() / 3600
+        except Exception:
+            return 0.0
+
+    def _time_based_tp_threshold(self, market: str) -> float:
+        """보유 시간별 익절 기준 반환.
+        0-6h  : +1.5%
+        6-24h : +0.8%
+        >24h  : +0.3%
+        """
+        h = self._get_hold_hours(market)
+        if h < 6:
+            return 1.5
+        elif h < 24:
+            return 0.8
+        return 0.3
