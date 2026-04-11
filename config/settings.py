@@ -58,8 +58,8 @@ class RiskConfig:
     total_drawdown_limit: float = 0.10
     monthly_loss_limit: float = 0.15
     consecutive_loss_limit: int = 5
-    buy_signal_threshold: float = 0.35
-    sell_signal_threshold: float = 0.35
+    buy_signal_threshold: float = 0.62
+    sell_signal_threshold: float = 0.55
 
 
 @dataclass

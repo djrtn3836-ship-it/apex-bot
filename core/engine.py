@@ -1044,11 +1044,11 @@ class TradingEngine:
                     logger.debug(f"ATR     ({market}): {_atr_e}")
 
             if (
-                (confidence >= 0.45 and pnl_pct <= -0.3) or
-                (confidence >= 0.45 and pnl_pct >= 0.3) or
-                (confidence >= 0.42 and pnl_pct >= 1.0) or
+                (confidence >= 0.62 and pnl_pct <= -0.5) or
+                (confidence >= 0.62 and pnl_pct >= 0.5) or
+                (confidence >= 0.55 and pnl_pct >= 1.0) or
                 (pnl_pct >= 1.5) or
-                (pnl_pct <= -1.5 and confidence >= 0.38) or
+                (pnl_pct <= -2.0 and confidence >= 0.50) or
                 (pnl_pct >= self._time_based_tp_threshold(market))  # [FIX3] 시간 기반 익절
             ):
                 logger.info(
@@ -1753,8 +1753,8 @@ class TradingEngine:
             
             # 4. ML 임계값 확인 (동적, v2.1.0)
             fgi = getattr(self.fear_greed, "index", None) or 50
-            buy_threshold = 0.4 if fgi > 30 else 0.3  # FGI<=30: extreme fear, lower threshold
-            buy_threshold = 0.4 if fgi > 30 else 0.3  # 🔧 v2.1.0 완화: 0.8→0.4, 0.6→0.3 (실전 데이터 수집)
+            buy_threshold = 0.62 if fgi > 30 else 0.55  # FGI<=30: extreme fear, lower threshold
+            buy_threshold = 0.62 if fgi > 30 else 0.55  # 🔧 v2.1.0 완화: 0.8→0.4, 0.6→0.3 (실전 데이터 수집)
             
             if ml_score < buy_threshold:
                 logger.debug(f"{market} ML  : {ml_score:.3f} < {buy_threshold}")
@@ -1803,14 +1803,14 @@ class TradingEngine:
         # [FIX-CD] 매도 후 10분 쿨다운 체크
         _cd_last = self._sell_cooldown.get(market)
         if (_cd_last is not None and
-                (datetime.now() - _cd_last).total_seconds() < 600):
-            _cd_remain = 600 - (datetime.now() - _cd_last).total_seconds()
+                (datetime.now() - _cd_last).total_seconds() < 1200):
+            _cd_remain = 1200 - (datetime.now() - _cd_last).total_seconds()
             logger.info(f'[COOLDOWN] {market}: 매도 후 {_cd_remain:.0f}초 남음 → BUY 차단')
         # [FIX-CD] 매도 후 10분 쿨다운 체크
         _cd_last = self._sell_cooldown.get(market)
         if (_cd_last is not None and
-                (datetime.now() - _cd_last).total_seconds() < 600):
-            _cd_remain = 600 - (datetime.now() - _cd_last).total_seconds()
+                (datetime.now() - _cd_last).total_seconds() < 1200):
+            _cd_remain = 1200 - (datetime.now() - _cd_last).total_seconds()
             logger.info(f'[COOLDOWN] {market}: 매도 후 {_cd_remain:.0f}초 남음 → BUY 차단')
             return
         if self.portfolio.position_count >= _max_pos:
@@ -1896,6 +1896,7 @@ class TradingEngine:
             _sl_levels_buy = self.atr_stop.calculate(df, float(last["close"]))
             atr         = _sl_levels_buy.atr
             stop_loss   = _sl_levels_buy.stop_loss
+            stop_loss = max(stop_loss, float(last["close"]) * 0.97)  # [FIX-SL] ATR SL cap -3%
             take_profit = _sl_levels_buy.take_profit
             logger.info(
                 f" ATR-SL ({market}): "
