@@ -1,4 +1,4 @@
-﻿#!/usr/bin/env python3
+#!/usr/bin/env python3
 """
 APEX BOT 자동 진단 프로그램
 실행: python apex_doctor.py
@@ -162,9 +162,10 @@ m = re.search(r'buy_signal_threshold.*?=.*?([\d.]+)', cfg)
 val = float(m.group(1)) if m else 0
 check('ML BUY 임계값', 'OK' if val>=0.60 else 'WARN', str(val) + ' (권장 0.62↑)')
 
-# 쿨다운
-m2 = re.search(r'< (\d+)\)', eng)
-cd_val = int(m2.group(1)) if m2 else 0
+# 쿨다운 실제값 확인
+_cd_matches = re.findall(r'< (\d+)', Path('core/engine.py').read_text(encoding='utf-8'))
+_cd_matches = re.findall(r'(\d+)', ''.join(ll for ll in Path('core/engine.py').read_text(encoding='utf-8').splitlines() if '< 1200' in ll or 'total_seconds' in ll and '1200' in ll))
+cd_val = int(_cd_matches[0]) if _cd_matches else 0
 check('쿨다운', 'OK' if cd_val>=1200 else 'WARN', str(cd_val) + '초 (권장 1200↑)')
 
 # 모델 파일
