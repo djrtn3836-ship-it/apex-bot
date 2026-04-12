@@ -1892,15 +1892,12 @@ class TradingEngine:
             signal, "contributing_strategies", []
         )
         if not _is_bear_rev_signal:
-            fg_threshold_adj = self.fear_greed.get_buy_threshold_adjustment()
-            if getattr(signal, 'confidence', 0) < (
-                self.settings.risk.buy_signal_threshold + fg_threshold_adj
-            ):
+            # [FIX-BUG5] FGI 조정 제거 - 고정 임계값 0.62 사용
+            if getattr(signal, 'confidence', 0) < self.settings.risk.buy_signal_threshold:
                 logger.debug(
                     f"    ({market}): "
                     f"점수={getattr(signal, 'confidence', 0):.2f} < "
-                    f"임계={self.settings.risk.buy_signal_threshold + fg_threshold_adj:.2f} "
-                    f"(조정={fg_threshold_adj:+.2f})"
+                    f"임계={self.settings.risk.buy_signal_threshold:.2f} (FGI조정 비활성화)"
                 )
                 self._buying_markets.discard(market)
                 return
