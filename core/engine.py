@@ -1044,7 +1044,20 @@ class TradingEngine:
                 except Exception as _atr_e:
                     logger.debug(f"ATR     ({market}): {_atr_e}")
 
-            if (
+
+            # [FIX] 최소 보유 30분 - 매수 직후 손절 방지
+            _pos_et = getattr(pos, "entry_time", None) or getattr(pos, "created_at", None)
+            _held_min = 0
+            if _pos_et:
+                try:
+                    import datetime as _dt_hold
+                    _et = _dt_hold.datetime.fromisoformat(str(_pos_et)) if isinstance(_pos_et, str) else _pos_et
+                    _held_min = (_dt_hold.datetime.now() - _et).total_seconds() / 60
+                except Exception:
+                    _held_min = 999
+            if _held_min < 30 and pnl_pct > -2.0:  # 30분 미만 + 대형손실 아닌 경우 SELL 차단
+                logger.debug(f"  ({market}): 최소보유 미달 {_held_min:.1f}min < 30min, SELL 차단")
+            elif (
                 (confidence >= 0.62 and pnl_pct <= -0.5) or
                 (confidence >= 0.62 and pnl_pct >= 0.5) or
                 (confidence >= 0.55 and pnl_pct >= 1.0) or
