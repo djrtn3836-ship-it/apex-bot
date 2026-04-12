@@ -1051,7 +1051,12 @@ class TradingEngine:
             if _pos_et:
                 try:
                     import datetime as _dt_hold
-                    _et = _dt_hold.datetime.fromisoformat(str(_pos_et)) if isinstance(_pos_et, str) else _pos_et
+                    if isinstance(_pos_et, str):
+                        _et = _dt_hold.datetime.fromisoformat(_pos_et)
+                    elif isinstance(_pos_et, (int, float)):
+                        _et = _dt_hold.datetime.fromtimestamp(_pos_et)  # [FIX] float Unix timestamp 처리
+                    else:
+                        _et = _pos_et
                     _held_min = (_dt_hold.datetime.now() - _et).total_seconds() / 60
                 except Exception:
                     _held_min = 999
