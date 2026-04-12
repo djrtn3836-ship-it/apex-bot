@@ -1088,10 +1088,10 @@ class TradingEngine:
         _base_buy  = self.settings.risk.buy_signal_threshold   # 0.35
         _base_sell = self.settings.risk.sell_signal_threshold  # 0.35
         if fgi_idx < 20:    # Extreme Fear -> lower threshold (easier to buy)
-            buy_threshold  = max(0.25, _base_buy  - 0.10)
+            buy_threshold  = _base_buy  # [FIX] FGI 하향 제거
             sell_threshold = max(0.20, _base_sell - 0.10)
         elif fgi_idx < 40:  # Fear
-            buy_threshold  = max(0.30, _base_buy  - 0.05)
+            buy_threshold  = _base_buy  # [FIX] FGI Fear 하향 제거
             sell_threshold = _base_sell
         elif fgi_idx > 80:  # Extreme Greed -> raise threshold (harder to buy)
             buy_threshold  = _base_buy  + 0.15
@@ -1767,8 +1767,8 @@ class TradingEngine:
             
             # 4. ML 임계값 확인 (동적, v2.1.0)
             fgi = getattr(self.fear_greed, "index", None) or 50
-            buy_threshold = 0.62 if fgi > 30 else 0.55  # FGI<=30: extreme fear, lower threshold
-            buy_threshold = 0.62 if fgi > 30 else 0.55  # 🔧 v2.1.0 완화: 0.8→0.4, 0.6→0.3 (실전 데이터 수집)
+            buy_threshold = 0.62  # [FIX] FGI 무관 고정 0.62
+            buy_threshold = 0.62  # [FIX] FGI 무관 고정 0.62
             
             if ml_score < buy_threshold:
                 logger.debug(f"{market} ML  : {ml_score:.3f} < {buy_threshold}")
@@ -2336,7 +2336,7 @@ class TradingEngine:
                     "amount_krw":  proceeds,
                     "fee":         result.fee if hasattr(result, "fee") else 0.0,
                     # ✅ close_position 반환값은 이미 % 단위 → DB 저장 시 그대로 사용
-                    "profit_rate": profit_rate * 100,
+                    "profit_rate": profit_rate,
                     "strategy":    getattr(pos, "strategy", "unknown"),
                     "reason":      reason,
                     "mode":        "paper",
