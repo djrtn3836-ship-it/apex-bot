@@ -679,7 +679,7 @@ class TradingEngine:
                     ml_score = ml_pred.get('confidence', 0)
                     ml_signal = ml_pred.get('signal', 'UNKNOWN')
                     logger.debug(f"{market} ML={ml_score:.3f} ={ml_signal}")
-                    if ml_score > 0.1:
+                    if ml_score >= 0.62:
                         logger.info(f" {market}    (ML={ml_score:.3f})")
                         signal = await self._evaluate_entry_signals(market, df, ml_score)
                         if signal and signal.get('action') == 'BUY':
@@ -1320,8 +1320,8 @@ class TradingEngine:
                     combined = CombinedSignal(
                         market=market,
                         signal_type=SignalType.BUY,
-                        score=0.45,
-                        confidence=0.45,
+                        score=0.63,
+                        confidence=0.63,
                         agreement_rate=1.0,
                         contributing_strategies=["BEAR_REVERSAL"],
                         reasons=["극단적 공포 역발상 매수"],
@@ -1768,7 +1768,7 @@ class TradingEngine:
             # 4. ML 임계값 확인 (동적, v2.1.0)
             fgi = getattr(self.fear_greed, "index", None) or 50
             buy_threshold = 0.62  # [FIX] FGI 무관 고정 0.62
-            buy_threshold = 0.62  # [FIX] FGI 무관 고정 0.62
+            # [중복제거됨]
             
             if ml_score < buy_threshold:
                 logger.debug(f"{market} ML  : {ml_score:.3f} < {buy_threshold}")
@@ -1814,12 +1814,12 @@ class TradingEngine:
 
     async def _execute_buy(self, market: str, signal: CombinedSignal, df):
         _max_pos = self.settings.trading.max_positions
-        # [FIX-CD] 매도 후 10분 쿨다운 체크
-        _cd_last = self._sell_cooldown.get(market)
-        if (_cd_last is not None and
-                (datetime.now() - _cd_last).total_seconds() < 1200):
-            _cd_remain = 1200 - (datetime.now() - _cd_last).total_seconds()
-            logger.info(f'[COOLDOWN] {market}: 매도 후 {_cd_remain:.0f}초 남음 → BUY 차단')
+        # [중복제거됨]
+        # _cd_last = self._sell_cooldown.get(market)
+        # if (_cd_last is not None and
+        # (datetime.now() - _cd_last).total_seconds() < 1200):
+        # _cd_remain = 1200 - (datetime.now() - _cd_last).total_seconds()
+        # logger.info(f'[COOLDOWN] {market}: 매도 후 {_cd_remain:.0f}초 남음 → BUY 차단')
         # [FIX-CD] 매도 후 10분 쿨다운 체크
         _cd_last = self._sell_cooldown.get(market)
         if (_cd_last is not None and
@@ -1862,14 +1862,14 @@ class TradingEngine:
                 _cd_val = datetime.fromtimestamp(_cd_val)
                 self._sell_cooldown[market] = _cd_val
             _cd_elapsed = (datetime.now() - _cd_val).total_seconds()
-            if _cd_elapsed < 600:
+            if _cd_elapsed < 1200:  # [FIX] 1200초 통일
                 logger.info(
                     f'[COOLDOWN] {market}: 매도 후 {int(_cd_elapsed)}초 경과 → '
-                    f'재매수 대기 ({int(600 - _cd_elapsed)}초 남음)'
+                    f'재매수 대기 ({int(1200 - _cd_elapsed)}초 남음)'
                 )
                 self._buying_markets.discard(market)
                 return
-            return
+            # [FIX-BUG1] 쿨다운 만료 후 매수 허용
 
         _symbol    = market.replace("KRW-", "")
         _can_buy, _buy_note = self._wallet.can_buy(_symbol)
@@ -3700,7 +3700,7 @@ class TradingEngine:
                                         continue
                                 
                                 # 시그널 평가
-                                if ml_score > 0.1:  # 최소 임계값
+                                if ml_score >= 0.62:  # [FIX] 임계값 0.62 통일
                                     signal = await self._evaluate_entry_signals(market, df, ml_score)
                                     if signal and signal.get('action') == 'BUY':
                                         logger.info(f" {market}   ")
