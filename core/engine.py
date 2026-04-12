@@ -2243,7 +2243,7 @@ class TradingEngine:
                     "volume":      volume,
                     "amount_krw":  volume * result.executed_price,
                     "fee":         result.fee,
-                    "profit_rate": profit_rate,
+                    "profit_rate": profit_rate * 100,
                     "strategy":    _strat,
                     "reason":      reason,
                     "mode":        _mode,
@@ -2336,7 +2336,7 @@ class TradingEngine:
                     "amount_krw":  proceeds,
                     "fee":         result.fee if hasattr(result, "fee") else 0.0,
                     # ✅ close_position 반환값은 이미 % 단위 → DB 저장 시 그대로 사용
-                    "profit_rate": profit_rate,
+                    "profit_rate": profit_rate * 100,
                     "strategy":    getattr(pos, "strategy", "unknown"),
                     "reason":      reason,
                     "mode":        "paper",
