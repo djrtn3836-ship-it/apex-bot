@@ -750,21 +750,21 @@ class EngineCycleMixin:
                 self._surge_detector = SurgeDetector()
 
             # 1분봉 (거래량 폭발, 전고점 돌파) - 80개
-            df_1m = await self.rest_collector.get_ohlcv(market, "minutes/1", 80)
+            df_1m = await self.rest_collector.get_ohlcv(market, "minute1", 80)
             if df_1m is None or len(df_1m) < 20:
                 return {"is_surge": False}
 
             # 5분봉 (BTC역행, 모멘텀) - 60개
             df_5m = None
             try:
-                df_5m = await self.rest_collector.get_ohlcv(market, "minutes/5", 60)
+                df_5m = await self.rest_collector.get_ohlcv(market, "minute5", 60)
             except Exception:
                 pass
 
             # 15분봉 (세력 매집) - 40개
             df_15m = None
             try:
-                df_15m = await self.rest_collector.get_ohlcv(market, "minutes/15", 40)
+                df_15m = await self.rest_collector.get_ohlcv(market, "minute15", 40)
             except Exception:
                 pass
 
@@ -773,7 +773,7 @@ class EngineCycleMixin:
             if market != "KRW-BTC":
                 try:
                     btc_df_5m = await self.rest_collector.get_ohlcv(
-                        "KRW-BTC", "minutes/5", 30
+                        "KRW-BTC", "minute5", 30
                     )
                 except Exception:
                     pass
