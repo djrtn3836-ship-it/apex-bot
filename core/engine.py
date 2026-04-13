@@ -605,6 +605,14 @@ class TradingEngine:
         self.markets = markets
 
         price_tasks = [self.adapter.get_current_price(m) for m in markets]
+
+        # [FIX-SL] 보유 포지션 종목 가격 업데이트 보장
+        _held_markets = list(self.portfolio.open_positions.keys())
+        _missing = [m for m in _held_markets if m not in markets]
+        if _missing:
+            markets = list(markets) + _missing
+            _extra_tasks = [self.adapter.get_current_price(m) for m in _missing]
+            price_tasks = list(price_tasks) + _extra_tasks
         prices      = await asyncio.gather(*price_tasks, return_exceptions=True)
 
         for i, market in enumerate(markets):
