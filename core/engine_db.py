@@ -13,6 +13,8 @@ DB 관련 Mixin
 ─────────────────────────────────────────────────────────────
 """
 from __future__ import annotations
+import time
+import asyncio
 from datetime import datetime
 from loguru import logger
 
@@ -147,7 +149,7 @@ class EngineDBMixin:
                 logger.info("    ( )")
 
             try:
-                _today_str      = _dt_cls.now().strftime("%Y-%m-%d")
+                _today_str      = datetime.now().strftime("%Y-%m-%d")
                 _bear_count_key = f"_bear_rev_count_{_today_str}"
                 _bear_today     = 0
                 try:
