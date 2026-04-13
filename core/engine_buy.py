@@ -559,8 +559,6 @@ class EngineBuyMixin:
         policy = self.global_regime_detector.get_policy(global_regime)
 
         # 급등 여부 확인
-        surge_info = getattr(self, "_surge_cache", {}).get(market, {})
-        is_surge = surge_info.get("is_surge", False) and surge_info.get("score", 0) >= 0.6
 
         # 일반 매수 차단 (BEAR/BEAR_WATCH)
         if not policy["allow_normal_buy"] and not is_surge:
@@ -582,10 +580,14 @@ class EngineBuyMixin:
                 f"{ml_score:.3f} < {effective_ml_score:.3f} ({global_regime.value})"
             )
             return None
-        """(v2.0.4  + v2.1.0  )"""
         try:
+            # ── Phase 6: 급등 코인 변수 ──────────────────────────────
+            surge_info  = getattr(self, "_surge_cache", {}).get(market, {})
+            is_surge    = surge_info.get("is_surge", False) and surge_info.get("score", 0) >= 0.6
+            surge_grade = surge_info.get("grade", "")
+            surge_score = surge_info.get("score", 0.0)
+            
             # 1. ATR 변동성 필터 (v2.1.0)
-            # 1. ATR 변동성 필터 (v2.1.0) - 자동 계산 추가
             if 'atr' in df.columns and df['atr'].iloc[-1] is not None and df['atr'].iloc[-1] > 0:
                 atr = df['atr'].iloc[-1]
             else:
@@ -600,14 +602,17 @@ class EngineBuyMixin:
             
             price = df['close'].iloc[-1]
             volatility = (atr / price) * 100 if price > 0 else 0
-            
-            if volatility < 0.5 or volatility > 5.0:  # 🔧 v2.1.0 완화: 최소값 1.0→0.5 (정상 시장 대응)
-                logger.debug(f"{market} ATR  : {volatility:.2f}%")
-                logger.debug(f"{market}  : unknown")  # 🔍 TRACE
+            # ── ATR 필터: 급등 코인 우회 ─────────────────────────
+            if volatility < 0.5 or volatility > 5.0:
+                if is_surge:
+                    logger.debug(
+                        f"[Surge] {market} ATR 우회 | "
+                        f"vol={volatility:.2f}% grade={surge_grade} score={surge_score:.3f}"
+                    )
+                else:
+                    logger.debug(f"{market} ATR 필터: {volatility:.2f}%")
+                    return None
 
-                logger.debug(f"{market}  : unknown")  # 🔍 TRACE
-
-                return None
             
             # 2. VolumeProfile RR 필터 (v2.1.0)
             # 2. VolumeProfile RR 필터 (v2.1.0)
