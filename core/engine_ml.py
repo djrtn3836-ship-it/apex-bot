@@ -85,8 +85,6 @@ class EngineMLMixin:
                     f"코인당 {elapsed/len(results):.1f}ms"
                 )
                 try:
-                    from monitoring.dashboard import dashboard_state
-                    from datetime import datetime
                     if "ml_predictions" not in dashboard_state.signals:
                         dashboard_state.signals["ml_predictions"] = {}
                     for mkt, res in results.items():
@@ -277,4 +275,3 @@ class EngineMLMixin:
                 logger.info("[AutoTrainer]      ")
         except Exception as e:
             logger.error(f"[AutoTrainer] : {e}")
-

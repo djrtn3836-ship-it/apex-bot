@@ -122,7 +122,6 @@ class EngineCycleMixin:
 
         price_tasks = [self.adapter.get_current_price(m) for m in markets]
 
-        # [FIX-SL] 보유 포지션 종목 가격 업데이트 보장
         _held_markets = list(self.portfolio.open_positions.keys())
         _missing = [m for m in _held_markets if m not in markets]
         if _missing:
@@ -189,41 +188,10 @@ class EngineCycleMixin:
             self._ml_batch_cache = {}
 
         # ===== v2.1.0 시그널 평가 (ML 배치 캐시 기반) =====
-        # [BUG3] if self._ml_batch_cache:
-            # [BUG3] logger.debug(f"    ({len(self._ml_batch_cache)}개 코인)")
-            # [BUG3] for market, ml_pred in self._ml_batch_cache.items():
-                # [BUG3] try:
-                    # [BUG3] if self.portfolio.is_position_open(market):
-                        # [BUG3] logger.debug(f"{market}    - ")
-                        # [BUG3] continue
-                    # [BUG3] df = self.cache_manager.get_ohlcv(market)
-                    # [BUG3] if df is None or len(df) < 60:
-                        # [BUG3] logger.debug(f"{market}   ({len(df) if df is not None else 0}개)")
-                        # [BUG3] continue
-                    # [BUG3] ml_score = ml_pred.get('confidence', 0)
-                    # [BUG3] ml_signal = ml_pred.get('signal', 'UNKNOWN')
-                    # [BUG3] logger.debug(f"{market} ML={ml_score:.3f} ={ml_signal}")
-                    # [BUG3] if ml_score >= 0.62:
-                        # [BUG3] logger.info(f" {market}    (ML={ml_score:.3f})")
-                        # [BUG3] signal = await self._evaluate_entry_signals(market, df, ml_score)
-                        # [BUG3] if signal and signal.get('action') == 'BUY':
-                            # [BUG3] logger.info(f" {market}   ! ML={ml_score:.3f}")
-                            # [BUG3] await self._execute_buy(market, signal, df)
-                        # [BUG3] elif signal is None:
-                            # [BUG3] logger.debug(f"{market}  ")
-                    # [BUG3] else:
-                        # [BUG3] logger.debug(f"{market} ML   ({ml_score:.3f})")
-                # [BUG3] except Exception as e:
-                    # [BUG3] logger.error(f"{market}   : {e}", exc_info=True)
-        # [BUG3] else:
-            # [BUG3] logger.debug("ML   -   ")
         # ===============================
 
 
-
-
         logger.debug(f" [v2.1.0] ML  : {len(self._ml_batch_cache)} | 내용: {list(self._ml_batch_cache.keys()) if self._ml_batch_cache else 'EMPTY'}")
-
 
 
         new_entry_markets = [
@@ -292,7 +260,6 @@ class EngineCycleMixin:
     # ── 시간기반 강제청산 ────────────────────────────────────────
 
     async def _check_time_based_exits(self) -> None:
-        import datetime
         now     = datetime.datetime.now()
         markets = list(self.portfolio.open_positions.keys())
 
@@ -577,7 +544,6 @@ class EngineCycleMixin:
             _held_min = 0
             if _pos_et:
                 try:
-                    import datetime as _dt_hold
                     if isinstance(_pos_et, str):
                         _et = _dt_hold.datetime.fromisoformat(_pos_et)
                     elif isinstance(_pos_et, (int, float)):

@@ -119,7 +119,6 @@ class EngineScheduleMixin:
 
     async def _scheduled_position_summary(self):
         try:
-            from datetime import datetime
             from monitoring.dashboard import dashboard_state
             positions = list(self.portfolio._positions.values())
             if not positions:
@@ -295,7 +294,6 @@ class EngineScheduleMixin:
         if self._ml_predictor:
             logger.info(" ML   ...")
             try:
-                from datetime import datetime
                 await self.db_manager.save_model_metrics({
                     "timestamp":  datetime.now().isoformat(),
                     "model_name": "ensemble",
@@ -395,7 +393,6 @@ class EngineScheduleMixin:
             await self.kimchi_monitor.fetch_all()
             summary = self.kimchi_monitor.get_summary()
             try:
-                from monitoring.dashboard import dashboard_state
                 premium_val = (
                     summary.get("premium_pct")
                     if isinstance(summary, dict)
@@ -473,36 +470,13 @@ class EngineScheduleMixin:
                     )
                     
                     # ===== 시그널 평가 및 진입 로직 (v2.1.0) =====
-                    # [BUG3] try:
-                        # [BUG3] for market in self.target_markets:
-                            # [BUG3] try:
                                 # 데이터 가져오기
-                                # [BUG3] df = self.data_manager.get_market_data(market) if hasattr(self, 'data_manager') else None
-                                # [BUG3] if df is None or len(df) == 0:
-                                    # [BUG3] continue
                                 
                                 # ML 점수 가져오기 (캐시 또는 새로 계산)
-                                # [BUG3] ml_score = 0
-                                # [BUG3] if hasattr(self, 'ml_predictor') and self.ml_predictor:
-                                    # [BUG3] try:
-                                        # [BUG3] prediction = await self.ml_predictor.predict(market, df)
-                                        # [BUG3] ml_score = prediction.get('score', 0) if prediction else 0
-                                    # [BUG3] except Exception as e:
-                                        # [BUG3] logger.debug(f"{market} ML  : {e}")
-                                        # [BUG3] continue
                                 
                                 # 시그널 평가
-                                # [BUG3] if ml_score >= 0.62:  # [FIX] 임계값 0.62 통일
-                                    # [BUG3] signal = await self._evaluate_entry_signals(market, df, ml_score)
-                                    # [BUG3] if signal and signal.get('action') == 'BUY':
-                                        # [BUG3] logger.info(f" {market}   ")
-                                        # [BUG3] await self._execute_buy(market, signal, df)
                             
-                            # [BUG3] except Exception as e:
-                                # [BUG3] logger.error(f"{market}   : {e}")
                     
-                    # [BUG3] except Exception as e:
-                        # [BUG3] logger.error(f"   : {e}")
                     # =================================================
 
                     await asyncio.sleep(delay)
@@ -520,7 +494,6 @@ class EngineScheduleMixin:
     # ── 대시보드 상태 업데이트 ───────────────────────────────────
 
     async def _update_dashboard_state(self, krw: float, total_value: float):
-        from monitoring.dashboard import dashboard_state
         try:
             stats     = self.portfolio.get_statistics()
             daily_pnl = self.portfolio.get_daily_pnl(total_value)
@@ -662,7 +635,6 @@ class EngineScheduleMixin:
             logger.debug(f"  : {_e}")
 
 
-
     def _get_hold_hours(self, market: str) -> float:
         """포지션 보유 시간(시간)을 반환."""
         try:
@@ -671,13 +643,10 @@ class EngineScheduleMixin:
             if entry_time is None:
                 return 0.0
             if isinstance(entry_time, str):
-                from datetime import datetime as _dt
                 entry_time = _dt.fromisoformat(entry_time)
             elif isinstance(entry_time, (int, float)):
-                from datetime import datetime as _dt
                 ts = entry_time / 1000 if entry_time > 1e10 else entry_time
                 entry_time = _dt.fromtimestamp(ts)
-            from datetime import datetime as _dt2
             return (_dt2.now() - entry_time).total_seconds() / 3600
         except Exception:
             return 0.0

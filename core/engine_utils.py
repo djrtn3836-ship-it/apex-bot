@@ -113,7 +113,6 @@ def calc_exit_plan(entry_price: float, atr: float, position_krw: float) -> dict:
     }
 
 
-
 def _find_free_port(start_port: int = 8888) -> int:
     import socket as _s
     port = start_port

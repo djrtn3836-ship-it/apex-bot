@@ -147,12 +147,10 @@ class EngineDBMixin:
                 logger.info("    ( )")
 
             try:
-                from datetime import datetime as _dt_cls
                 _today_str      = _dt_cls.now().strftime("%Y-%m-%d")
                 _bear_count_key = f"_bear_rev_count_{_today_str}"
                 _bear_today     = 0
                 try:
-                    import aiosqlite as _aio2
                     async with _aio2.connect(
                         str(self.db_manager.db_path)
                     ) as _db2:
@@ -300,14 +298,12 @@ class EngineDBMixin:
     def _save_cooldown_to_db(self):
 
         # 만료된 sell_cooldown 자동 정리 (20분 초과)
-        from datetime import datetime as _dt_clean
         now_clean = _dt_clean.now()
         self._sell_cooldown = {
             k: v for k, v in self._sell_cooldown.items()
             if (now_clean - v).total_seconds() < 1200
         }
         """sell cooldown 데이터를 DB bot_state에 저장."""
-        import json, sqlite3 as _sq
         try:
             db_file = "database/apex_bot.db"
             data = {k: v.isoformat() for k, v in self._sell_cooldown.items()
@@ -324,4 +320,3 @@ class EngineDBMixin:
             conn.close()
         except Exception as e:
             print(f"  [COOLDOWN-SAVE ERR] {e}")
-

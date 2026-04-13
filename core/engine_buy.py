@@ -651,7 +651,6 @@ class EngineBuyMixin:
             return None
 
 
-
     async def _execute_buy(self, market: str, signal: CombinedSignal, df):
         _max_pos = self.settings.trading.max_positions
         # [중복제거됨]
@@ -660,7 +659,6 @@ class EngineBuyMixin:
         # (datetime.now() - _cd_last).total_seconds() < 1200):
         # _cd_remain = 1200 - (datetime.now() - _cd_last).total_seconds()
         # logger.info(f'[COOLDOWN] {market}: 매도 후 {_cd_remain:.0f}초 남음 → BUY 차단')
-        # [FIX-CD] 매도 후 10분 쿨다운 체크
         _cd_last = self._sell_cooldown.get(market)
         if (_cd_last is not None and
                 (datetime.now() - _cd_last).total_seconds() < 1200):
@@ -695,7 +693,6 @@ class EngineBuyMixin:
         # [FIX A-2] Sell Cooldown 체크 (10분 재매수 방지)
         if not hasattr(self, "_sell_cooldown"):
             self._sell_cooldown = {}
-        # [FIX-CD] datetime 기반 쿨다운 체크
         _cd_val = self._sell_cooldown.get(market)
         if _cd_val is not None:
             if isinstance(_cd_val, (int, float)):
@@ -709,7 +706,6 @@ class EngineBuyMixin:
                 )
                 self._buying_markets.discard(market)
                 return
-            # [FIX-BUG1] 쿨다운 만료 후 매수 허용
 
         _symbol    = market.replace("KRW-", "")
         _can_buy, _buy_note = self._wallet.can_buy(_symbol)
@@ -732,7 +728,6 @@ class EngineBuyMixin:
             signal, "contributing_strategies", []
         )
         if not _is_bear_rev_signal:
-            # [FIX-BUG5] FGI 조정 제거 - 고정 임계값 0.62 사용
             if getattr(signal, 'confidence', 0) < self.settings.risk.buy_signal_threshold:
                 logger.debug(
                     f"    ({market}): "

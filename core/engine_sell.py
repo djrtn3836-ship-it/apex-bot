@@ -112,7 +112,6 @@ class EngineSellMixin:
                 )
 
             try:
-                import datetime as _dt
                 _strat = (
                     getattr(
                         self.portfolio.get_position(market), "strategy", "unknown"
@@ -215,7 +214,6 @@ class EngineSellMixin:
 
             try:
                 import asyncio as _asyncio
-                import datetime as _dt
                 _trade = {
                     "timestamp":   _dt.datetime.now().isoformat(),
                     "market":      market,
@@ -254,7 +252,6 @@ class EngineSellMixin:
 
             try:
                 if self.ppo_online_trainer is not None:
-                    import datetime as _ppo_dt
                     _pos_ref = pos
                     _etime   = (
                         getattr(_pos_ref, "entry_time",  None)
@@ -297,7 +294,6 @@ class EngineSellMixin:
             if "손절" in reason or "stop" in reason.lower() or "트레일링" in reason or "ATR" in reason:
                 if not hasattr(self, "_sl_cooldown"):
                     self._sl_cooldown = {}
-                import datetime as _dt
                 self._sl_cooldown[market] = (
                     _dt.datetime.now() + _dt.timedelta(hours=4)
                 )
