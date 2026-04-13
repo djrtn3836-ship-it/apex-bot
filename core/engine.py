@@ -665,34 +665,34 @@ class TradingEngine:
             self._ml_batch_cache = {}
 
         # ===== v2.1.0 시그널 평가 (ML 배치 캐시 기반) =====
-        if self._ml_batch_cache:
-            logger.debug(f"    ({len(self._ml_batch_cache)}개 코인)")
-            for market, ml_pred in self._ml_batch_cache.items():
-                try:
-                    if self.portfolio.is_position_open(market):
-                        logger.debug(f"{market}    - ")
-                        continue
-                    df = self.cache_manager.get_ohlcv(market)
-                    if df is None or len(df) < 60:
-                        logger.debug(f"{market}   ({len(df) if df is not None else 0}개)")
-                        continue
-                    ml_score = ml_pred.get('confidence', 0)
-                    ml_signal = ml_pred.get('signal', 'UNKNOWN')
-                    logger.debug(f"{market} ML={ml_score:.3f} ={ml_signal}")
-                    if ml_score >= 0.62:
-                        logger.info(f" {market}    (ML={ml_score:.3f})")
-                        signal = await self._evaluate_entry_signals(market, df, ml_score)
-                        if signal and signal.get('action') == 'BUY':
-                            logger.info(f" {market}   ! ML={ml_score:.3f}")
-                            await self._execute_buy(market, signal, df)
-                        elif signal is None:
-                            logger.debug(f"{market}  ")
-                    else:
-                        logger.debug(f"{market} ML   ({ml_score:.3f})")
-                except Exception as e:
-                    logger.error(f"{market}   : {e}", exc_info=True)
-        else:
-            logger.debug("ML   -   ")
+        # [BUG3] if self._ml_batch_cache:
+            # [BUG3] logger.debug(f"    ({len(self._ml_batch_cache)}개 코인)")
+            # [BUG3] for market, ml_pred in self._ml_batch_cache.items():
+                # [BUG3] try:
+                    # [BUG3] if self.portfolio.is_position_open(market):
+                        # [BUG3] logger.debug(f"{market}    - ")
+                        # [BUG3] continue
+                    # [BUG3] df = self.cache_manager.get_ohlcv(market)
+                    # [BUG3] if df is None or len(df) < 60:
+                        # [BUG3] logger.debug(f"{market}   ({len(df) if df is not None else 0}개)")
+                        # [BUG3] continue
+                    # [BUG3] ml_score = ml_pred.get('confidence', 0)
+                    # [BUG3] ml_signal = ml_pred.get('signal', 'UNKNOWN')
+                    # [BUG3] logger.debug(f"{market} ML={ml_score:.3f} ={ml_signal}")
+                    # [BUG3] if ml_score >= 0.62:
+                        # [BUG3] logger.info(f" {market}    (ML={ml_score:.3f})")
+                        # [BUG3] signal = await self._evaluate_entry_signals(market, df, ml_score)
+                        # [BUG3] if signal and signal.get('action') == 'BUY':
+                            # [BUG3] logger.info(f" {market}   ! ML={ml_score:.3f}")
+                            # [BUG3] await self._execute_buy(market, signal, df)
+                        # [BUG3] elif signal is None:
+                            # [BUG3] logger.debug(f"{market}  ")
+                    # [BUG3] else:
+                        # [BUG3] logger.debug(f"{market} ML   ({ml_score:.3f})")
+                # [BUG3] except Exception as e:
+                    # [BUG3] logger.error(f"{market}   : {e}", exc_info=True)
+        # [BUG3] else:
+            # [BUG3] logger.debug("ML   -   ")
         # ===============================
 
 
@@ -3686,36 +3686,36 @@ class TradingEngine:
                     )
                     
                     # ===== 시그널 평가 및 진입 로직 (v2.1.0) =====
-                    try:
-                        for market in self.target_markets:
-                            try:
+                    # [BUG3] try:
+                        # [BUG3] for market in self.target_markets:
+                            # [BUG3] try:
                                 # 데이터 가져오기
-                                df = self.data_manager.get_market_data(market) if hasattr(self, 'data_manager') else None
-                                if df is None or len(df) == 0:
-                                    continue
+                                # [BUG3] df = self.data_manager.get_market_data(market) if hasattr(self, 'data_manager') else None
+                                # [BUG3] if df is None or len(df) == 0:
+                                    # [BUG3] continue
                                 
                                 # ML 점수 가져오기 (캐시 또는 새로 계산)
-                                ml_score = 0
-                                if hasattr(self, 'ml_predictor') and self.ml_predictor:
-                                    try:
-                                        prediction = await self.ml_predictor.predict(market, df)
-                                        ml_score = prediction.get('score', 0) if prediction else 0
-                                    except Exception as e:
-                                        logger.debug(f"{market} ML  : {e}")
-                                        continue
+                                # [BUG3] ml_score = 0
+                                # [BUG3] if hasattr(self, 'ml_predictor') and self.ml_predictor:
+                                    # [BUG3] try:
+                                        # [BUG3] prediction = await self.ml_predictor.predict(market, df)
+                                        # [BUG3] ml_score = prediction.get('score', 0) if prediction else 0
+                                    # [BUG3] except Exception as e:
+                                        # [BUG3] logger.debug(f"{market} ML  : {e}")
+                                        # [BUG3] continue
                                 
                                 # 시그널 평가
-                                if ml_score >= 0.62:  # [FIX] 임계값 0.62 통일
-                                    signal = await self._evaluate_entry_signals(market, df, ml_score)
-                                    if signal and signal.get('action') == 'BUY':
-                                        logger.info(f" {market}   ")
-                                        await self._execute_buy(market, signal, df)
+                                # [BUG3] if ml_score >= 0.62:  # [FIX] 임계값 0.62 통일
+                                    # [BUG3] signal = await self._evaluate_entry_signals(market, df, ml_score)
+                                    # [BUG3] if signal and signal.get('action') == 'BUY':
+                                        # [BUG3] logger.info(f" {market}   ")
+                                        # [BUG3] await self._execute_buy(market, signal, df)
                             
-                            except Exception as e:
-                                logger.error(f"{market}   : {e}")
+                            # [BUG3] except Exception as e:
+                                # [BUG3] logger.error(f"{market}   : {e}")
                     
-                    except Exception as e:
-                        logger.error(f"   : {e}")
+                    # [BUG3] except Exception as e:
+                        # [BUG3] logger.error(f"   : {e}")
                     # =================================================
 
                     await asyncio.sleep(delay)
