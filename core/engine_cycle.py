@@ -734,47 +734,108 @@ class EngineCycleMixin:
 
 
     async def _check_surge(self, market: str, cfg: dict) -> dict:
+        """
+        급등 감지 v2.1.0 - 전문 퀀트 수준
+        타임프레임: 1분봉(진입) + 5분봉(맥락/BTC역행) + 15분봉(매집)
+        실시간: ticks(체결강도) + orderbook(OBI)
+        """
         try:
-            df = await self.rest_collector.get_ohlcv(market, "minute1", 25)
-            if df is None or len(df) < 10:
+            from core.surge_detector import SurgeDetector
+            if not hasattr(self, "_surge_detector"):
+                self._surge_detector = SurgeDetector()
+
+            # 1분봉 (거래량 폭발, 전고점 돌파) - 80개
+            df_1m = await self.rest_collector.get_ohlcv(market, "minutes/1", 80)
+            if df_1m is None or len(df_1m) < 20:
                 return {"is_surge": False}
 
-            recent_vol    = float(df["volume"].iloc[-1])
-            recent_price  = float(df["close"].iloc[-1])
-            recent_amount = recent_vol * recent_price
+            # 5분봉 (BTC역행, 모멘텀) - 60개
+            df_5m = None
+            try:
+                df_5m = await self.rest_collector.get_ohlcv(market, "minutes/5", 60)
+            except Exception:
+                pass
 
-            if recent_amount < cfg["min_trade_amount"]:
-                return {"is_surge": False}
+            # 15분봉 (세력 매집) - 40개
+            df_15m = None
+            try:
+                df_15m = await self.rest_collector.get_ohlcv(market, "minutes/15", 40)
+            except Exception:
+                pass
 
-            avg_vol = float(df["volume"].iloc[-21:-1].mean())
-            if avg_vol <= 0:
-                return {"is_surge": False}
+            # BTC 5분봉 (역행 강도 분석)
+            btc_df_5m = None
+            if market != "KRW-BTC":
+                try:
+                    btc_df_5m = await self.rest_collector.get_ohlcv(
+                        "KRW-BTC", "minutes/5", 30
+                    )
+                except Exception:
+                    pass
 
-            vol_ratio     = recent_vol / avg_vol
-            price_5m_ago  = float(df["close"].iloc[-6])
-            price_change  = (recent_price - price_5m_ago) / price_5m_ago
+            # 체결 내역 (체결 강도)
+            ticks = None
+            try:
+                import aiohttp
+                async with aiohttp.ClientSession() as session:
+                    async with session.get(
+                        "https://api.upbit.com/v1/trades/ticks",
+                        params={"market": market, "count": 100},
+                        timeout=aiohttp.ClientTimeout(total=2),
+                    ) as r:
+                        if r.status == 200:
+                            ticks = await r.json()
+            except Exception:
+                pass
 
-            is_surge = (
-                vol_ratio    >= cfg["vol_surge_ratio"]
-                and price_change >= cfg["price_change_min"]
+            # 오더북
+            orderbook = None
+            try:
+                orderbook = self.cache_manager.get_orderbook(market)
+            except Exception:
+                pass
+
+            # ticker (52주 고점)
+            ticker = None
+            try:
+                ticker = self._market_prices_meta.get(market) if hasattr(self, "_market_prices_meta") else None
+            except Exception:
+                pass
+
+            # 급등 분석 실행
+            result = self._surge_detector.analyze(
+                market=market,
+                df_1m=df_1m,
+                df_5m=df_5m,
+                df_15m=df_15m,
+                ticks=ticks,
+                orderbook=orderbook,
+                btc_df_5m=btc_df_5m,
+                ticker=ticker,
             )
-            if not is_surge:
-                return {"is_surge": False}
 
-            score = vol_ratio * (price_change * 100)
-            return {
-                "is_surge":     True,
-                "market":       market,
-                "vol_ratio":    vol_ratio,
-                "price_change": price_change,
-                "trade_amount": recent_amount,
-                "score":        score,
-                "price":        recent_price,
-            }
-        except Exception:
+            if result.is_surge:
+                return {
+                    "is_surge":       True,
+                    "market":         market,
+                    "score":          result.score,
+                    "grade":          result.grade,
+                    "vol_ratio":      result.vol_ratio,
+                    "price_change":   result.price_change_1m,
+                    "price_change_5m": result.price_change_5m,
+                    "breakout_pct":   result.breakout_pct,
+                    "ob_pressure":    result.ob_pressure,
+                    "obi":            result.obi,
+                    "taker_ratio":    result.taker_buy_ratio,
+                    "mtf_aligned":    result.mtf_aligned,
+                    "pump_dump":      result.pump_dump_flag,
+                    "reason":         result.reason,
+                }
             return {"is_surge": False}
 
-
+        except Exception as e:
+            logger.debug(f"[_check_surge] {market}: {e}")
+            return {"is_surge": False}
     async def _get_active_markets(self) -> list:
         fixed   = list(self.markets) if hasattr(self, "markets") else []
         dynamic = [m for m in self._dynamic_markets if m not in fixed]

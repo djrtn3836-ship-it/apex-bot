@@ -15,6 +15,7 @@ from __future__ import annotations
 from typing import Optional
 from loguru import logger
 from core.engine_utils import _floor_vol, calc_position_size, calc_exit_plan
+from core.surge_detector import SurgeDetector, SurgeResult
 
 
 class EngineBuyMixin:
