@@ -16,6 +16,7 @@ from datetime import datetime
 from execution.executor import OrderExecutor, ExecutionRequest, OrderSide
 from utils.logger import setup_logger, log_trade, log_signal, log_risk
 from signals.filters.regime_detector import RegimeDetector, MarketRegime
+from core.market_regime import GlobalMarketRegimeDetector, GlobalRegime
 import asyncio
 from typing import Optional
 from loguru import logger
@@ -553,6 +554,34 @@ class EngineBuyMixin:
     # ── ML / PPO 예측 ────────────────────────────────────────────
 
     async def _evaluate_entry_signals(self, market: str, df, ml_score: float):
+        # ── 글로벌 레짐 체크 ────────────────────────────────────
+        global_regime = getattr(self, "_global_regime", GlobalRegime.UNKNOWN)
+        policy = self.global_regime_detector.get_policy(global_regime)
+
+        # 급등 여부 확인
+        surge_info = getattr(self, "_surge_cache", {}).get(market, {})
+        is_surge = surge_info.get("is_surge", False) and surge_info.get("score", 0) >= 0.6
+
+        # 일반 매수 차단 (BEAR/BEAR_WATCH)
+        if not policy["allow_normal_buy"] and not is_surge:
+            logger.debug(
+                f"[GlobalRegime] {market} 매수 차단 | "
+                f"레짐={global_regime.value} | 급등아님"
+            )
+            return None
+
+        # 급등도 차단 (UNKNOWN)
+        if not policy["allow_surge_buy"]:
+            return None
+
+        # ML 임계값 레짐별 동적 조정
+        effective_ml_score = policy["min_ml_score"]
+        if ml_score < effective_ml_score:
+            logger.debug(
+                f"[GlobalRegime] {market} ML점수 미달 | "
+                f"{ml_score:.3f} < {effective_ml_score:.3f} ({global_regime.value})"
+            )
+            return None
         """(v2.0.4  + v2.1.0  )"""
         try:
             # 1. ATR 변동성 필터 (v2.1.0)

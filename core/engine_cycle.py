@@ -25,6 +25,7 @@ import time
 from datetime import datetime
 from utils.helpers import now_kst, Timer
 from core.state_machine import BotState
+from core.market_regime import GlobalMarketRegimeDetector, GlobalRegime
 import asyncio
 from typing import Optional
 from loguru import logger
@@ -199,6 +200,19 @@ class EngineCycleMixin:
         logger.debug(f" [v2.1.0] ML  : {len(self._ml_batch_cache)} | 내용: {list(self._ml_batch_cache.keys()) if self._ml_batch_cache else 'EMPTY'}")
 
 
+        # ── 글로벌 마켓 레짐 감지 ────────────────────────────
+        try:
+            btc_df_regime = self.cache_manager.get_candles("KRW-BTC", "1h")
+            if btc_df_regime is None or len(btc_df_regime) < 50:
+                btc_df_regime = self.cache_manager.get_candles("KRW-BTC", "1d")
+            if btc_df_regime is not None and len(btc_df_regime) >= 50:
+                self._global_regime = self.global_regime_detector.detect(btc_df_regime)
+            else:
+                self._global_regime = getattr(self, "_global_regime", GlobalRegime.UNKNOWN)
+        except Exception as _regime_e:
+            logger.debug(f"GlobalRegime 감지 실패: {_regime_e}")
+            self._global_regime = getattr(self, "_global_regime", GlobalRegime.UNKNOWN)
+        
         new_entry_markets = [
             m for m in markets if not self.portfolio.is_position_open(m)
         ]
@@ -265,7 +279,7 @@ class EngineCycleMixin:
     # ── 시간기반 강제청산 ────────────────────────────────────────
 
     async def _check_time_based_exits(self) -> None:
-        now     = datetime.datetime.now()
+        now     = datetime.now()
         markets = list(self.portfolio.open_positions.keys())
 
         for market in markets:
@@ -284,12 +298,12 @@ class EngineCycleMixin:
                     continue
                 if isinstance(entry_time, str):
                     try:
-                        entry_time = datetime.datetime.fromisoformat(entry_time)
+                        entry_time = datetime.fromisoformat(entry_time)
                     except Exception:
                         continue
 
                 elif isinstance(entry_time, float):
-                    entry_time = datetime.datetime.fromtimestamp(entry_time)
+                    entry_time = datetime.fromtimestamp(entry_time)
                 held_hours  = (now - entry_time).total_seconds() / 3600
                 profit_rate = (current_price - pos.entry_price) / pos.entry_price
 

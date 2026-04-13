@@ -31,6 +31,7 @@ from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from config.settings import get_settings
 from core.event_bus import EventBus, EventType
 from core.state_machine import BotState, StateMachine
+from core.market_regime import GlobalMarketRegimeDetector, GlobalRegime
 from core.portfolio_manager import PortfolioManager
 from data.collectors.ws_collector import WebSocketCollector
 from data.collectors.rest_collector import RestCollector
@@ -133,6 +134,8 @@ class TradingEngine(
     각 Mixin은 self를 통해 공유 상태에 접근합니다.
     """
 
+    VERSION = "3.0.0"
+
     def __init__(self):
         self.settings = get_settings()
 
@@ -140,6 +143,7 @@ class TradingEngine(
         self.event_bus       = EventBus()
         self.portfolio       = PortfolioManager()
         self.regime_detector = RegimeDetector()
+        self.global_regime_detector = GlobalMarketRegimeDetector()
         self.signal_combiner = SignalCombiner(self.settings)
 
         self.ws_collector      = None
