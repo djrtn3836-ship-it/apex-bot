@@ -3036,13 +3036,13 @@ class TradingEngine:
                         volume=_volume,
                         amount_krw=_amount_krw,
                         strategy=_strategy,
-                        stop_loss=_price * 0.97,
+                        stop_loss=_price * 0.985,  # [FIX-SL] -3%→-1.5%
                         take_profit=_price * 1.05,
                     )
                     self.trailing_stop.add_position(
                         market=mkt,
                         entry_price=_price,
-                        initial_stop=_price * 0.97,
+                        initial_stop=_price * 0.985,  # [FIX-SL] -3%→-1.5%
                         atr=0.0,
                     )
 
@@ -3054,7 +3054,7 @@ class TradingEngine:
                                 entry_price=_price,
                                 volume=_volume,
                                 amount_krw=_amount_krw,
-                                stop_loss=_price * 0.97,
+                                stop_loss=_price * 0.985,  # [FIX-SL] -3%→-1.5%
                                 take_profit=_price * 1.05,
                                 strategy=_strategy,
                             )
@@ -3894,6 +3894,14 @@ class TradingEngine:
         return result
 
     def _save_cooldown_to_db(self):
+
+        # 만료된 sell_cooldown 자동 정리 (20분 초과)
+        from datetime import datetime as _dt_clean
+        now_clean = _dt_clean.now()
+        self._sell_cooldown = {
+            k: v for k, v in self._sell_cooldown.items()
+            if (now_clean - v).total_seconds() < 1200
+        }
         """sell cooldown 데이터를 DB bot_state에 저장."""
         import json, sqlite3 as _sq
         try:

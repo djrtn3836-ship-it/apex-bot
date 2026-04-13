@@ -241,6 +241,12 @@ class DatabaseManager:
                     )
                 )
                 await self._conn.commit()
+
+                # signal_log 7일 이상 자동 삭제
+                await self._conn.execute(
+                    "DELETE FROM signal_log WHERE timestamp < datetime('now', '-7 days')"
+                )
+                await self._conn.commit()
             return True
         except Exception as e:
             logger.error(f"   : {e}")
@@ -343,4 +349,3 @@ class DatabaseManager:
         except Exception as e:
             pass
         return 0.0
-
