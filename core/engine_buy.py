@@ -12,6 +12,25 @@ core/engine_buy.py
 ─────────────────────────────────────────────────────────────
 """
 from __future__ import annotations
+import time
+
+# [FIX] Upbit 수량 소수점 자리수 기본값 (동적 조회 실패 시 fallback)
+_UPBIT_VOL_PREC: dict = {}
+
+def _floor_vol(market: str, volume: float) -> float:
+    """Upbit 수량 소수점 자리수 처리 (전역 dict 불필요 버전)"""
+    # 코인별 소수점 자리수 기본값
+    _PREC_MAP = {
+        "KRW-BTC": 8, "KRW-ETH": 8, "KRW-XRP": 2,
+        "KRW-SOL": 4, "KRW-ADA": 2, "KRW-DOGE": 2,
+        "KRW-AVAX": 4, "KRW-DOT": 2, "KRW-LINK": 4,
+        "KRW-ATOM": 4,
+    }
+    prec = _PREC_MAP.get(market, 4)
+    factor = 10 ** prec
+    return int(volume * factor) / factor
+
+
 from datetime import datetime
 from execution.executor import OrderExecutor, ExecutionRequest, OrderSide
 from utils.logger import setup_logger, log_trade, log_signal, log_risk
@@ -30,6 +49,7 @@ class EngineBuyMixin:
     async def _analyze_market(self, market: str):
         # Dynamic ML threshold based on Fear & Greed Index (v2.0.4 fixed)
         fgi_idx = getattr(self.fear_greed, 'index', None) or 50
+        logger.info("[ANALYZE] %s 진입" % market)
         _base_buy  = self.settings.risk.buy_signal_threshold   # 0.35
         _base_sell = self.settings.risk.sell_signal_threshold  # 0.35
         if fgi_idx < 20:    # Extreme Fear -> lower threshold (easier to buy)
@@ -47,35 +67,55 @@ class EngineBuyMixin:
         from signals.signal_combiner import CombinedSignal, SignalType
 
         if self.portfolio.position_count >= self.settings.trading.max_positions:
+            logger.warning(f"[ANALYZE] {market} 최대포지션 차단 ({self.portfolio.position_count}/{self.settings.trading.max_positions})")
             return
         if self.portfolio.is_position_open(market):
+            logger.warning(f"[ANALYZE] {market} 이미포지션 보유 차단")
             return
 
         last_signal = self._last_signal_time.get(market, 0)
         _cooldown   = (
             60 if market in getattr(self, "_bear_reversal_markets", set())
-            else self._signal_cooldown
+            else 240  # [FIX] 쿨다운 240초 고정
         )
         if time.time() - last_signal < _cooldown:
+            logger.warning(f"[ANALYZE] {market} cooldown 차단 (남은={_cooldown - (time.time()-last_signal):.0f}s)")
             return
 
         try:
             open_pos         = list(self.portfolio.open_positions.keys())
             can_buy_corr, corr_reason = self.correlation_filter.can_buy(market, open_pos)
             if not can_buy_corr:
-                logger.debug(f"  ({market}): {corr_reason}")
+                logger.info(f"  ({market}): {corr_reason}")
                 return
 
+            logger.info(f"[ANALYZE] {market} corr통과 → kimchi 체크")
             can_buy_kimchi, kimchi_reason, premium = self.kimchi_monitor.can_buy(market)
             if not can_buy_kimchi:
-                logger.debug(
+                logger.info(
                     f"   ({market}): {kimchi_reason} "
                     f"[프리미엄 {premium:.1f}%]"
                 )
                 return
 
-            df_1h = await self.rest_collector.get_ohlcv(market, "minute60", 200)
+            logger.info(f"[ANALYZE] {market} kimchi통과 → df_1h 로드")
+            # NpyCache 우선 조회 → API fallback (Rate Limit 대응 v3.1)
+            df_1h = None
+            try:
+                df_1h = self.cache_manager.get_ohlcv(market, "1h")
+                if df_1h is not None and len(df_1h) >= 50:
+                    logger.info(f"[ANALYZE] {market} 캐시 로드 OK ({len(df_1h)}행)")
+            except Exception as _ce:
+                logger.info(f"[ANALYZE] {market} 캐시 조회 오류: {_ce}")
+                df_1h = None
             if df_1h is None or len(df_1h) < 50:
+                try:
+                    df_1h = await self.rest_collector.get_ohlcv(market, "minute60", 200)
+                except Exception as _ae:
+                    logger.info(f"[ANALYZE] {market} API 조회 오류: {_ae}")
+                    df_1h = None
+            if df_1h is None or len(df_1h) < 50:
+                logger.info(f"[ANALYZE] {market} df_1h 없음 (캐시+API 모두 실패)")
                 return
 
             try:
@@ -91,16 +131,16 @@ class EngineBuyMixin:
                     daily_df=df_1d, strategy=_strategy_hint
                 )
                 if not _trend["allowed"]:
-                    logger.debug(
+                    logger.info(
                         f"[TrendFilter]   ({market}): {_trend['reason']}"
                     )
                     return
-                logger.debug(
+                logger.info(
                     f"[TrendFilter] {market}: {_trend['reason']} "
                     f"(={_trend.get('regime', '?')})"
                 )
             except Exception as _te:
-                logger.debug(f"[TrendFilter]  ({market}): {_te}")
+                logger.info(f"[TrendFilter]  ({market}): {_te}")
 
             try:
                 _vp = self.volume_profile.analyze(df_1h)
@@ -112,7 +152,7 @@ class EngineBuyMixin:
                     _rr  = _vp_sr.get("risk_reward", 1.0)
                     _sup = _vp_sr.get("support",     0)
                     _res = _vp_sr.get("resistance",  0)
-                    if _rr < 0.5 and _sup > 0 and _res > 0:
+                    if _rr < -0.3 and _sup > 0 and _res > 0:
                         logger.info(
                             f"[VolumeProfile]   ({market}): "
                             f"RR={_rr:.2f} 저항={_res:,.0f} 지지={_sup:,.0f}"
@@ -124,10 +164,11 @@ class EngineBuyMixin:
                         f"VAH={_vp.vah:,.0f} VAL={_vp.val:,.0f} RR={_rr:.2f}"
                     )
             except Exception as _ve:
-                logger.debug(f"[VolumeProfile]  ({market}): {_ve}")
+                logger.info(f"[VolumeProfile]  ({market}): {_ve}")
 
             df_processed = await self.candle_processor.process(market, df_1h, "60")
             if df_processed is None:
+                logger.info(f'[ANALYZE] {market} df_processed=None (CandleProcessor 실패)')
                 return
 
             regime = self.regime_detector.detect(
@@ -136,6 +177,7 @@ class EngineBuyMixin:
             )
 
             if regime == MarketRegime.TRENDING_DOWN:
+                logger.info(f'[ANALYZE] {market} TRENDING_DOWN 차단 (regime={regime})')
                 return
             if regime == MarketRegime.BEAR_REVERSAL:
                 logger.info(
@@ -157,10 +199,10 @@ class EngineBuyMixin:
             _in_pyramid  = getattr(self, "_current_pyramid_market", None) == market
 
             if is_dumping and not _is_bear_rev and not _in_pyramid:
-                logger.debug(f"  ({market}): {dump_reason}")
+                logger.info(f"  ({market}): {dump_reason}")
                 return
             elif is_dumping and _is_bear_rev:
-                logger.debug(
+                logger.info(
                     f" BEAR_REVERSAL   ({market}): {dump_reason}"
                 )
 
@@ -182,7 +224,7 @@ class EngineBuyMixin:
                     # Disagreement: keep ML confidence unchanged (no penalty)
                     ml_pred["confidence"]    = ml_conf
                     ml_pred["ppo_agreement"] = False
-                logger.debug(
+                logger.info(
                     f"ML+PPO  ({market}): "
                     f"ML={ml_pred.get('signal','?')}({ml_conf:.2f}) | "
                     f"PPO={ppo_pred.get('action','?')}({ppo_conf:.2f}) | "
@@ -200,7 +242,7 @@ class EngineBuyMixin:
                 return
             if ml_pred and fg_adj.get("mode") == "suppressed":
                 if ml_pred.get("confidence", 0) < 0.35:
-                    logger.debug(
+                    logger.info(
                         f"  ({market}): "
                         f"지수={self.fear_greed.index} ({self.fear_greed.label})"
                     )
@@ -212,8 +254,15 @@ class EngineBuyMixin:
             combined = self.signal_combiner.combine(
                 signals, market, ml_pred, regime.value
             )
+            # [FIX] confidence 보정: ML confidence를 combined에 반영
+            if combined is not None and ml_pred is not None:
+                _ml_conf = ml_pred.get('confidence', 0.0)
+                if combined.confidence < _ml_conf:
+                    combined.confidence = _ml_conf
+                    logger.info(f'[ANALYZE] {market} confidence 보정: 0.0→{_ml_conf:.3f}')
 
             if combined is None:
+                logger.info(f'[ANALYZE] {market} combined=None → BEAR_REVERSAL 체크')
                 if self.portfolio.position_count >= self.settings.trading.max_positions:
                     return
                 if market in getattr(self, "_bear_reversal_markets", set()):
@@ -251,7 +300,7 @@ class EngineBuyMixin:
                         else:
                             del self._sl_cooldown[market]
                     _fg_idx = getattr(self.fear_greed, "index", 50)
-                    if _fg_idx > 20:
+                    if _fg_idx > 25:  # [FIX] 21→25 완화
                         logger.info(
                             f" BEAR_REVERSAL    ({market}): "
                             f"지수={_fg_idx} > 20 → 강제 BUY 차단"
@@ -273,13 +322,14 @@ class EngineBuyMixin:
                     )
 
             if combined is None:
+                logger.info(f'[ANALYZE] {market} combined=None (최종 신호 없음) 종료')
                 return
 
             if vol_confidence_adj > 0:
                 combined.confidence = min(
                     1.0, combined.confidence * (1 + vol_confidence_adj)
                 )
-                logger.debug(
+                logger.info(
                     f"   ({market}): "
                     f"+{vol_confidence_adj:.2%} 신뢰도 향상"
                 )
@@ -291,7 +341,7 @@ class EngineBuyMixin:
                     ob_signal  = ob_analyzer.analyze(market, ob_data)
                     can_buy_ob, ob_reason = ob_analyzer.can_buy(ob_signal)
                     if not can_buy_ob and combined.signal_type == SignalType.BUY:
-                        logger.debug(f"  ({market}): {ob_reason}")
+                        logger.info(f"  ({market}): {ob_reason}")
                         return
                     ob_adj = ob_analyzer.get_confidence_adjustment(
                         ob_signal, trade_side="BUY"
@@ -300,25 +350,25 @@ class EngineBuyMixin:
                         combined.confidence = min(
                             1.0, combined.confidence * (1 + ob_adj)
                         )
-                        logger.debug(
+                        logger.info(
                             f"  ({market}): {ob_adj:+.2%} "
                             f"→ 신뢰도={combined.confidence:.2f}"
                         )
                 except Exception as ob_e:
-                    logger.debug(f"   ({market}): {ob_e}")
+                    logger.info(f"   ({market}): {ob_e}")
             else:
-                logger.debug(f"   ({market}) → 통과")
+                logger.info(f"   ({market}) → 통과")
 
             can_buy_news, news_reason = self.news_analyzer.can_buy(market)
             if not can_buy_news and combined.signal_type == SignalType.BUY:
-                logger.debug(f"   ({market}): {news_reason}")
+                logger.info(f"   ({market}): {news_reason}")
                 return
 
             news_score, news_boost = self.news_analyzer.get_signal_boost(market)
             if abs(news_boost) > 0.3:
                 original_score = combined.score
                 combined.score = combined.score - news_boost
-                logger.debug(
+                logger.info(
                     f"   ({market}): "
                     f"{original_score:.2f} → {combined.score:.2f} "
                     f"(boost={news_boost:+.2f}, 감성={news_score:+.3f})"
@@ -399,17 +449,17 @@ class EngineBuyMixin:
                                     f"TF수={len(_tf_data)}개 | {_mtf_result.reason}"
                                 )
                             else:
-                                logger.debug(
+                                logger.info(
                                     f"MTF  ({market}): {_mtf_result.reason}"
                                 )
                         elif combined.signal_type == SignalType.SELL:
                             if _mtf_dir >= 1:
-                                logger.debug(
+                                logger.info(
                                     f"MTF SELL  ({market}): "
                                     f"상위TF 상승중 | {_mtf_result.reason}"
                                 )
                 except Exception as _mtf_e:
-                    logger.debug(f"MTF   ({market}): {_mtf_e}")
+                    logger.info(f"MTF   ({market}): {_mtf_e}")
 
             try:
                 await self.db_manager.log_signal({
@@ -422,7 +472,7 @@ class EngineBuyMixin:
                     "executed":    False,
                 })
             except Exception as _sig_e:
-                logger.debug(f"signal_log DB  : {_sig_e}")
+                logger.info(f"signal_log DB  : {_sig_e}")
 
             _is_bear_rev = market in getattr(self, "_bear_reversal_markets", set())
             if _is_bear_rev and combined.signal_type != SignalType.SELL:
@@ -463,18 +513,25 @@ class EngineBuyMixin:
                             f"거리={_ob_sig.dist_bullish_pct:.1f}%"
                         )
             except Exception as _ob_e:
-                logger.debug(f"   ({market}): {_ob_e}")
+                logger.info(f"   ({market}): {_ob_e}")
 
             if combined.signal_type == SignalType.BUY:
                 if market not in self.portfolio.open_positions:
                     await self._execute_buy(market, combined, df_processed)
-                    self._last_signal_time[market] = time.time()
+                    # [FIX] BUY 시 쿨다운 갱신 제거
+                    try:
+                        _sig_type_str = str(getattr(signal, 'signal_type', ''))
+                    except Exception:
+                        _sig_type_str = ''
+                    if 'BUY' not in _sig_type_str.upper():
+                        self._last_signal_time[market] = time.time()
                 else:
-                    logger.debug(
+                    logger.info(
                         f"   ({market}) → 중복 매수 스킵"
                     )
 
         except Exception as e:
+            logger.info(f'[ANALYZE] {market} 예외 발생: {e}')
             logger.error(f"   ({market}): {e}")
 
     # ── 전략 선택 / 실행 ────────────────────────────────────────
@@ -565,7 +622,7 @@ class EngineBuyMixin:
         surge_score = surge_info.get("score", 0.0)
         # 일반 매수 차단 (BEAR/BEAR_WATCH)
         if not policy["allow_normal_buy"] and not is_surge:
-            logger.debug(
+            logger.info(
                 f"[GlobalRegime] {market} 매수 차단 | "
                 f"레짐={global_regime.value} | 급등아님"
             )
@@ -578,7 +635,7 @@ class EngineBuyMixin:
         # ML 임계값 레짐별 동적 조정
         effective_ml_score = policy["min_ml_score"]
         if ml_score < effective_ml_score:
-            logger.debug(
+            logger.info(
                 f"[GlobalRegime] {market} ML점수 미달 | "
                 f"{ml_score:.3f} < {effective_ml_score:.3f} ({global_regime.value})"
             )
@@ -592,22 +649,22 @@ class EngineBuyMixin:
                 if 'high' in df.columns and 'low' in df.columns:
                     recent_range = (df['high'].iloc[-14:].mean() - df['low'].iloc[-14:].mean())
                     atr = recent_range
-                    logger.debug(f"{market} ATR   →  : {atr:.2f}")
+                    logger.info(f"{market} ATR   →  : {atr:.2f}")
                 else:
                     atr = df['close'].iloc[-1] * 0.02  # 폴백: 현재가의 2%
-                    logger.debug(f"{market} ATR :  2%")
+                    logger.info(f"{market} ATR :  2%")
             
             price = df['close'].iloc[-1]
             volatility = (atr / price) * 100 if price > 0 else 0
             # ── ATR 필터: 급등 코인 우회 ─────────────────────────
             if volatility < 0.5 or volatility > 5.0:
                 if is_surge:
-                    logger.debug(
+                    logger.info(
                         f"[Surge] {market} ATR 우회 | "
                         f"vol={volatility:.2f}% grade={surge_grade} score={surge_score:.3f}"
                     )
                 else:
-                    logger.debug(f"{market} ATR 필터: {volatility:.2f}%")
+                    logger.info(f"{market} ATR 필터: {volatility:.2f}%")
                     return None
 
             
@@ -619,19 +676,19 @@ class EngineBuyMixin:
                 else:
                     vp_rr = 999  # VolumeProfile 없으면 통과
             except Exception as e:
-                logger.debug(f'{market} VolumeProfile  : {e}')
+                logger.info(f'{market} VolumeProfile  : {e}')
                 vp_rr = 999  # 에러 시 통과
             if vp_rr < 0.0:  # disabled: was 0.8, too strict
-                logger.debug(f"{market} VolumeProfile RR : {vp_rr:.2f}")
-                logger.debug(f"{market}  : unknown")  # 🔍 TRACE
+                logger.info(f"{market} VolumeProfile RR : {vp_rr:.2f}")
+                logger.info(f"{market}  : unknown")  # 🔍 TRACE
                 return None
             
             # 3. Multi-Timeframe Confirmation (v2.1.0)
             if hasattr(self, 'mtf_confirmation'):
                 mtf_result = await self.mtf_confirmation.check(market, df)
                 if not mtf_result.get('aligned', False):
-                    logger.debug(f"{market} MTF ")
-                    logger.debug(f"{market}  : unknown")  # 🔍 TRACE
+                    logger.info(f"{market} MTF ")
+                    logger.info(f"{market}  : unknown")  # 🔍 TRACE
                     return None
             
             #            
@@ -661,7 +718,7 @@ class EngineBuyMixin:
             
         except Exception as e:
             logger.error(f"{market}   : {e}")
-            logger.debug(f"{market}  : unknown")  # 🔍 TRACE
+            logger.info(f"{market}  : unknown")  # 🔍 TRACE
             return None
 
 
@@ -693,12 +750,13 @@ class EngineBuyMixin:
             return
         self._buying_markets.add(market)
         # [FIX B] ML=SELL 신호이면 매수 차단
-        import time as _time_b
         _ml_pred_b = self._ml_predictions.get(market, {})
         if isinstance(_ml_pred_b, dict):
             _ml_sig_b  = _ml_pred_b.get("signal", "HOLD")
             _ml_conf_b = float(_ml_pred_b.get("confidence", 0))
-            if _ml_sig_b == "SELL" and _ml_conf_b >= 0.42:
+            _is_bear_rev_b = market in getattr(self, "_bear_reversal_markets", set())
+            if _ml_sig_b == "SELL" and _ml_conf_b >= 0.65 and not _is_bear_rev_b:
+                # [FIX] BEAR_REVERSAL 마켓 면제 + 신뢰도 기준 0.42→0.65 상향
                 logger.warning(
                     f"[ML-BLOCK] {market}: ML=SELL({_ml_conf_b:.2f}) → BUY 차단"
                 )
@@ -889,6 +947,7 @@ class EngineBuyMixin:
                 stop_loss=stop_loss,
                 take_profit=take_profit,
             )
+            self._last_signal_time[market] = time.time()  # [FIX] 체결 후 갱신
             self.trailing_stop.add_position(
                 market, result.executed_price, stop_loss, atr
             )

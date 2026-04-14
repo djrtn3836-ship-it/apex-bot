@@ -37,7 +37,7 @@ class CorrelationFilter:
     BTC_SPIKE_5MIN  = +0.030   # 5분 내 +3.0% → 매도 주의
 
     # 변동성 임계값 (ATR 대비 배수)
-    VOL_SPIKE_MULT  = 2.5      # 평균 변동성 × 2.5 초과 시 차단
+    VOL_SPIKE_MULT  = 3.5  # [FIX] 완화      # 평균 변동성 × 2.5 초과 시 차단
 
     # 차단 지속 시간
     BLOCK_DURATION_SHOCK = 30 * 60    # 급락 감지 후 30분 차단

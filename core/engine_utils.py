@@ -12,10 +12,18 @@ from __future__ import annotations
 import math, socket
 from typing import TYPE_CHECKING
 
-def _floor_vol(market: str, vol: float) -> float:
-    d = _UPBIT_VOL_PREC.get(market, 4)
-    f = 10 ** d
-    return _math.floor(vol * f) / f
+def _floor_vol(market: str, volume: float) -> float:
+    """Upbit 수량 소수점 처리 - 외부 dict 불필요 버전"""
+    _PREC_MAP = {
+        "KRW-BTC": 8, "KRW-ETH": 8, "KRW-XRP": 2,
+        "KRW-SOL": 4, "KRW-ADA": 2, "KRW-DOGE": 2,
+        "KRW-AVAX": 4, "KRW-DOT": 2, "KRW-LINK": 4,
+        "KRW-ATOM": 4,
+    }
+    prec = _PREC_MAP.get(market, 4)
+    factor = 10 ** prec
+    return int(volume * factor) / factor
+
 
 def _ceil_vol(market: str, vol: float) -> float:
     d = _UPBIT_VOL_PREC.get(market, 4)

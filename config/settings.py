@@ -58,7 +58,7 @@ class RiskConfig:
     total_drawdown_limit: float = 0.15
     monthly_loss_limit: float = 0.15
     consecutive_loss_limit: int = 5
-    buy_signal_threshold: float = 0.62
+    buy_signal_threshold: float = 0.45
     sell_signal_threshold: float = 0.55
     # Phase 8 추가
     regime_bear_max_positions: int = 0       # BEAR 레짐 최대 포지션

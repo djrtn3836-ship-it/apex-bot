@@ -114,8 +114,8 @@ class SignalCombiner:
 
     def __init__(self, settings=None):
         self.settings = settings or get_settings()
-        self.buy_threshold  = self.settings.risk.buy_signal_threshold
-        self.sell_threshold = self.settings.risk.sell_signal_threshold
+        self.buy_threshold  = min(self.settings.risk.buy_signal_threshold, 0.35)  # [FIX] 완화
+        self.sell_threshold = max(self.settings.risk.sell_signal_threshold, -0.35)  # [FIX] 완화
         self.min_agreement  = 0.20  # 단일 전략 신호도 허용
 
     # ── 신호 결합 ────────────────────────────────────────────────
@@ -167,6 +167,10 @@ class SignalCombiner:
             elif ml_signal == "SELL":
                 sell_score += ml_weight * ml_confidence
                 sell_strategies.append("ML_Ensemble")
+            elif ml_signal == "HOLD" and len(buy_strategies) >= 3:
+                # [FIX] ML=HOLD 이지만 전략 BUY 3개 이상 → 절반 가중치로 BUY 보정
+                buy_score += ml_weight * ml_confidence * 0.5
+                buy_strategies.append("ML_HOLD_BOOST")
 
         total_strategies = len(filtered_signals) + (1 if ml_signal else 0)
         net_score        = buy_score - sell_score
@@ -182,6 +186,8 @@ class SignalCombiner:
                     if s.signal == SignalType.BUY)
                 / max(n_buy, 1)
             )
+            if avg_confidence < 0.01 and ml_confidence > 0.0:
+                avg_confidence = ml_confidence  # ML confidence fallback (BUY)
             return CombinedSignal(
                 market=market,
                 signal_type=SignalType.BUY,
@@ -212,6 +218,8 @@ class SignalCombiner:
                     if s.signal == SignalType.SELL)
                 / max(n_sell, 1)
             )
+            if avg_confidence < 0.01 and ml_confidence > 0.0:
+                avg_confidence = ml_confidence  # ML confidence fallback (SELL)
             return CombinedSignal(
                 market=market,
                 signal_type=SignalType.SELL,
