@@ -559,7 +559,10 @@ class EngineBuyMixin:
         policy = self.global_regime_detector.get_policy(global_regime)
 
         # 급등 여부 확인
-
+        surge_info  = getattr(self, "_surge_cache", {}).get(market, {})
+        is_surge    = surge_info.get("is_surge", False) and surge_info.get("score", 0) >= 0.6
+        surge_grade = surge_info.get("grade", "")
+        surge_score = surge_info.get("score", 0.0)
         # 일반 매수 차단 (BEAR/BEAR_WATCH)
         if not policy["allow_normal_buy"] and not is_surge:
             logger.debug(
@@ -581,12 +584,6 @@ class EngineBuyMixin:
             )
             return None
         try:
-            # ── Phase 6: 급등 코인 변수 ──────────────────────────────
-            surge_info  = getattr(self, "_surge_cache", {}).get(market, {})
-            is_surge    = surge_info.get("is_surge", False) and surge_info.get("score", 0) >= 0.6
-            surge_grade = surge_info.get("grade", "")
-            surge_score = surge_info.get("score", 0.0)
-            
             # 1. ATR 변동성 필터 (v2.1.0)
             if 'atr' in df.columns and df['atr'].iloc[-1] is not None and df['atr'].iloc[-1] > 0:
                 atr = df['atr'].iloc[-1]
@@ -615,7 +612,6 @@ class EngineBuyMixin:
 
             
             # 2. VolumeProfile RR 필터 (v2.1.0)
-            # 2. VolumeProfile RR 필터 (v2.1.0)
             try:
                 if hasattr(self, 'volume_profile') and hasattr(self.volume_profile, 'calculate'):
                     vp_result = self.volume_profile.calculate(df)
@@ -628,9 +624,6 @@ class EngineBuyMixin:
             if vp_rr < 0.0:  # disabled: was 0.8, too strict
                 logger.debug(f"{market} VolumeProfile RR : {vp_rr:.2f}")
                 logger.debug(f"{market}  : unknown")  # 🔍 TRACE
-
-                logger.debug(f"{market}  : unknown")  # 🔍 TRACE
-
                 return None
             
             # 3. Multi-Timeframe Confirmation (v2.1.0)
@@ -639,23 +632,7 @@ class EngineBuyMixin:
                 if not mtf_result.get('aligned', False):
                     logger.debug(f"{market} MTF ")
                     logger.debug(f"{market}  : unknown")  # 🔍 TRACE
-
-                    logger.debug(f"{market}  : unknown")  # 🔍 TRACE
-
                     return None
-            
-            # 4. ML 임계값 확인 (동적, v2.1.0)
-            fgi = getattr(self.fear_greed, "index", None) or 50
-            buy_threshold = 0.62  # [FIX] FGI 무관 고정 0.62
-            # [중복제거됨]
-            
-            if ml_score < buy_threshold:
-                logger.debug(f"{market} ML  : {ml_score:.3f} < {buy_threshold}")
-                logger.debug(f"{market}  : unknown")  # 🔍 TRACE
-
-                logger.debug(f"{market}  : unknown")  # 🔍 TRACE
-
-                return None
             
             #            
             # 6. Kelly Criterion 포지션 크기 (v2.1.0)
@@ -685,9 +662,6 @@ class EngineBuyMixin:
         except Exception as e:
             logger.error(f"{market}   : {e}")
             logger.debug(f"{market}  : unknown")  # 🔍 TRACE
-
-            logger.debug(f"{market}  : unknown")  # 🔍 TRACE
-
             return None
 
 
