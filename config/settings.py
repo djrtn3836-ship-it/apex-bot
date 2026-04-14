@@ -47,19 +47,24 @@ class TradingConfig:
 @dataclass
 class RiskConfig:
     """ъ????"""
-    max_risk_per_trade: float = 0.02
-    kelly_fraction: float = 0.30
+    max_risk_per_trade: float = 0.015
+    kelly_fraction: float = 0.15
     min_position_size: float = 5000
-    atr_stop_multiplier: float = 1.8
-    atr_target_multiplier: float = 3.5
-    trailing_stop_activation: float = 0.025
+    atr_stop_multiplier: float = 2.0
+    atr_target_multiplier: float = 4.0
+    trailing_stop_activation: float = 0.020
     trailing_stop_distance: float = 0.015
     daily_loss_limit: float = 0.05
-    total_drawdown_limit: float = 0.10
+    total_drawdown_limit: float = 0.15
     monthly_loss_limit: float = 0.15
     consecutive_loss_limit: int = 5
     buy_signal_threshold: float = 0.62
     sell_signal_threshold: float = 0.55
+    # Phase 8 추가
+    regime_bear_max_positions: int = 0       # BEAR 레짐 최대 포지션
+    regime_bear_watch_max_ratio: float = 0.5 # BEAR_WATCH 포지션 비율
+    surge_min_score: float = 0.60            # Surge 최소 점수
+    surge_size_ratio: float = 0.70           # Surge 포지션 크기 비율
 
 
 @dataclass
@@ -83,7 +88,7 @@ class MLConfig:
     val_ratio: float = 0.15
     test_ratio: float = 0.15
     model_save_dir: Path = BASE_DIR / "models" / "saved"
-    retrain_interval_hours: int = 24
+    retrain_interval_hours: int = 168
 
 
 @dataclass
