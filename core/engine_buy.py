@@ -731,10 +731,9 @@ class EngineBuyMixin:
 
         krw = await self.adapter.get_balance("KRW")
         can_buy, reason = await self.risk_manager.can_open_position(
-            market, krw, self.portfolio.position_count
-        ,
-                global_regime=getattr(self, "_global_regime", None),
-            )
+            market, krw, self.portfolio.position_count,
+            global_regime=getattr(self, "_global_regime", None),
+        )
         if not can_buy:
             logger.info(f"  ({market}): {reason}")
             self._buying_markets.discard(market)
