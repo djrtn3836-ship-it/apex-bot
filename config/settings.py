@@ -95,20 +95,22 @@ class MLConfig:
 class StrategyConfig:
     """? ?"""
     enabled_strategies: List[str] = field(default_factory=lambda: [
-        "Williams_R",
-        "MACD_Cross",
-        "RSI_Divergence",
-        "Bollinger_Squeeze",
-        "BEAR_REVERSAL",
-        "Volume_Profile",
-        "Smart_Money",
-        "Ichimoku_Cloud"
+        # Phase9 백테스트 결과 기반 최적화
+        # 유효 전략 (rsi_divergence +6.3%/년, mean_reversion +5.3%/년)
+        "RSI_Divergence",     # ★ 최고 성과: 승률 67.4%, 샤프 0.26
+        "Williams_R",         # RSI 계열 유지
+        "MACD_Cross",         # 보조 (macd_momentum 중립)
+        "Bollinger_Squeeze",  # mean_reversion 계열
+        "BEAR_REVERSAL",      # 시장 방어용 유지
+        "Volume_Profile",     # 보조 지표
+        # "Smart_Money",      # Phase9: order_block_smc 성과 부진 (-16.1%/년)
+        "Ichimoku_Cloud"      # 추세 보조
     ])
     signal_weight: dict = field(default_factory=lambda: {
-        "ML": 0.40,
-        "Technical": 0.35,
-        "Volume": 0.15,
-        "Sentiment": 0.10
+        "ML": 0.50,           # Phase9: ML 비중 상향 (val_acc=76.7%)
+        "Technical": 0.30,    # rsi_divergence + mean_reversion 중심
+        "Volume": 0.12,       # volume_spike 성과 부진으로 축소
+        "Sentiment": 0.08     # 유지
     })
 
 
@@ -138,6 +140,14 @@ class DatabaseConfig:
     cache_max_ticks: int = 10000
 
 
+
+# ── Phase 9 백테스트 결과 (2026-04-14) ──────────────────────────
+# 기간: 2026-03-20 ~ 2026-04-14 (25일, 5코인 x 7전략)
+# 최고: rsi_divergence  +6.3%/년 | 승률 67.4% | 샤프 0.26 | MDD 1.2%
+# 차선: mean_reversion  +5.3%/년 | 승률 63.1% | 샤프 0.21 | MDD 1.0%
+# 제외: order_block_smc -16.1%/년 | trend_following -12.4%/년
+# ML 앙상블: val_acc=76.7% (FORWARD_N=8, Phase5)
+# ─────────────────────────────────────────────────────────────────
 @dataclass
 class Settings:
     """? ?"""
