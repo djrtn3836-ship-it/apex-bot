@@ -732,7 +732,9 @@ class EngineBuyMixin:
         krw = await self.adapter.get_balance("KRW")
         can_buy, reason = await self.risk_manager.can_open_position(
             market, krw, self.portfolio.position_count
-        )
+        ,
+                global_regime=getattr(self, "_global_regime", None),
+            )
         if not can_buy:
             logger.info(f"  ({market}): {reason}")
             self._buying_markets.discard(market)
@@ -753,7 +755,8 @@ class EngineBuyMixin:
 
         last = df.iloc[-1]
         try:
-            _sl_levels_buy = self.atr_stop.calculate(df, float(last["close"]))
+            _sl_levels_buy = self.atr_stop.calculate(df, float(last["close"]), market=market,
+                        global_regime=getattr(self, "_global_regime", None))
             atr         = _sl_levels_buy.atr
             stop_loss   = _sl_levels_buy.stop_loss
             stop_loss = max(stop_loss, float(last["close"]) * 0.97)  # [FIX-SL] ATR SL cap -3%

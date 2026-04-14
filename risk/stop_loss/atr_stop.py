@@ -49,7 +49,7 @@ class ATRStopLoss:
         self.tp_mult = tp_multiplier
 
     def calculate(self, df: pd.DataFrame, entry_price: float,
-                  market: str = "") -> StopLevels:
+                  market: str = "", global_regime=None) -> "StopLevels":
         atr = self._calc_atr(df)
         profile = _get_profile_by_price(entry_price)
 
@@ -66,6 +66,21 @@ class ATRStopLoss:
         elif atr_pct < 0.01:         # 저변동성: SL 타이트하게
             sl_mult *= 0.8
             tp_mult *= 0.8
+        # GlobalRegime 기반 동적 SL/TP 배수 조정 (Phase 8)
+        if global_regime is not None:
+            regime_val = getattr(global_regime, "value", str(global_regime))
+            if regime_val == "BEAR":
+                sl_mult *= 0.70   # BEAR: SL 타이트 (손실 최소화)
+                tp_mult *= 0.80
+                logger.debug(f"[ATR-SL] BEAR 레짐 → SL 타이트 적용")
+            elif regime_val == "BEAR_WATCH":
+                sl_mult *= 0.85   # BEAR_WATCH: SL 약간 타이트
+                logger.debug(f"[ATR-SL] BEAR_WATCH 레짐 → SL 축소 적용")
+            elif regime_val == "BULL":
+                sl_mult *= 1.10   # BULL: SL 여유있게 (추세 추종)
+                tp_mult *= 1.20
+                logger.debug(f"[ATR-SL] BULL 레짐 → SL/TP 확장 적용")
+
 
         raw_sl_dist = atr * sl_mult
         sl_dist = max(

@@ -150,7 +150,9 @@ class EngineCycleMixin:
         total_value = self.portfolio.get_total_value(krw)
         drawdown    = self.portfolio.get_current_drawdown(total_value)
 
-        if await self.risk_manager.check_circuit_breaker(drawdown, total_value):
+        if await self.risk_manager.check_circuit_breaker(drawdown, total_value,
+                    global_regime=getattr(self, "_global_regime", None),
+                ):
             return
 
         try:
@@ -693,6 +695,22 @@ class EngineCycleMixin:
             surge_candidates.sort(
                 key=lambda x: x.get("score", 0), reverse=True
             )
+
+            # ── _surge_cache 업데이트 (engine_buy.py에서 참조) ──────────
+            if not hasattr(self, "_surge_cache"):
+                self._surge_cache = {}
+            # 만료된 캐시 제거 (5분)
+            _now = time.time()
+            self._surge_cache = {
+                k: v for k, v in self._surge_cache.items()
+                if _now - v.get("_ts", 0) < 300
+            }
+            # 신규 급등 코인 캐시 저장
+            for _c in surge_candidates:
+                _m = _c.get("market")
+                if _m:
+                    self._surge_cache[_m] = {**_c, "_ts": _now}
+            logger.debug(f"[SurgeCache] {len(self._surge_cache)}개 코인 캐시")
 
             new_markets     = []
             current_dynamic = set(self._dynamic_markets)

@@ -1,197 +1,182 @@
-"""APEX BOT -   
- +   +"""
+"""
+risk/risk_manager.py  -  Phase 8 개선
+  - GlobalRegime 연동 (BEAR/BEAR_WATCH 시 리스크 축소)
+  - 4단계 서킷브레이커 (L1 경고 / L2 드로다운 / L3 급락 / L4 연속손실)
+  - 일일 손실 한도 강화
+"""
+from __future__ import annotations
 import time
 import asyncio
-from typing import Dict, Tuple
-from loguru import logger
+from typing import Tuple, Dict, Optional
+from utils.logger import logger
 
-from config.settings import get_settings
-from utils.logger import log_risk
+try:
+    from config.settings import get_settings
+    _settings = get_settings()
+except Exception:
+    _settings = None
 
 
 class RiskManager:
-    """:
-    L1:   5% →    
-    L2:  10% → 48  
-    L3:   15% →   
-    L4:   5 → 24"""
-
     def __init__(self):
-        self.settings = get_settings()
-        self.risk_cfg = self.settings.risk
-
-        # 상태 변수
+        self.settings    = _settings
+        self.risk_cfg    = getattr(_settings, "risk", None) if _settings else None
+        self._paused_until   = 0.0
+        self._pause_reason   = ""
+        self._pause_level    = 0
         self._consecutive_losses = 0
-        self._daily_trades = 0
-        self._daily_wins = 0
-        self._paused_until: float = 0.0
-        self._pause_reason: str = ""
+        self._trade_results  = []   # True=win / False=loss
+        self._daily_loss     = 0.0
+        self._daily_reset_ts = time.time()
 
-        # 서킷브레이커 상태
-        self._cb_level = 0  # 0=정상, 1~4=레벨
-        self._trade_results: list = []  # 최근 거래 결과 (True/False)
-
-        logger.info("   ")
-
+    # ── 매수 허용 여부 ───────────────────────────────────────────────
     async def can_open_position(
         self,
         market: str,
         available_capital: float,
         current_positions: int,
+        global_regime=None,
     ) -> Tuple[bool, str]:
-        """Returns:
-            ( , )"""
-        # 일시정지 상태
         if self._is_paused():
             remaining = int(self._paused_until - time.time())
             return False, f"서킷브레이커 활성 ({remaining}초 남음): {self._pause_reason}"
 
-        # 최대 포지션 수 확인
-        max_pos = self.settings.trading.max_positions
+        max_pos = getattr(getattr(self.settings, "trading", None), "max_positions", 10) if self.settings else 10
         if current_positions >= max_pos:
             return False, f"최대 포지션 도달 ({current_positions}/{max_pos})"
 
-        # 최소 자본 확인
-        if available_capital < self.risk_cfg.min_position_size:
+        min_size = getattr(self.risk_cfg, "min_position_size", 5000) if self.risk_cfg else 5000
+        if available_capital < min_size:
             return False, f"가용 자본 부족 (₩{available_capital:,.0f})"
 
-        # 전체 노출 한도 (자본의 80%)
-        # (실제로는 포트폴리오 매니저에서 계산)
+        # GlobalRegime 연동: BEAR 시 추가 차단
+        if global_regime is not None:
+            regime_val = getattr(global_regime, "value", str(global_regime))
+            if regime_val == "BEAR":
+                return False, f"BEAR 레짐 매수 차단"
+            if regime_val == "BEAR_WATCH" and current_positions >= max(1, max_pos // 2):
+                return False, f"BEAR_WATCH 레짐 포지션 제한 ({current_positions}/{max_pos//2})"
 
         return True, "OK"
 
+    # ── 서킷브레이커 4단계 ───────────────────────────────────────────
     async def check_circuit_breaker(
         self,
         current_drawdown: float,
         total_value: float,
+        global_regime=None,
     ) -> bool:
-        """Returns:
-            True →   ( )"""
-        # L2: 드로다운 10% → 48시간 중단
-        if current_drawdown >= self.risk_cfg.total_drawdown_limit * 100:
-            await self._trigger_circuit_breaker(
-                level=2,
-                duration=172800,  # 48시간
-                reason=f"드로다운 {current_drawdown:.1f}% 초과"
-            )
+        dd_limit = getattr(self.risk_cfg, "total_drawdown_limit", 0.15) if self.risk_cfg else 0.15
+        cl_limit = getattr(self.risk_cfg, "consecutive_loss_limit", 5) if self.risk_cfg else 5
+
+        # L1: 드로다운 5% 경고 (1시간 매수 중단)
+        if current_drawdown >= dd_limit * 0.33 * 100:
+            if self._pause_level < 1:
+                await self._trigger_circuit_breaker(1, 3600,
+                    f"드로다운 경고 {current_drawdown:.1f}%")
+                return True
+
+        # L2: 드로다운 10% (48시간 중단)
+        if current_drawdown >= dd_limit * 0.67 * 100:
+            await self._trigger_circuit_breaker(2, 172800,
+                f"드로다운 {current_drawdown:.1f}% 초과")
             return True
 
-        # L4: 연속 손실 5회
-        if self._consecutive_losses >= self.risk_cfg.consecutive_loss_limit:
-            await self._trigger_circuit_breaker(
-                level=4,
-                duration=86400,  # 24시간
-                reason=f"연속 손실 {self._consecutive_losses}회"
-            )
+        # L3: 드로다운 한도 초과 (72시간 중단)
+        if current_drawdown >= dd_limit * 100:
+            await self._trigger_circuit_breaker(3, 259200,
+                f"드로다운 한도 {current_drawdown:.1f}% 초과")
             return True
+
+        # L4: 연속 손실 (24시간 중단)
+        if self._consecutive_losses >= cl_limit:
+            await self._trigger_circuit_breaker(4, 86400,
+                f"연속 손실 {self._consecutive_losses}회")
+            return True
+
+        # GlobalRegime BEAR 시 L1 자동 활성
+        if global_regime is not None:
+            regime_val = getattr(global_regime, "value", str(global_regime))
+            if regime_val == "BEAR" and not self._is_paused():
+                await self._trigger_circuit_breaker(1, 3600, "BEAR 레짐 자동 방어")
+                return True
 
         return False
 
     async def check_daily_loss_limit(self, daily_pnl: float) -> bool:
-        """docstring"""
-        if daily_pnl <= -(self.risk_cfg.daily_loss_limit * 100):
-            await self._trigger_circuit_breaker(
-                level=1,
-                duration=28800,  # 8시간 (당일 장 마감까지)
-                reason=f"일일 손실 한도 초과 ({daily_pnl:.2f}%)"
-            )
+        # 일일 리셋 (자정 기준)
+        if time.time() - self._daily_reset_ts > 86400:
+            self._daily_loss = 0.0
+            self._daily_reset_ts = time.time()
+        self._daily_loss = min(self._daily_loss, daily_pnl)
+        limit = getattr(self.risk_cfg, "daily_loss_limit", 0.05) if self.risk_cfg else 0.05
+        if self._daily_loss <= -limit:
+            await self._trigger_circuit_breaker(2, 86400,
+                f"일일 손실 한도 {self._daily_loss*100:.1f}% 초과")
             return True
         return False
 
     def record_trade_result(self, is_win: bool):
-        """docstring"""
         self._trade_results.append(is_win)
-        if len(self._trade_results) > 20:
-            self._trade_results = self._trade_results[-20:]
-
+        if len(self._trade_results) > 100:
+            self._trade_results.pop(0)
         if is_win:
             self._consecutive_losses = 0
-            self._daily_wins += 1
         else:
             self._consecutive_losses += 1
 
-        self._daily_trades += 1
-
-        logger.debug(
-            f"   | {' ' if is_win else ' '} | "
-            f"={self._consecutive_losses} | "
-            f"={self._calc_recent_win_rate():.1f}%"
-        )
-
     def get_kelly_params(self) -> Dict:
-        """Kelly Criterion"""
-        if len(self._trade_results) < 10:
-            return {"win_rate": 0.5, "avg_win": 0.02, "avg_loss": 0.01}
-
-        wins = sum(self._trade_results)
-        total = len(self._trade_results)
-        return {
-            "win_rate": wins / total,
-            "recent_consecutive_losses": self._consecutive_losses,
-            "recent_win_rate": self._calc_recent_win_rate(),
-        }
+        wr = self._calc_recent_win_rate()
+        avg_win  = 0.03
+        avg_loss = 0.02
+        if len(self._trade_results) >= 10:
+            wins  = [r for r in self._trade_results if r]
+            losses= [r for r in self._trade_results if not r]
+            avg_win  = 0.03 if not wins  else 0.03
+            avg_loss = 0.02 if not losses else 0.02
+        kelly = (wr * avg_win - (1 - wr) * avg_loss) / avg_win if avg_win > 0 else 0.1
+        kelly = max(0.05, min(kelly, 0.20))
+        return {"win_rate": wr, "avg_win": avg_win, "avg_loss": avg_loss, "kelly": kelly}
 
     def _calc_recent_win_rate(self) -> float:
-        if not self._trade_results:
-            return 0.0
-        recent = self._trade_results[-10:]
-        return sum(recent) / len(recent) * 100
+        if len(self._trade_results) < 5:
+            return 0.55
+        recent = self._trade_results[-20:]
+        return sum(recent) / len(recent)
 
     async def _trigger_circuit_breaker(self, level: int, duration: float, reason: str):
-        """docstring"""
-        if self._cb_level >= level:
-            return  # 이미 더 높은 레벨 활성화
-
-        self._cb_level = level
+        if self._pause_level >= level and self._is_paused():
+            return
         self._paused_until = time.time() + duration
         self._pause_reason = reason
-
-        log_risk(
-            f"서킷브레이커 L{level}",
-            f"{reason} | {int(duration/3600)}시간 중단"
-        )
-        logger.critical(
-            f"  L{level}  | {reason} | "
-            f"{duration/3600:.0f}  "
-        )
+        self._pause_level  = level
+        hours = duration / 3600
+        logger.warning(f"[CircuitBreaker L{level}] {reason} → {hours:.0f}시간 중단")
 
     def _is_paused(self) -> bool:
-        """docstring"""
-        if self._paused_until <= 0:
-            return False
-        if time.time() >= self._paused_until:
-            # 자동 해제
-            self._paused_until = 0
-            self._cb_level = 0
-            self._pause_reason = ""
-            self._consecutive_losses = 0
-            logger.info("    -  ")
-            return False
-        return True
+        if self._paused_until > time.time():
+            return True
+        if self._pause_level > 0:
+            self._pause_level = 0
+        return False
 
     def force_resume(self):
-        """( )"""
-        self._paused_until = 0
-        self._cb_level = 0
-        self._pause_reason = ""
-        logger.warning("   ")
+        self._paused_until = 0.0
+        self._pause_level  = 0
+        logger.info("[RiskManager] 강제 재개")
 
     def reset_daily(self):
-        """()"""
-        self._daily_trades = 0
-        self._daily_wins = 0
-        if self._cb_level == 1:  # L1만 일일 초기화
-            self._paused_until = 0
-            self._cb_level = 0
+        self._daily_loss     = 0.0
+        self._daily_reset_ts = time.time()
+        self._consecutive_losses = 0
 
     def get_status(self) -> Dict:
-        """docstring"""
         return {
-            "circuit_breaker_level": self._cb_level,
-            "is_paused": self._is_paused(),
-            "paused_reason": self._pause_reason,
-            "consecutive_losses": self._consecutive_losses,
-            "daily_trades": self._daily_trades,
-            "daily_wins": self._daily_wins,
-            "recent_win_rate": self._calc_recent_win_rate(),
+            "paused":       self._is_paused(),
+            "pause_level":  self._pause_level,
+            "pause_reason": self._pause_reason,
+            "resume_in":    max(0, int(self._paused_until - time.time())),
+            "consec_loss":  self._consecutive_losses,
+            "win_rate":     self._calc_recent_win_rate(),
+            "daily_loss":   self._daily_loss,
         }
