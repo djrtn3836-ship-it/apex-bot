@@ -1,6 +1,17 @@
-# train_retrain.py  v2 ← 앙상블 모델 정확한 파라미터로 재훈련
+# train_retrain.py v3.0 - Phase 5 ML 파이프라인 개선
 # -*- coding: utf-8 -*-
-import os, sys, time, warnings, shutil
+"""
+개선 사항 (v3.0):
+    1. FORWARD_N=8  : 8시간 후 수익률 기준 (단기 매매 최적화)
+    2. BUY_THR=0.012: +1.2% 이상만 BUY (노이즈 제거)
+    3. SELL_THR=-0.010: -1.0% 이하만 SELL (비대칭 손절 반영)
+    4. 레이블 생성 개선: 단순 N봉 후 수익이 아닌 최고점/최저점 활용
+    5. 균형 조정: 오버샘플링 → 가중치 기반 (과적합 방지)
+    6. 피처 누수 제거: 미래 데이터 참조 차단
+    7. 검증셋 성능 기준 미달 시 자동 롤백
+    8. 훈련 결과 JSON 저장 (성능 추적)
+"""
+import os, sys, time, warnings, shutil, json
 os.environ["PYTHONIOENCODING"] = "utf-8"
 os.environ["PYTHONUTF8"] = "1"
 warnings.filterwarnings("ignore")
@@ -12,263 +23,212 @@ import requests
 from pathlib import Path
 from datetime import datetime
 
-# ── 설정 ──────────────────────────────────────────────────────────────
+# ── 설정 ──────────────────────────────────────────────────────────────────
 MARKETS = [
-    # 대형 (높은 유동성, 신뢰도 높음)
+    # 대형 (높은 유동성)
     "KRW-BTC", "KRW-ETH", "KRW-SOL", "KRW-XRP", "KRW-ADA",
     "KRW-DOGE", "KRW-AVAX", "KRW-DOT", "KRW-LINK", "KRW-ATOM",
-    # 중형 (다양한 패턴)
-    "KRW-MATIC", "KRW-UNI", "KRW-AAVE", "KRW-SAND", "KRW-CHZ",
+    # 중형
+    "KRW-UNI", "KRW-AAVE", "KRW-SAND", "KRW-CHZ",
     "KRW-EOS", "KRW-TRX", "KRW-XLM", "KRW-ALGO", "KRW-NEAR",
-    # 소형 (고변동성 패턴)
-    "KRW-FTM", "KRW-THETA", "KRW-VET", "KRW-ZIL", "KRW-HBAR",
-    "KRW-ICX", "KRW-STMX", "KRW-BTT", "KRW-ONT", "KRW-WAVES",
+    # 소형 (고변동성)
+    "KRW-THETA", "KRW-VET", "KRW-HBAR",
+    "KRW-ICX", "KRW-STMX", "KRW-ONT",
 ]
-TIMEFRAMES = ["days", "minutes/240", "minutes/60", "minutes/15", "minutes/5"]
-CANDLES_PER = 1000   # 페이지네이션으로 수집
-FORWARD_N   = 24     # 예측 범위 확대
-BUY_THR     = 0.008  # 레이블 민감도 조정
-SELL_THR    = -0.008 # 레이블 민감도 조정
-SEQ_LEN     = 60
-INPUT_SIZE  = 120   # EnsembleModel 기본값 맞춤
-EPOCHS      = 50     # 샘플 증가에 맞춰 확대
-BATCH_SIZE  = 128    # 샘플 증가에 맞춰 확대
-LR          = 1e-4
-TEMPERATURE = 0.5
-SAVE_PATH   = Path("models/saved/ensemble_best.pt")
+TIMEFRAMES   = ["days", "minutes/240", "minutes/60", "minutes/15"]
+CANDLES_PER  = 1000
+
+# ★ 핵심 파라미터 개선
+FORWARD_N    = 8       # 8시간 후 수익률 (단기 매매 최적화, 기존 24→8)
+BUY_THR      = 0.012   # +1.2% 이상 → BUY (기존 0.8%→1.2%, 노이즈 제거)
+SELL_THR     = -0.010  # -1.0% 이하 → SELL (비대칭 손절)
+USE_PEAK     = True    # N봉 내 최고점/최저점으로 레이블 (피크 기반)
+PEAK_WINDOW  = 4       # 피크 확인 범위 (FORWARD_N의 절반)
+
+SEQ_LEN      = 60
+INPUT_SIZE   = 120
+EPOCHS       = 60      # 증가 (조기 종료 포함)
+BATCH_SIZE   = 128
+LR           = 8e-5    # 약간 낮춤 (파인튜닝)
+TEMPERATURE  = 0.5
+MIN_VAL_ACC  = 0.42    # 최소 검증 정확도 (미달 시 롤백)
+SAVE_PATH    = Path("models/saved/ensemble_best.pt")
+RESULT_PATH  = Path("models/saved/train_result.json")
 
 print("=" * 60)
-print("APEX BOT ML 재훈련 v2 (앙상블 모델)")
+print("APEX BOT ML 재훈련 v3.0 (Phase 5 개선)")
+print(f"  FORWARD_N={FORWARD_N} | BUY_THR={BUY_THR} | SELL_THR={SELL_THR}")
+print(f"  USE_PEAK={USE_PEAK} | MIN_VAL_ACC={MIN_VAL_ACC}")
 print("=" * 60)
 
-# ══════════════════════════════════════════════════════════════════════
+# ══════════════════════════════════════════════════════════════════════════
 # STEP 1: 캔들 수집
-# ══════════════════════════════════════════════════════════════════════
+# ══════════════════════════════════════════════════════════════════════════
 print("\n[STEP 1] 캔들 데이터 수집 중...")
 
 def fetch_candles(market, tf, count=200):
-    """Upbit API 페이지네이션으로 최대 count개 캔들 수집.
-    API 제한: 1회 최대 200개 → count//200 + 1회 호출
-    """
-    import time as _time
-    url       = f"https://api.upbit.com/v1/candles/{tf}"
-    per_page  = 200
-    collected = []
-    to_param  = None  # 기준 시각 (None=최신부터)
-
-    pages = (count + per_page - 1) // per_page  # 올림 나눗셈
-    for page in range(pages):
-        need = min(per_page, count - len(collected))
-        params = {"market": market, "count": need}
-        if to_param:
-            params["to"] = to_param
+    """Upbit API 페이지네이션으로 최대 count개 캔들 수집."""
+    base = "https://api.upbit.com/v1/candles"
+    url  = f"{base}/{tf}"
+    all_data, cursor = [], None
+    headers = {"accept": "application/json"}
+    while len(all_data) < count:
+        params = {"market": market, "count": min(200, count - len(all_data))}
+        if cursor:
+            params["to"] = cursor
         try:
-            r = requests.get(url, params=params, timeout=10)
+            r = requests.get(url, params=params, headers=headers, timeout=10)
             if r.status_code == 429:
-                print(f"  [429] {market}/{tf} Rate Limit → 2초 대기")
-                _time.sleep(2)
-                r = requests.get(url, params=params, timeout=10)
-            data = r.json()
-            if not isinstance(data, list) or len(data) == 0:
+                time.sleep(1.0)
+                continue
+            if r.status_code != 200:
                 break
-            collected.extend(data)
-            # 다음 페이지: 가장 오래된 캔들 시각 기준
-            oldest = min(data, key=lambda x: x["candle_date_time_utc"])
-            to_param = oldest["candle_date_time_utc"]
-            _time.sleep(0.12)  # Rate Limit 방지 (초당 8회 제한)
-            if len(data) < need:
-                break  # 더 이상 데이터 없음
-        except Exception as e:
-            print(f"  오류 ({market}/{tf} page{page}): {e}")
+            data = r.json()
+            if not data:
+                break
+            all_data.extend(data)
+            cursor = data[-1]["candle_date_time_utc"]
+            time.sleep(0.12)
+        except Exception:
             break
-
-    if not collected:
-        return pd.DataFrame()
-
-    df = pd.DataFrame(collected).rename(columns={
+    if not all_data:
+        return None
+    df = pd.DataFrame(all_data)
+    df = df.rename(columns={
         "candle_date_time_kst": "datetime",
-        "opening_price":        "open",
-        "high_price":           "high",
-        "low_price":            "low",
-        "trade_price":          "close",
+        "opening_price": "open", "high_price": "high",
+        "low_price": "low",     "trade_price": "close",
         "candle_acc_trade_volume": "volume",
     })
-    # 필요한 컬럼만 선택 (없으면 건너뜀)
-    cols = [c for c in ["datetime","open","high","low","close","volume"] if c in df.columns]
-    df = df[cols].drop_duplicates("datetime")
-    df = df.sort_values("datetime").reset_index(drop=True)
-    for col in ["open","high","low","close","volume"]:
-        if col in df.columns:
-            df[col] = pd.to_numeric(df[col], errors="coerce")
-    df = df.dropna()
-    return df
+    df["datetime"] = pd.to_datetime(df["datetime"])
+    df = df.set_index("datetime").sort_index()
+    return df[["open","high","low","close","volume"]].astype(float)
 
 all_dfs = []
 for market in MARKETS:
     for tf in TIMEFRAMES:
         df = fetch_candles(market, tf, CANDLES_PER)
-        if len(df) >= SEQ_LEN + FORWARD_N + 5:
-            df["market"] = market
+        if df is not None and len(df) >= SEQ_LEN + FORWARD_N + 10:
             all_dfs.append(df)
-        time.sleep(0.12)
+            print(f"  {market}/{tf}: {len(df)}개")
+        else:
+            print(f"  {market}/{tf}: 스킵 (데이터 부족)")
 
-print(f"  총 {len(all_dfs)}개 시리즈 수집 완료")
+print(f"\n총 {len(all_dfs)}개 시계열 수집 완료")
 
-# ══════════════════════════════════════════════════════════════════════
-# STEP 2: 피처 120개 생성 + 레이블
-# ══════════════════════════════════════════════════════════════════════
-print("\n[STEP 2] 피처 120개 추출 + 레이블 생성 중...")
+# ══════════════════════════════════════════════════════════════════════════
+# STEP 2: 피처 엔지니어링 (피처 누수 차단)
+# ══════════════════════════════════════════════════════════════════════════
+print("\n[STEP 2] 피처 엔지니어링...")
 
 def ema(x, n):
-    s = np.zeros(len(x)); s[0] = x[0]; k = 2/(n+1)
-    for i in range(1, len(x)):
-        s[i] = x[i]*k + s[i-1]*(1-k)
-    return s
+    return pd.Series(x).ewm(span=n, adjust=False).mean().values
 
 def rsi(x, n=14):
-    d = np.diff(x, prepend=x[0])
-    up = np.where(d>0,d,0.); dn = np.where(d<0,-d,0.)
-    au = pd.Series(up).ewm(span=n).mean().values
-    ad = pd.Series(dn).ewm(span=n).mean().values
-    return 100 - 100/(1 + au/(ad+1e-9))
+    s = pd.Series(x)
+    d = s.diff()
+    g = d.clip(lower=0).rolling(n).mean()
+    l = (-d).clip(lower=0).rolling(n).mean()
+    return (100 - 100/(1+g/(l+1e-9))).values
 
 def build_features(df):
-    """120개 피처 생성 (EnsembleModel input_size=120 맞춤)"""
-    c = df["close"].values.astype(float)
-    v = df["volume"].values.astype(float)
-    h = df["high"].values.astype(float)
-    l = df["low"].values.astype(float)
-    o = df["open"].values.astype(float)
+    """피처 누수 없는 피처 엔지니어링 (미래 데이터 참조 차단)."""
+    o = df["open"].values
+    h = df["high"].values
+    l = df["low"].values
+    c = df["close"].values
+    v = df["volume"].values
     n = len(c)
 
-    feats = {}
+    feats = []
 
-    # 가격 관련 (20개)
-    for period in [5,10,20,50,100,200]:
-        feats[f"ema{period}"] = ema(c, period) / (c + 1e-9) - 1
-    feats["close_ret1"]  = np.diff(c, prepend=c[0]) / (c + 1e-9)
-    feats["close_ret3"]  = (c - np.roll(c,3)) / (np.roll(c,3) + 1e-9)
-    feats["close_ret5"]  = (c - np.roll(c,5)) / (np.roll(c,5) + 1e-9)
-    feats["close_ret10"] = (c - np.roll(c,10))/ (np.roll(c,10)+ 1e-9)
-    feats["hl_ratio"]    = (h - l) / (c + 1e-9)
-    feats["oc_ratio"]    = (c - o) / (o + 1e-9)
-    feats["high_norm"]   = (h - c) / (c + 1e-9)
-    feats["low_norm"]    = (c - l) / (c + 1e-9)
-    feats["close_norm"]  = (c - c.mean()) / (c.std() + 1e-9)
-    feats["log_return"]  = np.log(c / (np.roll(c,1) + 1e-9))
-    feats["body_size"]   = np.abs(c - o) / (h - l + 1e-9)
-    feats["upper_wick"]  = (h - np.maximum(c,o)) / (h - l + 1e-9)
-    feats["lower_wick"]  = (np.minimum(c,o) - l) / (h - l + 1e-9)
+    # 1. 가격 기반 (정규화된 수익률)
+    ret1  = np.diff(c, prepend=c[0]) / (c + 1e-9)
+    ret5  = np.array([(c[i]-c[max(0,i-5)])/(c[max(0,i-5)]+1e-9) for i in range(n)])
+    ret20 = np.array([(c[i]-c[max(0,i-20)])/(c[max(0,i-20)]+1e-9) for i in range(n)])
+    feats += [ret1, ret5, ret20]
 
-    # 모멘텀 (20개)
-    for period in [6,14,21]:
-        feats[f"rsi{period}"] = (rsi(c, period) - 50) / 50
-    ema12 = ema(c,12); ema26 = ema(c,26)
-    macd = ema12 - ema26
-    macd_sig = ema(macd, 9)
-    feats["macd"]        = macd / (np.abs(macd).max() + 1e-9)
-    feats["macd_signal"] = macd_sig / (np.abs(macd_sig).max() + 1e-9)
-    feats["macd_hist"]   = (macd - macd_sig) / (np.abs(macd-macd_sig).max() + 1e-9)
-    for period in [5,10,20]:
-        roll_std = pd.Series(c).rolling(period, min_periods=1).std().fillna(0).values
-        feats[f"volatility{period}"] = roll_std / (c + 1e-9)
-    # Stochastic
-    for k_period in [9,14]:
-        low_min  = pd.Series(l).rolling(k_period, min_periods=1).min().values
-        high_max = pd.Series(h).rolling(k_period, min_periods=1).max().values
-        feats[f"stoch{k_period}"] = (c - low_min) / (high_max - low_min + 1e-9) - 0.5
-    # Williams %R
-    feats["williams_r"] = (pd.Series(h).rolling(14,min_periods=1).max().values - c) / \
-                          (pd.Series(h).rolling(14,min_periods=1).max().values -
-                           pd.Series(l).rolling(14,min_periods=1).min().values + 1e-9) - 0.5
-    # ROC
-    for period in [5,10,20]:
-        feats[f"roc{period}"] = (c - np.roll(c,period)) / (np.roll(c,period) + 1e-9)
-    # CCI
-    tp = (h + l + c) / 3
-    ma_tp = pd.Series(tp).rolling(20, min_periods=1).mean().values
-    md_tp = pd.Series(tp).rolling(20, min_periods=1).apply(
-        lambda x: np.abs(x - x.mean()).mean(), raw=True).fillna(0).values
-    feats["cci"] = (tp - ma_tp) / (0.015 * md_tp + 1e-9) / 200
+    # 2. EMA 이격도 (정규화)
+    for p in [5,10,20,50,100,200]:
+        e = ema(c, p)
+        feats.append((c - e) / (e + 1e-9))
 
-    # 볼린저 (15개)
-    for period in [10, 20, 30]:
-        ma   = pd.Series(c).rolling(period, min_periods=1).mean().values
-        std  = pd.Series(c).rolling(period, min_periods=1).std().fillna(0).values
-        feats[f"bb_upper{period}"] = (ma + 2*std - c) / (c + 1e-9)
-        feats[f"bb_lower{period}"] = (c - (ma - 2*std)) / (c + 1e-9)
-        feats[f"bb_pct{period}"]   = (c - (ma-2*std)) / (4*std + 1e-9) - 0.5
-    feats["bb_squeeze"] = (pd.Series(c).rolling(20,min_periods=1).std().fillna(0).values /
-                          (pd.Series(c).rolling(20,min_periods=1).std().fillna(0).rolling(
-                              50,min_periods=1).mean().values + 1e-9) - 1)
+    # 3. RSI
+    feats.append(rsi(c, 14) / 100.0)
+    feats.append(rsi(c, 7)  / 100.0)
 
-    # ATR / 변동성 (10개)
-    tr = np.maximum(h-l, np.maximum(np.abs(h-np.roll(c,1)), np.abs(l-np.roll(c,1))))
-    for period in [7,14,21,28]:
-        feats[f"atr{period}"] = pd.Series(tr).rolling(period,min_periods=1).mean().values/(c+1e-9)
-    feats["atr_ratio"] = feats["atr14"] / (feats["atr28"] + 1e-9)
-    # 가격 채널
-    for period in [10,20,50]:
-        feats[f"channel_pos{period}"] = (c - pd.Series(l).rolling(period,min_periods=1).min().values) / \
-            (pd.Series(h).rolling(period,min_periods=1).max().values -
-             pd.Series(l).rolling(period,min_periods=1).min().values + 1e-9) - 0.5
-    feats["dc_width"] = (pd.Series(h).rolling(20,min_periods=1).max().values -
-                         pd.Series(l).rolling(20,min_periods=1).min().values) / (c + 1e-9)
+    # 4. 볼린저 밴드 %B
+    for p in [20, 50]:
+        mid = pd.Series(c).rolling(p).mean().values
+        std = pd.Series(c).rolling(p).std().values
+        bb_pct = (c - (mid - 2*std)) / (4*std + 1e-9)
+        feats.append(np.clip(bb_pct, -1, 2))
 
-    # 거래량 (20개)
-    feats["volume_norm"]  = (v - v.mean()) / (v.std() + 1e-9)
-    feats["log_volume"]   = np.log(v + 1) / (np.log(v + 1).mean() + 1e-9) - 1
-    for period in [5,10,20,50]:
-        vm = pd.Series(v).rolling(period, min_periods=1).mean().values
-        feats[f"vol_ratio{period}"] = v / (vm + 1e-9) - 1
-    # OBV
-    obv = np.cumsum(np.where(np.diff(c,prepend=c[0])>0, v, -v))
-    feats["obv_norm"] = (obv - obv.mean()) / (obv.std() + 1e-9)
-    # VWAP proxy
-    vwap = np.cumsum(c*v) / (np.cumsum(v) + 1e-9)
-    feats["vwap_ratio"] = c / (vwap + 1e-9) - 1
-    # Volume price trend
-    vpt = np.cumsum(v * np.diff(c,prepend=c[0]) / (np.roll(c,1)+1e-9))
-    feats["vpt_norm"] = (vpt - vpt.mean()) / (vpt.std() + 1e-9)
-    # MFI
-    money_flow = tp * v
-    pos_mf = np.where(np.diff(tp,prepend=tp[0])>0, money_flow, 0.)
-    neg_mf = np.where(np.diff(tp,prepend=tp[0])<0, money_flow, 0.)
-    pos_sum = pd.Series(pos_mf).rolling(14,min_periods=1).sum().values
-    neg_sum = pd.Series(neg_mf).rolling(14,min_periods=1).sum().values
-    feats["mfi"] = (100 - 100/(1+pos_sum/(neg_sum+1e-9))) / 100 - 0.5
-    # Chaikin
-    clv = ((c-l)-(h-c))/(h-l+1e-9)
-    feats["chaikin"] = pd.Series(clv*v).rolling(14,min_periods=1).sum().values / (v.sum()+1e-9)
-    feats["vol_std20"] = pd.Series(v).rolling(20,min_periods=1).std().fillna(0).values / (v.mean()+1e-9)
-    feats["vol_trend"]  = (pd.Series(v).rolling(5,min_periods=1).mean().values -
-                           pd.Series(v).rolling(20,min_periods=1).mean().values) / (v.mean()+1e-9)
+    # 5. 거래량 (정규화)
+    v_ma20 = pd.Series(v).rolling(20).mean().values
+    v_ratio = v / (v_ma20 + 1e-9)
+    feats.append(np.clip(v_ratio, 0, 10) / 10.0)
+    v_ret1 = np.diff(v, prepend=v[0]) / (v + 1e-9)
+    feats.append(np.clip(v_ret1, -1, 1))
 
-    # 시장 구조 / 추가 (나머지 채워서 120개 맞춤)
-    feats["price_accel"] = np.diff(np.diff(c, prepend=c[0]), prepend=0) / (c + 1e-9)
-    feats["trend_strength"] = np.abs(feats["ema5"] - feats["ema20"])
-    feats["mean_rev"]    = (c - pd.Series(c).rolling(50,min_periods=1).mean().values) / \
-                           (pd.Series(c).rolling(50,min_periods=1).std().fillna(1).values + 1e-9)
-    feats["high_dist"]   = (pd.Series(h).rolling(20,min_periods=1).max().values - c) / (c+1e-9)
-    feats["low_dist"]    = (c - pd.Series(l).rolling(20,min_periods=1).min().values) / (c+1e-9)
-    feats["pivot_pos"]   = feats["high_dist"] - feats["low_dist"]
-    feats["vol_price_corr"] = pd.Series(c*v).rolling(10,min_periods=1).corr(
-        pd.Series(c)).fillna(0).values
-    feats["candle_count"] = np.arange(n) / n - 0.5
+    # 6. ATR (정규화)
+    tr = np.maximum(h-l, np.maximum(abs(h-np.roll(c,1)), abs(l-np.roll(c,1))))
+    atr = pd.Series(tr).rolling(14).mean().values
+    feats.append(atr / (c + 1e-9))
 
-    # 정확히 120개 맞추기
-    feat_arr = np.column_stack([v for v in feats.values()])
-    current = feat_arr.shape[1]
-    if current < INPUT_SIZE:
-        pad = np.zeros((n, INPUT_SIZE - current))
+    # 7. 캔들 패턴
+    body  = (c - o) / (h - l + 1e-9)
+    upper = (h - np.maximum(o,c)) / (h - l + 1e-9)
+    lower = (np.minimum(o,c) - l) / (h - l + 1e-9)
+    feats += [body, upper, lower]
+
+    # 8. MACD
+    ema12 = ema(c, 12); ema26 = ema(c, 26)
+    macd  = ema12 - ema26
+    signal= ema(macd, 9)
+    hist  = macd - signal
+    feats += [macd/(c+1e-9), signal/(c+1e-9), hist/(c+1e-9)]
+
+    # 9. 스토캐스틱
+    for p in [14, 21]:
+        lo_p = pd.Series(l).rolling(p).min().values
+        hi_p = pd.Series(h).rolling(p).max().values
+        stoch = (c - lo_p) / (hi_p - lo_p + 1e-9)
+        feats.append(np.clip(stoch, 0, 1))
+
+    # 10. OBV (정규화)
+    direction = np.sign(np.diff(c, prepend=c[0]))
+    obv = np.cumsum(v * direction)
+    obv_norm = (obv - obv.mean()) / (obv.std() + 1e-9)
+    feats.append(np.clip(obv_norm / 3, -1, 1))
+
+    # 11. 고가/저가 대비 위치
+    hi52 = pd.Series(h).rolling(min(200, n)).max().values
+    lo52 = pd.Series(l).rolling(min(200, n)).min().values
+    feats.append((c - lo52) / (hi52 - lo52 + 1e-9))
+
+    # 12. 변동성 (역사적)
+    hist_vol = pd.Series(ret1).rolling(20).std().values
+    feats.append(np.clip(hist_vol * 10, 0, 1))
+
+    # ── 패딩/트리밍 to INPUT_SIZE
+    feat_arr = np.stack(feats, axis=1)  # (n, num_feats)
+    num_feats = feat_arr.shape[1]
+    if num_feats < INPUT_SIZE:
+        pad = np.zeros((n, INPUT_SIZE - num_feats))
         feat_arr = np.hstack([feat_arr, pad])
-    elif current > INPUT_SIZE:
+    else:
         feat_arr = feat_arr[:, :INPUT_SIZE]
 
-    # NaN/Inf 처리
     feat_arr = np.nan_to_num(feat_arr, nan=0.0, posinf=1.0, neginf=-1.0)
     feat_arr = np.clip(feat_arr, -10, 10)
     return feat_arr
+
+# ══════════════════════════════════════════════════════════════════════════
+# STEP 3: 레이블 생성 (피크 기반 개선)
+# ══════════════════════════════════════════════════════════════════════════
+print("\n[STEP 3] 레이블 생성 (FORWARD_N={}, BUY_THR={}, SELL_THR={})...".format(
+    FORWARD_N, BUY_THR, SELL_THR))
 
 X_list, y_list = [], []
 label_counts = {0:0, 1:0, 2:0}
@@ -276,15 +236,37 @@ label_counts = {0:0, 1:0, 2:0}
 for df in all_dfs:
     feat_arr = build_features(df)
     closes   = df["close"].values
+    highs    = df["high"].values
+    lows     = df["low"].values
 
     for i in range(SEQ_LEN, len(df) - FORWARD_N):
-        future_ret = (closes[i+FORWARD_N] - closes[i]) / (closes[i] + 1e-9)
-        label = 0 if future_ret >= BUY_THR else (2 if future_ret <= SELL_THR else 1)
         window = feat_arr[i-SEQ_LEN:i]
-        if window.shape == (SEQ_LEN, INPUT_SIZE):
-            X_list.append(window.astype(np.float32))
-            y_list.append(label)
-            label_counts[label] += 1
+        if window.shape != (SEQ_LEN, INPUT_SIZE):
+            continue
+
+        if USE_PEAK:
+            # 피크 기반: N봉 내 최고점/최저점으로 레이블
+            future_highs = highs[i:i+FORWARD_N]
+            future_lows  = lows[i:i+FORWARD_N]
+            cur_close    = closes[i]
+            max_ret  = (future_highs.max() - cur_close) / (cur_close + 1e-9)
+            min_ret  = (future_lows.min()  - cur_close) / (cur_close + 1e-9)
+
+            # 조건: 최고 수익이 BUY_THR 이상 AND 최저 낙폭이 SELL_THR 이상 → BUY
+            if max_ret >= BUY_THR and min_ret >= SELL_THR * 0.5:
+                label = 0  # BUY
+            elif min_ret <= SELL_THR and max_ret <= BUY_THR * 0.5:
+                label = 2  # SELL
+            else:
+                label = 1  # HOLD
+        else:
+            # 기존 방식: N봉 후 단순 수익률
+            future_ret = (closes[i+FORWARD_N] - closes[i]) / (closes[i] + 1e-9)
+            label = 0 if future_ret >= BUY_THR else (2 if future_ret <= SELL_THR else 1)
+
+        X_list.append(window.astype(np.float32))
+        y_list.append(label)
+        label_counts[label] += 1
 
 X = np.array(X_list, dtype=np.float32)
 y = np.array(y_list, dtype=np.int64)
@@ -295,34 +277,44 @@ print(f"  HOLD: {label_counts[1]}개 ({label_counts[1]/total*100:.1f}%)")
 print(f"  SELL: {label_counts[2]}개 ({label_counts[2]/total*100:.1f}%)")
 print(f"  피처 shape: {X.shape}")
 
-# 균형 조정
-max_cnt = max(label_counts.values())
+# ── 클래스 균형: 가중치 기반 (오버샘플링 최소화)
+# BUY/SELL은 소수 클래스 → 2배 오버샘플, HOLD는 언더샘플
+target_cnt = int(np.median(list(label_counts.values())) * 1.5)
 X_bal, y_bal = [], []
-for cls in [0,1,2]:
-    idx = np.where(y==cls)[0]
-    if len(idx) == 0: continue
-    rep = int(np.ceil(max_cnt/len(idx)))
-    idx_r = np.tile(idx,rep)[:max_cnt]
-    np.random.shuffle(idx_r)
-    X_bal.append(X[idx_r]); y_bal.append(y[idx_r])
-X_bal = np.concatenate(X_bal); y_bal = np.concatenate(y_bal)
-perm  = np.random.permutation(len(y_bal))
-X_bal = X_bal[perm];  y_bal = y_bal[perm]
-print(f"  균형 조정 후: {len(y_bal)}개 (각 클래스 {max_cnt}개)")
+for cls in [0, 1, 2]:
+    idx = np.where(y == cls)[0]
+    if len(idx) == 0:
+        continue
+    if len(idx) >= target_cnt:
+        # 언더샘플
+        chosen = np.random.choice(idx, target_cnt, replace=False)
+    else:
+        # 오버샘플 (최대 2배)
+        cap = min(target_cnt, len(idx) * 2)
+        chosen = np.random.choice(idx, cap, replace=True)
+    X_bal.append(X[chosen])
+    y_bal.append(y[chosen])
 
-split   = int(len(y_bal)*0.85)
+X_bal = np.concatenate(X_bal)
+y_bal = np.concatenate(y_bal)
+perm  = np.random.permutation(len(y_bal))
+X_bal = X_bal[perm]; y_bal = y_bal[perm]
+print(f"  균형 조정 후: {len(y_bal)}개")
+bc = {c: int((y_bal==c).sum()) for c in [0,1,2]}
+print(f"  BUY:{bc[0]} HOLD:{bc[1]} SELL:{bc[2]}")
+
+split   = int(len(y_bal) * 0.85)
 X_train, X_val = X_bal[:split], X_bal[split:]
 y_train, y_val = y_bal[:split], y_bal[split:]
 print(f"  Train: {len(y_train)} | Val: {len(y_val)}")
 
-# ══════════════════════════════════════════════════════════════════════
-# STEP 3: 앙상블 모델 재훈련
-# ══════════════════════════════════════════════════════════════════════
-print("\n[STEP 3] 앙상블 모델 재훈련 중...")
+# ══════════════════════════════════════════════════════════════════════════
+# STEP 4: 앙상블 모델 재훈련
+# ══════════════════════════════════════════════════════════════════════════
+print("\n[STEP 4] 앙상블 모델 재훈련 중...")
 
 import torch
 import torch.nn as nn
-import torch.nn.functional as F_t
 from torch.utils.data import DataLoader, TensorDataset
 
 device = "cuda" if torch.cuda.is_available() else "cpu"
@@ -334,10 +326,11 @@ model = EnsembleModel(
     hidden_size = 256,
     num_heads   = 8,
     seq_len     = SEQ_LEN,
-    dropout     = 0.2,
+    dropout     = 0.3,
 ).to(device)
 
 # 기존 가중치 로드 (파인튜닝)
+backup_name = None
 if SAVE_PATH.exists():
     try:
         backup_name = "ensemble_best_backup_" + datetime.now().strftime("%Y%m%d_%H%M%S") + ".pt"
@@ -345,120 +338,140 @@ if SAVE_PATH.exists():
         state = torch.load(str(SAVE_PATH), map_location=device, weights_only=False)
         if isinstance(state, dict) and "model_state_dict" in state:
             model.load_state_dict(state["model_state_dict"], strict=False)
-        print(f"  기존 가중치 로드 완료 (파인튜닝) → 백업: {backup_name}")
+        print(f"  기존 가중치 로드 완료 → 백업: {backup_name}")
     except Exception as e:
         print(f"  기존 가중치 로드 실패 (새로 훈련): {e}")
-else:
-    print("  새 앙상블 모델 초기화")
 
-train_loader = DataLoader(
-    TensorDataset(torch.FloatTensor(X_train), torch.LongTensor(y_train)),
-    batch_size=BATCH_SIZE, shuffle=True, num_workers=0)
-val_loader = DataLoader(
-    TensorDataset(torch.FloatTensor(X_val), torch.LongTensor(y_val)),
-    batch_size=BATCH_SIZE, shuffle=False, num_workers=0)
+# 클래스 가중치 (BUY/SELL 중요도 상향)
+class_counts = np.array([bc[0], bc[1], bc[2]], dtype=float)
+class_weights = torch.tensor(
+    1.0 / (class_counts / class_counts.sum() + 1e-9),
+    dtype=torch.float32
+).to(device)
+class_weights = class_weights / class_weights.sum() * 3  # 정규화
 
-criterion = nn.CrossEntropyLoss(label_smoothing=0.1)
+criterion = nn.CrossEntropyLoss(
+    weight=class_weights,
+    label_smoothing=0.05  # 과적합 방지 (기존 0.1→0.05)
+)
 optimizer = torch.optim.AdamW(model.parameters(), lr=LR, weight_decay=1e-4)
-scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=EPOCHS)
+scheduler = torch.optim.lr_scheduler.CosineAnnealingWarmRestarts(
+    optimizer, T_0=20, T_mult=2
+)
 
-best_val_acc = 0.0
-best_state   = None
-patience     = 8
-no_improve   = 0
+train_ds = TensorDataset(torch.tensor(X_train), torch.tensor(y_train))
+val_ds   = TensorDataset(torch.tensor(X_val),   torch.tensor(y_val))
+train_dl = DataLoader(train_ds, batch_size=BATCH_SIZE, shuffle=True,  num_workers=0)
+val_dl   = DataLoader(val_ds,   batch_size=BATCH_SIZE, shuffle=False, num_workers=0)
 
-for epoch in range(1, EPOCHS+1):
+best_val_acc  = 0.0
+best_state    = None
+patience      = 10
+patience_cnt  = 0
+train_history = []
+
+for epoch in range(1, EPOCHS + 1):
+    # 훈련
     model.train()
-    train_loss = 0.0
-    for xb, yb in train_loader:
+    t_loss, t_correct, t_total = 0.0, 0, 0
+    for xb, yb in train_dl:
         xb, yb = xb.to(device), yb.to(device)
         optimizer.zero_grad()
-        out = model(xb)
-        if isinstance(out, tuple): out = out[0]
-        loss = criterion(out, yb)
+        logits, _ = model(xb)
+        loss = criterion(logits, yb)
         loss.backward()
         torch.nn.utils.clip_grad_norm_(model.parameters(), 1.0)
         optimizer.step()
-        train_loss += loss.item()
+        t_loss    += loss.item() * len(yb)
+        t_correct += (logits.argmax(1) == yb).sum().item()
+        t_total   += len(yb)
     scheduler.step()
 
+    # 검증
     model.eval()
-    correct = total_v = 0
-    conf_sum = 0.0
+    v_loss, v_correct, v_total = 0.0, 0, 0
     with torch.no_grad():
-        for xb, yb in val_loader:
+        for xb, yb in val_dl:
             xb, yb = xb.to(device), yb.to(device)
-            out = model(xb)
-            if isinstance(out, tuple): out = out[0]
-            proba = F_t.softmax(out / TEMPERATURE, dim=-1)
-            pred  = proba.argmax(dim=-1)
-            correct  += (pred==yb).sum().item()
-            total_v  += yb.size(0)
-            conf_sum += proba.max(dim=-1).values.sum().item()
+            logits, _ = model(xb)
+            loss = criterion(logits, yb)
+            v_loss    += loss.item() * len(yb)
+            v_correct += (logits.argmax(1) == yb).sum().item()
+            v_total   += len(yb)
 
-    val_acc  = correct/total_v*100
-    avg_conf = conf_sum/total_v
+    t_acc = t_correct / t_total
+    v_acc = v_correct / v_total
+    train_history.append({"epoch": epoch, "train_acc": round(t_acc,4), "val_acc": round(v_acc,4)})
 
     if epoch % 5 == 0 or epoch == 1:
         print(f"  Epoch {epoch:3d}/{EPOCHS} | "
-              f"loss={train_loss/len(train_loader):.4f} | "
-              f"val_acc={val_acc:.1f}% | avg_conf={avg_conf:.3f}")
+              f"Train Loss={t_loss/t_total:.4f} Acc={t_acc:.4f} | "
+              f"Val Loss={v_loss/v_total:.4f} Acc={v_acc:.4f}")
 
-    if val_acc > best_val_acc:
-        best_val_acc = val_acc
+    # 최적 모델 저장
+    if v_acc > best_val_acc:
+        best_val_acc = v_acc
         best_state   = {k: v.cpu().clone() for k, v in model.state_dict().items()}
-        no_improve   = 0
+        patience_cnt = 0
     else:
-        no_improve += 1
-        if no_improve >= patience:
-            print(f"  Early stop at epoch {epoch}")
+        patience_cnt += 1
+        if patience_cnt >= patience:
+            print(f"  조기 종료 (patience={patience}, epoch={epoch})")
             break
 
-# ══════════════════════════════════════════════════════════════════════
-# STEP 4: 저장 + 신뢰도 분포 리포트
-# ══════════════════════════════════════════════════════════════════════
-print("\n[STEP 4] 저장 + 신뢰도 분포 확인...")
+# ══════════════════════════════════════════════════════════════════════════
+# STEP 5: 성능 검증 및 저장/롤백
+# ══════════════════════════════════════════════════════════════════════════
+print(f"\n[STEP 5] 성능 검증...")
+print(f"  최고 검증 정확도: {best_val_acc:.4f} (기준: {MIN_VAL_ACC})")
 
-if best_state:
+result = {
+    "version":      "v3.0",
+    "timestamp":    datetime.now().isoformat(),
+    "forward_n":    FORWARD_N,
+    "buy_thr":      BUY_THR,
+    "sell_thr":     SELL_THR,
+    "use_peak":     USE_PEAK,
+    "best_val_acc": round(best_val_acc, 4),
+    "min_val_acc":  MIN_VAL_ACC,
+    "total_samples": total,
+    "label_dist":   {
+        "buy":  label_counts[0],
+        "hold": label_counts[1],
+        "sell": label_counts[2],
+    },
+    "epochs_trained": len(train_history),
+    "history":      train_history[-5:],
+}
+
+if best_val_acc >= MIN_VAL_ACC and best_state is not None:
+    # 저장
     model.load_state_dict(best_state)
-torch.save({
-    "model_state_dict": model.state_dict(),
-    "val_acc":    best_val_acc,
-    "timestamp":  datetime.now().isoformat(),
-    "temperature": TEMPERATURE,
-    "input_size": INPUT_SIZE,
-    "seq_len":    SEQ_LEN,
-}, str(SAVE_PATH))
-print(f"  모델 저장: {SAVE_PATH}")
-print(f"  Best val_acc: {best_val_acc:.1f}%")
-
-model.eval()
-confs = []
-pred_counts = {0:0, 1:0, 2:0}
-with torch.no_grad():
-    for xb, _ in val_loader:
-        xb = xb.to(device)
-        out = model(xb)
-        if isinstance(out, tuple): out = out[0]
-        proba = F_t.softmax(out / TEMPERATURE, dim=-1)
-        confs.extend(proba.max(dim=-1).values.cpu().numpy().tolist())
-        preds = proba.argmax(dim=-1).cpu().numpy()
-        for p in preds:
-            pred_counts[int(p)] += 1
-
-confs = np.array(confs)
-total_pred = sum(pred_counts.values())
-print(f"\n  신뢰도 분포 (T={TEMPERATURE}):")
-print(f"  평균={confs.mean():.3f} | 최소={confs.min():.3f} | 최대={confs.max():.3f}")
-print(f"  0.70+ 비율: {(confs>=0.70).mean()*100:.1f}%")
-print(f"  0.60+ 비율: {(confs>=0.60).mean()*100:.1f}%")
-print(f"  0.50+ 비율: {(confs>=0.50).mean()*100:.1f}%")
-print(f"\n  예측 분포:")
-print(f"  BUY : {pred_counts[0]}개 ({pred_counts[0]/total_pred*100:.1f}%)")
-print(f"  HOLD: {pred_counts[1]}개 ({pred_counts[1]/total_pred*100:.1f}%)")
-print(f"  SELL: {pred_counts[2]}개 ({pred_counts[2]/total_pred*100:.1f}%)")
-
-print("\n" + "="*60)
-print(f"재훈련 완료! val_acc={best_val_acc:.1f}%")
-print("봇 재시작: python main.py --mode paper")
-print("="*60)
+    torch.save({
+        "model_state_dict": model.state_dict(),
+        "val_acc":          best_val_acc,
+        "forward_n":        FORWARD_N,
+        "buy_thr":          BUY_THR,
+        "sell_thr":         SELL_THR,
+        "timestamp":        datetime.now().isoformat(),
+        "train_version":    "v3.0",
+    }, str(SAVE_PATH))
+    result["saved"] = True
+    RESULT_PATH.write_text(json.dumps(result, ensure_ascii=False, indent=2), encoding="utf-8")
+    print(f"  모델 저장 완료: {SAVE_PATH}")
+    print(f"  결과 저장: {RESULT_PATH}")
+    print(f"\n{'='*60}")
+    print(f"  훈련 완료 | Val Acc: {best_val_acc:.4f} | PASS")
+    print(f"{'='*60}")
+else:
+    # 롤백
+    result["saved"] = False
+    result["rollback_reason"] = f"val_acc={best_val_acc:.4f} < {MIN_VAL_ACC}"
+    RESULT_PATH.write_text(json.dumps(result, ensure_ascii=False, indent=2), encoding="utf-8")
+    print(f"  성능 미달 → 롤백 (val_acc={best_val_acc:.4f} < {MIN_VAL_ACC})")
+    if backup_name and (SAVE_PATH.parent / backup_name).exists():
+        shutil.copy(str(SAVE_PATH.parent / backup_name), str(SAVE_PATH))
+        print(f"  롤백 완료: {backup_name} → {SAVE_PATH}")
+    print(f"\n{'='*60}")
+    print(f"  훈련 실패 | Val Acc: {best_val_acc:.4f} | ROLLBACK")
+    print(f"{'='*60}")

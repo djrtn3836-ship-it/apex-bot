@@ -277,3 +277,38 @@ class EngineMLMixin:
                 logger.info("[AutoTrainer]      ")
         except Exception as e:
             logger.error(f"[AutoTrainer] : {e}")
+
+    def reload_model(self):
+        """Phase 5: train_retrain.py 재학습 후 모델 핫리로드"""
+        try:
+            from models.ensemble_model import EnsembleModel
+            import torch
+            save_path = Path("models/saved/ensemble_best.pt")
+            if not save_path.exists():
+                logger.warning("[reload_model] ensemble_best.pt 없음 - 스킵")
+                return False
+            device = getattr(self, "_device", "cpu")
+            # 기존 모델이 있으면 가중치만 교체
+            if self._ml_predictor is not None and self._ml_predictor._model is not None:
+                state = torch.load(save_path, map_location=device)
+                if isinstance(state, dict) and "model_state_dict" in state:
+                    self._ml_predictor._model.load_state_dict(
+                        state["model_state_dict"], strict=False
+                    )
+                else:
+                    self._ml_predictor._model.load_state_dict(state, strict=False)
+                self._ml_predictor._model.eval()
+                logger.info(f"[reload_model] 모델 가중치 핫리로드 완료 (device={device})")
+                return True
+            else:
+                # 모델 자체가 없으면 전체 로드
+                import asyncio
+                loop = asyncio.get_event_loop()
+                ok = loop.run_until_complete(
+                    loop.run_in_executor(None, self._ml_predictor.load_model)
+                ) if self._ml_predictor else False
+                logger.info(f"[reload_model] 전체 모델 재로드: {ok}")
+                return ok
+        except Exception as e:
+            logger.error(f"[reload_model] 실패: {e}")
+            return False

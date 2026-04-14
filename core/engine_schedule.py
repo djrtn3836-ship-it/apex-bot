@@ -293,34 +293,76 @@ class EngineScheduleMixin:
 
 
     async def _scheduled_model_retrain(self):
-        if self._ml_predictor:
-            logger.info(" ML   ...")
-            try:
-                await self.db_manager.save_model_metrics({
-                    "timestamp":  datetime.now().isoformat(),
-                    "model_name": "ensemble",
-                    "val_acc":    getattr(
-                        self._ml_predictor, "_last_val_acc",   0.0
-                    ),
-                    "train_loss": getattr(
-                        self._ml_predictor, "_last_train_loss", 0.0
-                    ),
-                    "val_loss":   getattr(
-                        self._ml_predictor, "_last_val_loss",  0.0
-                    ),
-                    "parameters": 12299965,
-                })
-                logger.info(" model_metrics DB  ")
-            except Exception as _mme:
-                logger.debug(f"model_metrics  : {_mme}")
-            try:
-                await asyncio.get_event_loop().run_in_executor(
-                    None, self._ml_predictor.retrain
-                )
-                logger.info(" ML   ")
-            except Exception as e:
-                logger.error(f" : {e}")
+        """Phase 5: train_retrain.py v3.0 연동 자동 재학습"""
+        logger.info("ML 앙상블 재학습 시작 (train_retrain v3.0)...")
+        # 1. 재학습 전 현재 metrics DB 저장
+        try:
+            await self.db_manager.save_model_metrics({
+                "timestamp":  datetime.now().isoformat(),
+                "model_name": "ensemble_pre_retrain",
+                "val_acc":    getattr(self._ml_predictor, "_last_val_acc",   0.0),
+                "train_loss": getattr(self._ml_predictor, "_last_train_loss", 0.0),
+                "val_loss":   getattr(self._ml_predictor, "_last_val_loss",  0.0),
+                "parameters": 12299965,
+            })
+        except Exception as _mme:
+            logger.debug(f"model_metrics 저장 실패: {_mme}")
 
+        # 2. train_retrain.py v3.0 별도 프로세스로 실행
+        try:
+            import subprocess, sys, json
+            result = await asyncio.get_event_loop().run_in_executor(
+                None,
+                lambda: subprocess.run(
+                    [sys.executable, "train_retrain.py"],
+                    capture_output=True, text=True,
+                    cwd=str(Path(__file__).parent.parent),
+                    timeout=7200  # 최대 2시간
+                )
+            )
+            if result.returncode == 0:
+                logger.info("train_retrain.py 완료 (returncode=0)")
+                # 3. train_result.json 읽어서 결과 로깅
+                result_path = Path("models/saved/train_result.json")
+                if result_path.exists():
+                    try:
+                        res = json.loads(result_path.read_text(encoding="utf-8"))
+                        val_acc   = res.get("val_acc", 0)
+                        samples   = res.get("total_samples", 0)
+                        forward_n = res.get("forward_n", 8)
+                        logger.info(
+                            f"[Retrain] 완료 | val_acc={val_acc:.4f} | "
+                            f"samples={samples:,} | FORWARD_N={forward_n}"
+                        )
+                        # 4. 성공 시 모델 핫리로드
+                        if val_acc >= 0.42 and self._ml_predictor:
+                            await asyncio.get_event_loop().run_in_executor(
+                                None, self._ml_predictor.reload_model
+                            )
+                            logger.info("[Retrain] 모델 핫리로드 완료")
+                            await self.db_manager.save_model_metrics({
+                                "timestamp":  datetime.now().isoformat(),
+                                "model_name": "ensemble_v3",
+                                "val_acc":    val_acc,
+                                "train_loss": res.get("final_train_loss", 0.0),
+                                "val_loss":   res.get("final_val_loss", 0.0),
+                                "parameters": 12299965,
+                            })
+                        else:
+                            logger.warning(
+                                f"[Retrain] val_acc={val_acc:.4f} < 0.42, 롤백 유지"
+                            )
+                    except Exception as _je:
+                        logger.warning(f"train_result.json 파싱 실패: {_je}")
+            else:
+                logger.error(
+                    f"train_retrain.py 실패 (returncode={result.returncode})\n"
+                    f"STDERR: {result.stderr[-500:] if result.stderr else ''}"
+                )
+        except asyncio.TimeoutError:
+            logger.error("[Retrain] 타임아웃 (2시간 초과)")
+        except Exception as e:
+            logger.error(f"재학습 스케줄 오류: {e}")
 
     async def _scheduled_ppo_online_retrain(self):
         try:
