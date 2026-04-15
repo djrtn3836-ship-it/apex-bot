@@ -10,6 +10,8 @@ core/engine_sell.py
 ─────────────────────────────────────────────────────────────
 """
 from __future__ import annotations
+import datetime as _dt
+import datetime as _ppo_dt
 from datetime import datetime
 from execution.executor import OrderExecutor, ExecutionRequest, OrderSide
 from utils.logger import setup_logger, log_trade, log_signal, log_risk
@@ -132,7 +134,7 @@ class EngineSellMixin:
                     "volume":      volume,
                     "amount_krw":  volume * result.executed_price,
                     "fee":         result.fee,
-                    "profit_rate": profit_rate * 100,
+                    "profit_rate": profit_rate,  # [FIX] 이미 % 단위 (* 100 제거)
                     "strategy":    _strat,
                     "reason":      reason,
                     "mode":        _mode,
@@ -183,6 +185,11 @@ class EngineSellMixin:
             ) if pos else 0.0
             _wallet_sell_qty  = _ceil_vol(market, _raw_qty)
             _wallet_incl_dust = False
+            # [TRACE] paper SELL 진입 확인
+            logger.warning(
+                f"[PAPER-SELL T1] {market} | pos={pos} | "
+                f"raw_qty={_raw_qty} | sell_qty={_wallet_sell_qty}"
+            )
         else:
             if not _sell_dec["ok"]:
                 logger.warning(
@@ -197,8 +204,15 @@ class EngineSellMixin:
             )
 
         pos = self.portfolio.get_position(market)
+        # [TRACE] get_position 결과 확인
+        logger.warning(f"[PAPER-SELL T2] {market} | get_position={pos}")
         if not pos:
-            return
+            # paper 모드에서 _positions 직접 재시도
+            pos = self.portfolio._positions.get(market)
+            logger.warning(f"[PAPER-SELL T3] {market} | _positions 직접조회={pos}")
+            if not pos:
+                logger.warning(f"[PAPER-SELL BLOCK] {market} | 포지션 없음 → SELL 취소")
+                return
 
         req = ExecutionRequest(
             market=market,
@@ -225,8 +239,8 @@ class EngineSellMixin:
                     "volume":      result.executed_volume,
                     "amount_krw":  proceeds,
                     "fee":         result.fee if hasattr(result, "fee") else 0.0,
-                    # ✅ close_position 반환값은 이미 % 단위 → DB 저장 시 그대로 사용
-                    "profit_rate": profit_rate * 100,
+                    # [FIX2] close_position 반환값은 이미 % 단위 → * 100 제거
+                    "profit_rate": profit_rate,
                     "strategy":    getattr(pos, "strategy", "unknown"),
                     "reason":      reason,
                     "mode":        "paper",
