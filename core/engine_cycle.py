@@ -583,13 +583,13 @@ class EngineCycleMixin:
             if _held_min < 10 and pnl_pct > -2.0:  # [FIX] 30→10분으로 완화
                 logger.debug(f"  ({market}): 최소보유 미달 {_held_min:.1f}min < 10min, SELL 차단")
             elif (
-                (signal == "SELL" and confidence >= 0.65 and pnl_pct >= 0.5) or  # [FIX] 최소 +0.5% 이상
-                (signal == "SELL" and confidence >= 0.65 and pnl_pct <= -1.5) or  # [FIX] 손절은 -1.5% 이하
-                (confidence >= 0.65 and pnl_pct >= 1.5) or
-                (confidence >= 0.65 and pnl_pct <= -2.0) or
-                (pnl_pct >= 3.0) or
-                (pnl_pct <= -3.0 and confidence >= 0.50) or
-                (pnl_pct >= self._time_based_tp_threshold(market))  # [FIX3] 시간 기반 익절
+                (signal == "SELL" and confidence >= 0.65 and pnl_pct >= 0.5) or   # ML익절 최소 +0.5%
+                (signal == "SELL" and confidence >= 0.65 and pnl_pct <= -1.5) or  # ML손절 -1.5%
+                (confidence >= 0.65 and pnl_pct >= 1.5) or                        # 강한 수익 익절
+                (confidence >= 0.65 and pnl_pct <= -1.5) or                       # [FIX-RR] -2.0 → -1.5
+                (pnl_pct >= 3.0) or                                                # 3% 무조건 익절
+                (pnl_pct <= -2.5 and confidence >= 0.50) or                       # [FIX-RR] -3.0 → -2.5 비상손절
+                (pnl_pct >= self._time_based_tp_threshold(market))                 # 시간 기반 익절
             ):
                 logger.info(
                     f" ML   | {market} | "
