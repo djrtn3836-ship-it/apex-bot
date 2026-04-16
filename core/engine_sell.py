@@ -240,7 +240,7 @@ class EngineSellMixin:
                     "amount_krw":  proceeds,
                     "fee":         result.fee if hasattr(result, "fee") else 0.0,
                     # [FIX2] close_position 반환값은 이미 % 단위 → * 100 제거
-                    "profit_rate": profit_rate,
+                    "profit_rate": profit_rate * 100,  # [FIX-FINAL] 소수→% 변환
                     "strategy":    getattr(pos, "strategy", "unknown"),
                     "reason":      reason,
                     "mode":        "paper",

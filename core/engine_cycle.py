@@ -148,6 +148,7 @@ class EngineCycleMixin:
 
         krw         = await self.adapter.get_balance("KRW")
         total_value = self.portfolio.get_total_value(krw)
+        logger.info(f"[CYCLE_DEBUG] krw={krw:,.0f} | positions={self.portfolio.position_count} | min_order={self.settings.trading.min_order_amount}")
         drawdown    = self.portfolio.get_current_drawdown(total_value)
 
         if await self.risk_manager.check_circuit_breaker(drawdown, total_value,
@@ -225,6 +226,7 @@ class EngineCycleMixin:
             self.portfolio.position_count < self.settings.trading.max_positions
             and krw >= self.settings.trading.min_order_amount
         )
+        logger.info(f"[CYCLE_DEBUG] can_enter_new={can_enter_new} | new_entry={len(new_entry_markets)}개 | existing={len(existing_markets)}개")
         entry_tasks = (
             [self._analyze_market(m) for m in new_entry_markets]
             if can_enter_new else []
@@ -232,7 +234,11 @@ class EngineCycleMixin:
         exist_tasks = [
             self._analyze_existing_position(m) for m in existing_markets
         ]
-        await asyncio.gather(*(entry_tasks + exist_tasks), return_exceptions=True)
+        logger.info(f"[CYCLE_DEBUG] gather 시작 | entry_tasks={len(entry_tasks)} | exist_tasks={len(exist_tasks)}")
+        _results = await asyncio.gather(*(entry_tasks + exist_tasks), return_exceptions=True)
+        for _i, _r in enumerate(_results):
+            if isinstance(_r, Exception):
+                logger.error(f"[GATHER_ERR] task[{_i}] 예외: {type(_r).__name__}: {_r}")
 
         try:
             _ml_market = "KRW-BTC"
@@ -574,14 +580,15 @@ class EngineCycleMixin:
                     _held_min = (_dt_hold.datetime.now() - _et).total_seconds() / 60
                 except Exception:
                     _held_min = 999
-            if _held_min < 30 and pnl_pct > -2.0:  # 30분 미만 + 대형손실 아닌 경우 SELL 차단
-                logger.debug(f"  ({market}): 최소보유 미달 {_held_min:.1f}min < 30min, SELL 차단")
+            if _held_min < 10 and pnl_pct > -2.0:  # [FIX] 30→10분으로 완화
+                logger.debug(f"  ({market}): 최소보유 미달 {_held_min:.1f}min < 10min, SELL 차단")
             elif (
-                (confidence >= 0.62 and pnl_pct <= -0.5) or
-                (confidence >= 0.62 and pnl_pct >= 0.5) or
-                (confidence >= 0.55 and pnl_pct >= 1.0) or
-                (pnl_pct >= 1.5) or
-                (pnl_pct <= -2.0 and confidence >= 0.50) or
+                (signal == "SELL" and confidence >= 0.65 and pnl_pct >= 0.5) or  # [FIX] 최소 +0.5% 이상
+                (signal == "SELL" and confidence >= 0.65 and pnl_pct <= -1.5) or  # [FIX] 손절은 -1.5% 이하
+                (confidence >= 0.65 and pnl_pct >= 1.5) or
+                (confidence >= 0.65 and pnl_pct <= -2.0) or
+                (pnl_pct >= 3.0) or
+                (pnl_pct <= -3.0 and confidence >= 0.50) or
                 (pnl_pct >= self._time_based_tp_threshold(market))  # [FIX3] 시간 기반 익절
             ):
                 logger.info(
