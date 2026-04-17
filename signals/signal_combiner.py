@@ -62,14 +62,15 @@ class SignalCombiner:
     STRATEGY_WEIGHTS = {
         # ── 모멘텀 전략 ──────────────────────────────────────
         # MACD_Cross: 백테스트 +2.2% → 1.8 상향
+        "Vol_Breakout":     0.6,  # [FIX] 단독손실 전략 낮은 가중치
         "MACD_Cross":        1.8,
         # RSI_Divergence: 백테스트 -10.0% → 0.0 완전 차단
         "RSI_Divergence":    0.0,
         # Supertrend: 백테스트 +2.0% → 1.3 유지
         "Supertrend":        1.3,
         # ── 평균회귀 전략 ─────────────────────────────────────
-        "Bollinger_Squeeze": 1.0,
-        "VWAP_Reversion":    1.2,
+        "Bollinger_Squeeze": 1.4,  # [FIX] 급등포착 상향 1.0->1.4
+        "VWAP_Reversion":    0.7,  # [FIX] 단독손실 하향 1.2->0.7
         # ── 변동성 전략 ──────────────────────────────────────
         # VolBreakout: 백테스트 -2.7% → 0.4로 하향
         "VolBreakout":       0.4,
