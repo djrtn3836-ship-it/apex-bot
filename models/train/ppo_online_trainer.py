@@ -26,7 +26,7 @@ class PPOOnlineTrainer:
     MODEL_PATH     = Path("models/saved/ppo/best_model.zip")
     BACKUP_PATH    = Path("models/saved/ppo/best_model_backup.zip")
     MIN_EXPERIENCES = 50    # 최소 경험 수집 후 학습
-    MAX_BUFFER      = 1000  # 최대 buffer 크기
+    MAX_BUFFER      = 200   # [FIX] 1000->200 조기학습 (하루 15회 거래 기준 ~2주)
     RETRAIN_EPISODES = 200  # PPO 재학습 에피소드 수
 
     def __init__(self):

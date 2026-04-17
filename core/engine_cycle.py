@@ -569,6 +569,7 @@ class EngineCycleMixin:
             # [FIX] 최소 보유 30분 - 매수 직후 손절 방지
             _pos_et = getattr(pos, "entry_time", None) or getattr(pos, "created_at", None)
             _held_min = 0
+            import datetime as _dt_hold  # [FIX] _dt_hold import
             if _pos_et:
                 try:
                     if isinstance(_pos_et, str):
