@@ -539,6 +539,7 @@ class EngineScheduleMixin:
 
     async def _update_dashboard_state(self, krw: float, total_value: float):
         try:
+            from monitoring.dashboard import dashboard_state  # [FIX] dashboard_state 임포트
             stats     = self.portfolio.get_statistics()
             daily_pnl = self.portfolio.get_daily_pnl(total_value)
             drawdown  = self.portfolio.get_current_drawdown(total_value)
