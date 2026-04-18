@@ -1,6 +1,0 @@
-# Step 2 추가 의존성
-psutil>=5.9.0          # CPU 코어 핀닝 (Ultra 5 225F)
-numpy>=1.26.0          # NVMe mmap 캐시
-# 아래는 이미 설치된 경우 스킵
-pandas>=2.1.0
-loguru>=0.7.0
