@@ -736,6 +736,27 @@ class EngineBuyMixin:
             _cd_remain = 1200 - (datetime.now() - _cd_last).total_seconds()
             logger.info(f'[COOLDOWN] {market}: 매도 후 {_cd_remain:.0f}초 남음 → BUY 차단')
             return
+
+        # [FIX] DB 기반 손절 후 재매수 금지 체크 (재시작 후에도 유지)
+        try:
+            import datetime as _dt_slcd
+            _slcd_key = f"sl_cooldown_{market}"
+            _slcd_state = await self.db_manager.get_state(_slcd_key)
+            if _slcd_state:
+                _ban_until = _dt_slcd.datetime.fromisoformat(str(_slcd_state))
+                if _dt_slcd.datetime.now() < _ban_until:
+                    _remain_min = int((_ban_until - _dt_slcd.datetime.now()).total_seconds() // 60)
+                    logger.info(
+                        f"[SL-BAN] {market}: 손절 후 재매수 금지 "
+                        f"({_remain_min}분 남음 / 해제={_ban_until.strftime('%H:%M')})"
+                    )
+                    return
+                else:
+                    # 쿨다운 만료 → DB 삭제
+                    await self.db_manager.delete_state(_slcd_key)
+        except Exception as _slcd_e:
+            logger.debug(f"[SL-BAN] {market} 체크 오류: {_slcd_e}")
+
         if self.portfolio.position_count >= _max_pos:
             logger.info(
                 f"   ({market}): "

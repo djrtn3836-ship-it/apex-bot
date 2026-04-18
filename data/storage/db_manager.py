@@ -299,6 +299,12 @@ class DatabaseManager:
             logger.error(f"set_state  [{key}]: {e}")
             return False
 
+    async def delete_state(self, key: str) -> None:
+        """bot_state 테이블에서 key 삭제"""
+        async with aiosqlite.connect(self.db_path) as db:
+            await db.execute("DELETE FROM bot_state WHERE key = ?", (key,))
+            await db.commit()
+
     async def get_state(self, key: str) -> str | None:
         """bot_state  key"""
         try:
