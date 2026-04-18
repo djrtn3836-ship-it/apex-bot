@@ -42,17 +42,17 @@ class PartialExitState:
                 PartialExitLevel(
                     profit_pct=(self.entry_price * 1 + tp_range * 0.5 - self.entry_price)
                                / self.entry_price,
-                    exit_ratio=0.25,
+                    exit_ratio=0.40,  # [FIX] 25%→40% 초반 수익 확보 강화
                 ),
                 PartialExitLevel(
                     profit_pct=(self.entry_price + tp_range * 1.0 - self.entry_price)
                                / self.entry_price,
-                    exit_ratio=0.50,
+                    exit_ratio=0.40,  # [FIX] 50%→40% 균등 분배
                 ),
                 PartialExitLevel(
                     profit_pct=(self.entry_price + tp_range * 1.5 - self.entry_price)
                                / self.entry_price,
-                    exit_ratio=0.25,
+                    exit_ratio=0.20,  # [FIX] 25%→20% 마지막 소량 남김
                 ),
             ]
 
