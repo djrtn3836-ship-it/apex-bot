@@ -490,6 +490,20 @@ class EngineScheduleMixin:
                 f"최적 파라미터 → config/optimized_params.json 저장"
             )
             await self.telegram.send_message(msg)
+            # ✅ FIX: Walk-Forward 결과 DB 저장
+            import datetime as _wf_dt
+            _wf_summary = {
+                "profitable_count": len(profitable),
+                "profitable_strategies": ", ".join(profitable) if profitable else "없음",
+                "total_strategies": len(results),
+                "run_at": _wf_dt.datetime.now().isoformat(),
+            }
+            import json as _wf_json
+            await self.db_manager.set_state(
+                "walk_forward_last_result",
+                _wf_json.dumps(_wf_summary, ensure_ascii=False)
+            )
+            logger.info(f"[Walk-Forward] DB 저장 완료: {_wf_summary}")
         except Exception as e:
             logger.error(f"Walk-Forward  : {e}")
 

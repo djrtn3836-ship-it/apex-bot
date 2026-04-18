@@ -35,6 +35,7 @@ class MTFResult:
     tf_signals:      List[TFSignal] = field(default_factory=list)
     dominant_tf:     str = ""
     reason:          str = ""
+    mtf_aligned:     bool = False   # 상위/하위 TF 방향 일치 여부
 
 
 # 타임프레임별 가중치 (상위 TF 중시)
@@ -167,6 +168,21 @@ class MTFSignalMerger:
             f"{s.timeframe}:{s.direction.name[:1]}" for s in signals
         )
 
+        # ✅ FIX: mtf_aligned 계산 (상위/하위 TF 방향 일치 여부)
+        # 상위(1d,4h)와 하위(1h,15m,5m) TF 방향이 같으면 True
+        lower_tfs     = [s for s in signals if s.timeframe in ("1h", "15m", "5m", "1m")]
+        lower_up      = sum(1 for s in lower_tfs
+                            if s.direction in (TFDirection.UP, TFDirection.STRONG_UP))
+        lower_down    = sum(1 for s in lower_tfs
+                            if s.direction in (TFDirection.DOWN, TFDirection.STRONG_DOWN))
+        lower_bullish = lower_up > lower_down if lower_tfs else False
+        lower_bearish = lower_down > lower_up if lower_tfs else False
+
+        mtf_aligned = (
+            (higher_up   and lower_bullish) or   # 상위 UP  + 하위 UP  → 정렬됨
+            (higher_down and lower_bearish)       # 상위 DOWN + 하위 DOWN → 정렬됨
+        )
+
         return MTFResult(
             combined_score  = score,
             final_direction = final,
@@ -174,9 +190,11 @@ class MTFSignalMerger:
             allow_sell      = allow_sell,
             tf_signals      = signals,
             dominant_tf     = dominant.timeframe,
+            mtf_aligned     = mtf_aligned,
             reason          = (
                 f"MTF합산={score:.2f} | TF={tf_count}개({tf_summary}) | "
                 f"RSI={avg_rsi:.0f} | 지배TF={dominant.timeframe} | "
+                f"정렬={'✅' if mtf_aligned else '❌'} | "
                 f"BUY={"'✅'" if allow_buy else "'❌'"} SELL={"'✅'" if allow_sell else "'❌'"}"
             ),
         )
