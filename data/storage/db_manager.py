@@ -317,15 +317,6 @@ class DatabaseManager:
             logger.error(f"get_state  [{key}]: {e}")
             return None
 
-    async def delete_state(self, key: str) -> bool:
-        """bot_state  key"""
-        try:
-            await self._conn.execute("DELETE FROM bot_state WHERE key = ?", (key,))
-            await self._conn.commit()
-            return True
-        except Exception as e:
-            logger.error(f"delete_state  [{key}]: {e}")
-            return False
     async def close(self):
         """DB"""
         if self._conn:

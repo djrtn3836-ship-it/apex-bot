@@ -150,7 +150,7 @@ class EngineSellMixin:
             )
             await self.telegram.notify_sell(
                 market, result.executed_price, volume,
-                profit_rate, reason
+                profit_rate * 100, reason  # [FIX] 소수->% 변환
             )
 
     # ── 전량 매도 (래퍼) ────────────────────────────────────────
@@ -308,21 +308,36 @@ class EngineSellMixin:
             self.trailing_stop.remove_position(market)
             self.partial_exit.remove_position(market)
 
-            if "손절" in reason or "stop" in reason.lower() or "트레일링" in reason or "ATR" in reason:
-                if not hasattr(self, "_sl_cooldown"):
+            # ✅ FIX: reason 문자열 의존 → profit_rate 수치 기반으로 변경
+            # 손실(-0.5% 이상) 또는 reason에 손절 키워드 포함 시 쿨다운 적용
+            _is_sl = (
+                profit_rate < -0.005
+                or "손절" in reason
+                or "stop" in reason.lower()
+                or "트레일링" in reason
+                or "ATR" in reason
+                or "SL" in reason
+                or "긴급" in reason
+            )
+            if _is_sl:
+                if not hasattr(self, '_sl_cooldown'):
                     self._sl_cooldown = {}
-                self._sl_cooldown[market] = (
-                    _dt.datetime.now() + _dt.timedelta(hours=4)
-                )
-                logger.info(
-                    f"    ({market}): 4시간 재매수 금지"
-                )
                 _cd_until = (
                     _dt.datetime.now() + _dt.timedelta(hours=4)
                 ).isoformat()
-                await self.db_manager.set_state(
-                    f"sl_cooldown_{market}", _cd_until
+                self._sl_cooldown[market] = _dt.datetime.fromisoformat(_cd_until)
+                logger.info(
+                    f'손절쿨다운 ({market}): 4시간 재매수 금지'
+                    f' | profit={profit_rate:.4f} | reason={reason}'
                 )
+                try:
+                    await self.db_manager.set_state(
+                        f'sl_cooldown_{market}', _cd_until
+                    )
+                    logger.debug(f'[OK] sl_cooldown DB 저장: {market} until {_cd_until[:19]}')
+                except Exception as _cde:
+                    logger.warning(f'sl_cooldown DB 저장 실패 ({market}): {_cde}')
+                    # DB 실패해도 메모리 쿨다운은 유지됨
 
             self.risk_manager.record_trade_result(profit_rate > 0)
             log_trade(
@@ -331,7 +346,7 @@ class EngineSellMixin:
             )
             await self.telegram.notify_sell(
                 market, result.executed_price, result.executed_volume,
-                profit_rate, reason
+                profit_rate * 100, reason  # [FIX] 소수->% 변환
             )
 
         try:

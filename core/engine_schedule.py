@@ -231,25 +231,60 @@ class EngineScheduleMixin:
             trades  = await self.db_manager.get_trades(limit=50)
             if not trades:
                 return
+
+            # ✅ FIX: update()는 호환용 pass, get_metrics()로 dict 반환
             await self.performance_tracker.update(trades)
-            metrics = self.performance_tracker.get_metrics()
-            score   = await self.live_readiness.check(self.performance_tracker)
+            metrics = self.performance_tracker.get_metrics(days=14)
+
+            sharpe  = metrics.get("sharpe_ratio", 0)
+            mdd     = metrics.get("max_drawdown",  0)
+            wr      = metrics.get("win_rate",      0)
+            pf      = metrics.get("profit_factor", 0)
+
+            score = 0
+            if hasattr(self, "live_readiness"):
+                try:
+                    score = await self.live_readiness.check(self.performance_tracker)
+                except Exception:
+                    pass
+
             logger.info(
-                f" : win_rate={metrics.get('win_rate',0):.1%} "
-                f"sharpe={metrics.get('sharpe_ratio',0):.2f} "
-                f"mdd={metrics.get('max_drawdown',0):.1%} "
+                f"성과점검: win_rate={wr:.1%} "
+                f"sharpe={sharpe:.2f} "
+                f"mdd={mdd:.1%} "
+                f"profit_factor={pf:.2f} "
                 f"live_score={score:.0f}/100"
             )
+
+            # ✅ FIX: 매 시간 성과를 daily_performance DB에 저장
+            try:
+                from datetime import datetime as _dt_now
+                # ✅ FIX3: sharpe_ratio + max_drawdown 추가 저장
+                _pm = self.performance_tracker.get_metrics(days=14)
+                await self.db_manager.save_daily_performance({
+                    "date":           report.get("date"),
+                    "total_assets":   report.get("total_assets",   0),
+                    "daily_pnl":      report.get("daily_pnl",      0),
+                    "open_positions": report.get("open_positions",  0),
+                    "win_rate":       _pm.get("win_rate",     report.get("win_rate", 0)),
+                    "trade_count":    _pm.get("total_trades", report.get("trade_count", 0)),
+                    "max_drawdown":   _pm.get("max_drawdown", 0),
+                    "sharpe_ratio":   _pm.get("sharpe_ratio", 0),
+                })
+                logger.debug("✅ hourly performance DB 저장 완료")
+            except Exception as _dbe:
+                logger.debug(f"hourly performance DB 저장 실패: {_dbe}")
+
             if score >= 70:
-                logger.info("LiveReadiness 70  - Live   ")
-            elif score < 30 and len(trades) > 20:
+                logger.info("LiveReadiness 70점 이상 - Live 전환 가능")
+            elif score < 30 and metrics.get("total_trades", 0) > 20:
                 await self.telegram.send_alert(
                     "WARNING",
-                    f"LiveReadiness 점수 {score:.0f}/100 - 전략 점검 필요",
+                    f"LiveReadiness 점수 {score:.0f}/100 - 전략 점검 필요\n"
+                    f"Sharpe={sharpe:.2f} | MDD={mdd:.1%} | WR={wr:.1%}",
                 )
         except Exception as e:
-            logger.debug(f"  : {e}")
-
+            logger.debug(f"성과점검 오류: {e}")
 
     async def _scheduled_price_update(self):
         pass  # ws_collector 실시간 처리

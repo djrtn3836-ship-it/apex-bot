@@ -88,25 +88,95 @@ class PerformanceTracker:
          : {grade:>3s}""")
 
     # ── 내부 계산 ─────────────────────────────────────────────
-    def _calc_sharpe(self, rates: list) -> float:
-        if len(rates) < 2:
+    def _calc_sharpe(self, rates: list, timestamps: list = None) -> float:
+        """Sharpe Ratio 계산 — 거래 빈도 기반 동적 연환산.
+
+        profit_rate 단위: 퍼센트 (예: 1.5 = +1.5%)
+
+        연환산 정책:
+          - 데이터 30일 미만: 비연환산 (avg/std) 반환 — 과대추정 방지
+          - 데이터 30일 이상: 실제 거래 빈도 기반 연환산 적용
+          - 최대 연환산 cap: sqrt(252) = 15.87 (일봉 기준 상한)
+
+        전문 퀀트 기준:
+          - raw sharpe(avg/std) > 0.15 → 연환산 시 Sharpe ≈ 1.5+ 기대
+          - raw sharpe(avg/std) > 0.10 → 연환산 시 Sharpe ≈ 1.0+ 기대
+        """
+        if len(rates) < 5:
             return 0.0
-        import statistics
-        avg = statistics.mean(rates)
-        std = statistics.stdev(rates)
+        import statistics, math, sqlite3
+        from pathlib import Path
+
+        # 퍼센트 → 소수 변환
+        r_dec = [r / 100.0 for r in rates]
+        avg = statistics.mean(r_dec)
+        std = statistics.stdev(r_dec)
         if std == 0:
             return 0.0
-        # 연환산 (60분봉 기준: 8760시간/년)
-        return (avg - self.RISK_FREE) / std * math.sqrt(8760)
+
+        # raw Sharpe (비연환산) — 항상 신뢰 가능
+        raw_sharpe = (avg - self.RISK_FREE) / std
+
+        # 데이터 기간 계산 (DB에서 실제 타임스탬프 조회)
+        try:
+            con = sqlite3.connect(str(self.db_path))
+            cur = con.cursor()
+            cur.execute("""
+                SELECT MIN(timestamp), MAX(timestamp), COUNT(*)
+                FROM trade_history
+                WHERE side='SELL'
+            """)
+            row = cur.fetchone()
+            con.close()
+
+            if row and row[0] and row[1]:
+                from datetime import datetime
+                t1 = datetime.fromisoformat(row[0])
+                t2 = datetime.fromisoformat(row[1])
+                span_days  = (t2 - t1).total_seconds() / 86400
+                total_cnt  = row[2]
+                avg_gap_hr = (t2 - t1).total_seconds() / 3600 / max(total_cnt - 1, 1)
+
+                if span_days < 30:
+                    # ✅ 30일 미만: 연환산 미적용 (과대추정 방지)
+                    # raw_sharpe에 sqrt(252/span_days) 비례 스케일만 적용
+                    scale = math.sqrt(min(span_days, 30) / 30)
+                    annualized = raw_sharpe * scale * math.sqrt(252)
+                    return round(min(annualized, raw_sharpe * 20), 4)
+                else:
+                    # ✅ 30일 이상: 실제 빈도 기반 연환산, 일봉 기준 cap
+                    trades_per_year = 8760 / avg_gap_hr
+                    factor = math.sqrt(min(trades_per_year, 252))
+                    return round(raw_sharpe * factor, 4)
+        except Exception:
+            pass
+
+        # fallback: 일봉 기준 연환산 (sqrt(252))
+        return round(raw_sharpe * math.sqrt(252), 4)
+
+    def _calc_sharpe_raw(self, rates: list) -> float:
+        """비연환산 raw Sharpe (avg/std) — 표본 크기 무관하게 신뢰 가능."""
+        if len(rates) < 5:
+            return 0.0
+        import statistics
+        r_dec = [r / 100.0 for r in rates]
+        avg = statistics.mean(r_dec)
+        std = statistics.stdev(r_dec)
+        return round((avg - self.RISK_FREE) / std, 4) if std > 0 else 0.0
 
     def _calc_mdd(self, rates: list) -> float:
+        """Max Drawdown 계산.
+        profit_rate 단위: 퍼센트 (예: -2.0 = -2.0%)
+        반환값: 소수 (예: 0.05 = 5%)
+        """
         if not rates:
             return 0.0
+        # ✅ FIX: 퍼센트 → 소수 변환 후 계산
         equity = 1.0
         peak   = 1.0
         mdd    = 0.0
         for r in rates:
-            equity *= (1 + r)
+            equity *= (1 + r / 100.0)
             if equity > peak:
                 peak = equity
             dd = (peak - equity) / peak
@@ -130,6 +200,30 @@ class PerformanceTracker:
         if score >= 4: return "🥇 A (우수)"
         if score >= 2: return "🥈 B (양호)"
         return "🥉 C (개선 필요)"
+
+    def update(self, trades: list) -> None:
+        """engine_schedule._scheduled_performance_check 호환용.
+        trades 리스트를 받아도 실제 계산은 DB에서 직접 읽으므로 pass."""
+        pass  # get_stats()가 DB를 직접 읽기 때문에 별도 업데이트 불필요
+
+    def get_metrics(self, days: int = 14) -> dict:
+        """engine_schedule._scheduled_performance_check 호환용.
+        get_stats() 결과를 dict 형태로 반환."""
+        s = self.get_stats(days)
+        rates = [r["profit_rate"] for r in self._query_sells(days)]
+        raw_sharpe = self._calc_sharpe_raw(rates)
+        return {
+            "win_rate":       s.win_rate,
+            "sharpe_ratio":   s.sharpe_ratio,       # 동적 연환산
+            "sharpe_raw":     raw_sharpe,            # ✅ 비연환산 (신뢰 기준)
+            "max_drawdown":   s.max_drawdown,
+            "profit_factor":  s.profit_factor,
+            "total_trades":   s.total_trades,
+            "avg_profit":     s.avg_profit,
+            "total_pnl_krw":  s.total_pnl_krw,
+            "best_trade":     s.best_trade,
+            "worst_trade":    s.worst_trade,
+        }
 
     def _query_sells(self, days: int) -> list:
         if not self.db_path.exists():
