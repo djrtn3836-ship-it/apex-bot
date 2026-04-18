@@ -154,7 +154,7 @@ class RestCollector:
         return None
 
     async def get_orderbook(self, market: str) -> Optional[Dict]:
-        """docstring"""
+        """get_orderbook 실행"""
         async with self._semaphore:
             pass  # 동시 요청 제한
         await self._limiter.acquire()

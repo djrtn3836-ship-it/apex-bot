@@ -680,18 +680,16 @@ class EngineBuyMixin:
                 vp_rr = 999  # 에러 시 통과
             if vp_rr < 0.0:  # disabled: was 0.8, too strict
                 logger.info(f"{market} VolumeProfile RR : {vp_rr:.2f}")
-                logger.info(f"{market}  : unknown")  # 🔍 TRACE
                 return None
             
             # 3. Multi-Timeframe Confirmation (v2.1.0)
             if hasattr(self, 'mtf_confirmation'):
                 mtf_result = await self.mtf_confirmation.check(market, df)
                 if not mtf_result.get('aligned', False):
-                    logger.info(f"{market} MTF ")
-                    logger.info(f"{market}  : unknown")  # 🔍 TRACE
+                    logger.info(f"{market} MTF 미정렬 → 진입 차단")
                     return None
             
-            #            
+            # Kelly Criterion 포지션 크기 계산
             # 6. Kelly Criterion 포지션 크기 (v2.1.0)
             win_rate = getattr(self, 'historical_win_rate', 0.55)
             avg_win = getattr(self, 'avg_win', 0.03)
@@ -718,7 +716,7 @@ class EngineBuyMixin:
             
         except Exception as e:
             logger.error(f"{market}   : {e}")
-            logger.info(f"{market}  : unknown")  # 🔍 TRACE
+            logger.info(f"{market} 진입평가 예외 발생 → unknown")
             return None
 
 

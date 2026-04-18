@@ -91,7 +91,7 @@ def _run_gpu_check():
 
 
 def setup_initial():
-    """docstring"""
+    """setup_initial 실행"""
     env_example = Path(".env.example")
     env_file = Path(".env")
 
@@ -121,7 +121,7 @@ def setup_initial():
 
 
 async def run_paper_trading():
-    """docstring"""
+    """run_paper_trading 실행"""
     # 환경변수 강제로 paper 모드 설정
     os.environ["TRADING_MODE"] = "paper"
 
@@ -138,7 +138,7 @@ async def run_paper_trading():
 
 
 async def run_live_trading():
-    """docstring"""
+    """run_live_trading 실행"""
     # .env에서 API 키 확인
     if not os.getenv("UPBIT_ACCESS_KEY"):
         logger.error(" UPBIT_ACCESS_KEY  ")
@@ -163,7 +163,7 @@ async def run_live_trading():
 
 
 async def run_backtest(market: str = None, days: int = 90):
-    """docstring"""
+    """run_backtest 실행"""
     from backtesting.backtester import Backtester
     from data.collectors.rest_collector import RestCollector
     from data.processors.candle_processor import CandleProcessor
@@ -189,7 +189,7 @@ async def run_backtest(market: str = None, days: int = 90):
     bb_strategy = BollingerSqueezeStrategy()
 
     def combined_signal_fn(df: pd.DataFrame) -> pd.Series:
-        """docstring"""
+        """combined_signal_fn 실행"""
         signals = pd.Series(0, index=df.index)
         for i in range(len(df)):
             sub_df = df.iloc[:i+1]
@@ -259,7 +259,7 @@ async def run_backtest(market: str = None, days: int = 90):
 
 
 def main():
-    """docstring"""
+    """main 실행"""
     args = parse_args()
 
     # GPU 진단

@@ -1,331 +1,659 @@
-"""APEX BOT - FastAPI  
-WebSocket    + REST API"""
-import asyncio
-import json
-from typing import Dict, List, Optional, Set
-from datetime import datetime
-from contextlib import asynccontextmanager
-from loguru import logger
-
-try:
-    from fastapi import FastAPI, WebSocket, WebSocketDisconnect, HTTPException
-    from fastapi.middleware.cors import CORSMiddleware
-    from fastapi.responses import HTMLResponse
-    import uvicorn
-    FASTAPI_AVAILABLE = True
-except ImportError:
-    FASTAPI_AVAILABLE = False
-    logger.warning("FastAPI  -  ")
-
-from config.settings import get_settings
-
-import socket as _socket
-
-def _find_free_port(start: int = 8888, retries: int = 10) -> int:
-    """docstring"""
-    for port in range(start, start + retries):
-        with _socket.socket(_socket.AF_INET, _socket.SOCK_STREAM) as s:
-            try:
-                s.bind(("0.0.0.0", port))
-                return port
-            except OSError:
-                continue
-    return start  # fallback
-
-
-
-# ── WebSocket 연결 관리 ──────────────────────────────────────────────
-class ConnectionManager:
-    def __init__(self):
-        self.active_connections: Set[WebSocket] = set()
-
-    async def connect(self, websocket: WebSocket):
-        await websocket.accept()
-        self.active_connections.add(websocket)
-
-    def disconnect(self, websocket: WebSocket):
-        self.active_connections.discard(websocket)
-
-    async def broadcast(self, data: dict):
-        msg = json.dumps(data, ensure_ascii=False, default=str)
-        disconnected = set()
-        # FIX: 복사본으로 순회 → "Set changed size during iteration" 방지
-        for ws in set(self.active_connections):
-            try:
-                await ws.send_text(msg)
-            except Exception:
-                disconnected.add(ws)
-        self.active_connections -= disconnected
-
-
-manager = ConnectionManager()
-
-
-# ── 대시보드 상태 저장소 ────────────────────────────────────────────
-class DashboardState:
-    def __init__(self):
-        self.bot_status = "STOPPED"
-        self.mode = "paper"
-        self.positions: Dict = {}
-        self.portfolio: Dict = {"total_krw": 0, "positions": [], "pnl_today": 0}
-        self.recent_trades: List = []
-        self.signals: Dict = {}
-        self.metrics: Dict = {
-            "total_trades": 0, "win_rate": 0.0,
-            "fear_greed_index": None, "fear_greed_label": None,
-            "kimchi_premium": None, "news_sentiment": None,
-            "market_regime": None,
-            "daily_pnl": 0.0, "max_drawdown": 0.0,
-            "sharpe_ratio": 0.0,
-        }
-        self.alerts: List = []
-
-    def to_dict(self) -> dict:
-        return {
-            "bot_status": self.bot_status,
-            "mode": self.mode,
-            "positions": self.positions,
-            "portfolio": self.portfolio,
-            "recent_trades": self.recent_trades[-20:],
-            "signals": self.signals,
-            "metrics": self.metrics,
-            "alerts": self.alerts[-10:],
-            "timestamp": datetime.now().isoformat(),
-        }
-
-
-dashboard_state = DashboardState()
-
-
-# ── FastAPI 앱 ──────────────────────────────────────────────────────
-def create_dashboard_app(engine_ref=None) -> "FastAPI":
-    """FastAPI"""
-    if not FASTAPI_AVAILABLE:
-        return None
-
-    settings = get_settings()
-
-    @asynccontextmanager
-    async def lifespan(app: FastAPI):
-        logger.info("   ")
-        # 주기적 상태 브로드캐스트 (2초마다)
-        task = asyncio.create_task(_broadcast_loop())
-        yield
-        task.cancel()
-        logger.info("   ")
-
-    app = FastAPI(
-        title="APEX BOT Dashboard",
-        description="Upbit AI Quant Trading Bot",
-        version="1.0.0",
-        lifespan=lifespan,
-    )
-
-    app.add_middleware(
-        CORSMiddleware,
-        allow_origins=["*"],
-        allow_methods=["*"],
-        allow_headers=["*"],
-    )
-
-    # ── REST API ────────────────────────────────────────────────────
-    @app.get("/", response_class=HTMLResponse)
-    async def root():
-        return HTML_DASHBOARD
-
-    @app.get("/api/status")
-    async def get_status():
-        state = dashboard_state.to_dict()
-        # recent_trades가 비어있으면 DB에서 보강
-        if not state.get("recent_trades"):
-            try:
-                import sqlite3, os
-                db_path = os.path.join("database", "apex_bot.db")
-                if os.path.exists(db_path):
-                    conn = sqlite3.connect(db_path)
-                    conn.row_factory = sqlite3.Row
-                    cur = conn.cursor()
-                    cur.execute("""
-                        SELECT timestamp, market, side, price, volume,
-                               amount_krw, fee, profit_rate, strategy, reason
-                        FROM trade_history
-                        ORDER BY timestamp DESC LIMIT 20
-                    """)
-                    rows = [dict(r) for r in cur.fetchall()]
-                    conn.close()
-                    state["recent_trades"] = rows
-            except Exception:
-                pass
-        return state
-
-    @app.get("/api/portfolio")
-    async def get_portfolio():
-        return dashboard_state.portfolio
-
-    @app.get("/api/trades")
-    async def get_trades(limit: int = 50):
-        # dashboard_state 먼저 확인, 없으면 DB에서 직접 읽기
-        if dashboard_state.recent_trades:
-            return dashboard_state.recent_trades[-limit:]
-        try:
-            import sqlite3, os
-            db_path = os.path.join("database", "apex_bot.db")
-            if not os.path.exists(db_path):
-                return []
-            conn = sqlite3.connect(db_path)
-            conn.row_factory = sqlite3.Row
-            cur = conn.cursor()
-            cur.execute("""
-                SELECT timestamp, market, side, price, volume, amount_krw,
-                       fee, profit_rate, strategy, reason
-                FROM trade_history
-                ORDER BY timestamp DESC
-                LIMIT ?
-            """, (limit,))
-            rows = [dict(r) for r in cur.fetchall()]
-            conn.close()
-            # dashboard_state에도 캐시
-            dashboard_state.recent_trades = list(reversed(rows))
-            return rows
-        except Exception as e:
-            logger.debug(f"trades DB  : {e}")
-            return []
-
-    @app.get("/api/metrics")
-    async def get_metrics():
-        return dashboard_state.metrics
-
-    @app.get("/api/signals")
-    async def get_signals():
-        return dashboard_state.signals
-
-    @app.get("/api/ml-predict")
-    async def get_ml_predictions():
-        """ML      (     )"""
-        return {
-            "ml_predictions": dashboard_state.signals.get("ml_predictions", {}),
-            "last_updated": dashboard_state.signals.get("ml_last_updated", None),
-            "model_loaded": dashboard_state.signals.get("ml_model_loaded", False),
-        }
-
-    @app.post("/api/control/{action}")
-    async def control_bot(action: str):
-        """: pause/resume/stop"""
-        valid_actions = ["pause", "resume", "stop", "start"]
-        if action not in valid_actions:
-            raise HTTPException(400, f"유효하지 않은 액션: {action}")
-        if engine_ref:
-            if action == "pause":
-                engine_ref.pause()
-            elif action == "resume":
-                engine_ref.resume()
-        dashboard_state.bot_status = action.upper()
-        await manager.broadcast({"type": "control", "action": action})
-        return {"status": "ok", "action": action}
-
-    @app.get("/api/health")
-    async def health():
-        return {"status": "healthy", "timestamp": datetime.now().isoformat()}
-
-    @app.post("/api/report")
-    async def generate_report(hours: int = 24):
-        """docstring"""
-        import asyncio
-        from monitoring.paper_report import generate_paper_report
-        try:
-            loop = asyncio.get_event_loop()
-            data = await loop.run_in_executor(
-                None,
-                lambda: generate_paper_report(hours=hours, output_dir="reports/paper")
-            )
-            m = data.get("metrics", {})
-            return {
-                "status": "ok",
-                "message": f"reports/paper/ 에 리포트가 저장되었습니다",
-                "summary": {
-                    "total_pnl_pct":   round(m.get("total_pnl_pct", 0), 2),
-                    "win_rate":        round(float(m.get("win_rate", 0)), 1),  # 0~100 단위
-                    "total_trades":    m.get("total_trades", 0),
-                "fear_greed_index": self.signals.get("fear_greed",
-                                   self.signals.get("fear_greed_index", None)),
-                "fear_greed_label": self.signals.get("fear_greed_label", None),
-                "kimchi_premium":   self.signals.get("kimchi_premium", None),
-                "news_sentiment":   self.signals.get("news_sentiment", None),
-                "market_regime":    self.signals.get("market_regime", None),
-                    "sharpe_ratio":    round(m.get("sharpe_ratio", 0), 3),
-                    "max_drawdown_pct": round(m.get("max_drawdown_pct", 0), 2),
-                }
-            }
-        except Exception as e:
-            raise HTTPException(500, f"리포트 생성 실패: {e}")
-
-    # ── WebSocket ────────────────────────────────────────────────────
-    @app.websocket("/ws")
-    async def websocket_endpoint(websocket: WebSocket):
-        await manager.connect(websocket)
-        try:
-            # 초기 상태 전송
-            await websocket.send_text(json.dumps(dashboard_state.to_dict(), default=str))
-            while True:
-                # 클라이언트 메시지 수신 (ping/pong)
-                data = await websocket.receive_text()
-                if data == "ping":
-                    await websocket.send_text("pong")
-        except WebSocketDisconnect:
-            manager.disconnect(websocket)
-
-    return app
-
-
-async def _broadcast_loop():
-    """2"""
-    while True:
-        try:
-            await asyncio.sleep(2)
-            if manager.active_connections:
-                await manager.broadcast(dashboard_state.to_dict())
-        except asyncio.CancelledError:
-            break
-        except Exception as e:
-            logger.error(f" : {e}")
-
-
-# ── 상태 업데이트 헬퍼 ──────────────────────────────────────────────
-async def update_dashboard(data: dict):
-    """docstring"""
-    update_type = data.get("type", "")
-
-    if update_type == "trade":
-        dashboard_state.recent_trades.append(data)
-        if len(dashboard_state.recent_trades) > 100:
-            dashboard_state.recent_trades = dashboard_state.recent_trades[-100:]
-
-    elif update_type == "portfolio":
-        dashboard_state.portfolio.update(data)
-
-    elif update_type == "signal":
-        market = data.get("market", "")
-        if market == "__global__":
-            # 전역 시그널은 signals 최상위에 병합
-            for k, v in data.items():
-                if k not in ("type", "market"):
-                    dashboard_state.signals[k] = v
-        elif market:
-            dashboard_state.signals[market] = data
-    elif update_type == "metrics":
-        dashboard_state.metrics.update(data)
-
-    elif update_type == "alert":
-        dashboard_state.alerts.append(data)
-
-    elif update_type == "status":
-        dashboard_state.bot_status = data.get("status", "UNKNOWN")
-
-    # 브로드캐스트
-    await manager.broadcast({"type": update_type, **data})
-
-
-# ── 대시보드 HTML ────────────────────────────────────────────────────
+"""APEX BOT - FastAPI  
+
+WebSocket    + REST API"""
+
+import asyncio
+
+import json
+
+from typing import Dict, List, Optional, Set
+
+from datetime import datetime
+
+from contextlib import asynccontextmanager
+
+from loguru import logger
+
+
+
+try:
+
+    from fastapi import FastAPI, WebSocket, WebSocketDisconnect, HTTPException
+
+    from fastapi.middleware.cors import CORSMiddleware
+
+    from fastapi.responses import HTMLResponse
+
+    import uvicorn
+
+    FASTAPI_AVAILABLE = True
+
+except ImportError:
+
+    FASTAPI_AVAILABLE = False
+
+    logger.warning("FastAPI  -  ")
+
+
+
+from config.settings import get_settings
+
+
+
+import socket as _socket
+
+
+
+def _find_free_port(start: int = 8888, retries: int = 10) -> int:
+
+    """_find_free_port 실행"""
+
+    for port in range(start, start + retries):
+
+        with _socket.socket(_socket.AF_INET, _socket.SOCK_STREAM) as s:
+
+            try:
+
+                s.bind(("0.0.0.0", port))
+
+                return port
+
+            except OSError:
+
+                continue
+
+    return start  # fallback
+
+
+
+
+
+
+
+# ── WebSocket 연결 관리 ──────────────────────────────────────────────
+
+class ConnectionManager:
+
+    def __init__(self):
+
+        self.active_connections: Set[WebSocket] = set()
+
+
+
+    async def connect(self, websocket: WebSocket):
+
+        await websocket.accept()
+
+        self.active_connections.add(websocket)
+
+
+
+    def disconnect(self, websocket: WebSocket):
+
+        self.active_connections.discard(websocket)
+
+
+
+    async def broadcast(self, data: dict):
+
+        msg = json.dumps(data, ensure_ascii=False, default=str)
+
+        disconnected = set()
+
+        # FIX: 복사본으로 순회 → "Set changed size during iteration" 방지
+
+        for ws in set(self.active_connections):
+
+            try:
+
+                await ws.send_text(msg)
+
+            except Exception:
+
+                disconnected.add(ws)
+
+        self.active_connections -= disconnected
+
+
+
+
+
+manager = ConnectionManager()
+
+
+
+
+
+# ── 대시보드 상태 저장소 ────────────────────────────────────────────
+
+class DashboardState:
+
+    def __init__(self):
+
+        self.bot_status = "STOPPED"
+
+        self.mode = "paper"
+
+        self.positions: Dict = {}
+
+        self.portfolio: Dict = {"total_krw": 0, "positions": [], "pnl_today": 0}
+
+        self.recent_trades: List = []
+
+        self.signals: Dict = {}
+
+        self.metrics: Dict = {
+
+            "total_trades": 0, "win_rate": 0.0,
+
+            "fear_greed_index": None, "fear_greed_label": None,
+
+            "kimchi_premium": None, "news_sentiment": None,
+
+            "market_regime": None,
+
+            "daily_pnl": 0.0, "max_drawdown": 0.0,
+
+            "sharpe_ratio": 0.0,
+
+        }
+
+        self.alerts: List = []
+
+
+
+    def to_dict(self) -> dict:
+
+        return {
+
+            "bot_status": self.bot_status,
+
+            "mode": self.mode,
+
+            "positions": self.positions,
+
+            "portfolio": self.portfolio,
+
+            "recent_trades": self.recent_trades[-20:],
+
+            "signals": self.signals,
+
+            "metrics": self.metrics,
+
+            "alerts": self.alerts[-10:],
+
+            "timestamp": datetime.now().isoformat(),
+
+        }
+
+
+
+
+
+dashboard_state = DashboardState()
+
+
+
+
+
+# ── FastAPI 앱 ──────────────────────────────────────────────────────
+
+def create_dashboard_app(engine_ref=None) -> "FastAPI":
+
+    """FastAPI"""
+
+    if not FASTAPI_AVAILABLE:
+
+        return None
+
+
+
+    settings = get_settings()
+
+
+
+    @asynccontextmanager
+
+    async def lifespan(app: FastAPI):
+
+        logger.info("   ")
+
+        # 주기적 상태 브로드캐스트 (2초마다)
+
+        task = asyncio.create_task(_broadcast_loop())
+
+        yield
+
+        task.cancel()
+
+        logger.info("   ")
+
+
+
+    app = FastAPI(
+
+        title="APEX BOT Dashboard",
+
+        description="Upbit AI Quant Trading Bot",
+
+        version="1.0.0",
+
+        lifespan=lifespan,
+
+    )
+
+
+
+    app.add_middleware(
+
+        CORSMiddleware,
+
+        allow_origins=["*"],
+
+        allow_methods=["*"],
+
+        allow_headers=["*"],
+
+    )
+
+
+
+    # ── REST API ────────────────────────────────────────────────────
+
+    @app.get("/", response_class=HTMLResponse)
+
+    async def root():
+
+        return HTML_DASHBOARD
+
+
+
+    @app.get("/api/status")
+
+    async def get_status():
+
+        state = dashboard_state.to_dict()
+
+        # recent_trades가 비어있으면 DB에서 보강
+
+        if not state.get("recent_trades"):
+
+            try:
+
+                import sqlite3, os
+
+                db_path = os.path.join("database", "apex_bot.db")
+
+                if os.path.exists(db_path):
+
+                    conn = sqlite3.connect(db_path)
+
+                    conn.row_factory = sqlite3.Row
+
+                    cur = conn.cursor()
+
+                    cur.execute("""
+
+                        SELECT timestamp, market, side, price, volume,
+
+                               amount_krw, fee, profit_rate, strategy, reason
+
+                        FROM trade_history
+
+                        ORDER BY timestamp DESC LIMIT 20
+
+                    """)
+
+                    rows = [dict(r) for r in cur.fetchall()]
+
+                    conn.close()
+
+                    state["recent_trades"] = rows
+
+            except Exception:
+
+                pass
+
+        return state
+
+
+
+    @app.get("/api/portfolio")
+
+    async def get_portfolio():
+
+        return dashboard_state.portfolio
+
+
+
+    @app.get("/api/trades")
+
+    async def get_trades(limit: int = 50):
+
+        # dashboard_state 먼저 확인, 없으면 DB에서 직접 읽기
+
+        if dashboard_state.recent_trades:
+
+            return dashboard_state.recent_trades[-limit:]
+
+        try:
+
+            import sqlite3, os
+
+            db_path = os.path.join("database", "apex_bot.db")
+
+            if not os.path.exists(db_path):
+
+                return []
+
+            conn = sqlite3.connect(db_path)
+
+            conn.row_factory = sqlite3.Row
+
+            cur = conn.cursor()
+
+            cur.execute("""
+
+                SELECT timestamp, market, side, price, volume, amount_krw,
+
+                       fee, profit_rate, strategy, reason
+
+                FROM trade_history
+
+                ORDER BY timestamp DESC
+
+                LIMIT ?
+
+            """, (limit,))
+
+            rows = [dict(r) for r in cur.fetchall()]
+
+            conn.close()
+
+            # dashboard_state에도 캐시
+
+            dashboard_state.recent_trades = list(reversed(rows))
+
+            return rows
+
+        except Exception as e:
+
+            logger.debug(f"trades DB  : {e}")
+
+            return []
+
+
+
+    @app.get("/api/metrics")
+
+    async def get_metrics():
+
+        return dashboard_state.metrics
+
+
+
+    @app.get("/api/signals")
+
+    async def get_signals():
+
+        return dashboard_state.signals
+
+
+
+    @app.get("/api/ml-predict")
+
+    async def get_ml_predictions():
+
+        """ML      (     )"""
+
+        return {
+
+            "ml_predictions": dashboard_state.signals.get("ml_predictions", {}),
+
+            "last_updated": dashboard_state.signals.get("ml_last_updated", None),
+
+            "model_loaded": dashboard_state.signals.get("ml_model_loaded", False),
+
+        }
+
+
+
+    @app.post("/api/control/{action}")
+
+    async def control_bot(action: str):
+
+        """: pause/resume/stop"""
+
+        valid_actions = ["pause", "resume", "stop", "start"]
+
+        if action not in valid_actions:
+
+            raise HTTPException(400, f"유효하지 않은 액션: {action}")
+
+        if engine_ref:
+
+            if action == "pause":
+
+                engine_ref.pause()
+
+            elif action == "resume":
+
+                engine_ref.resume()
+
+        dashboard_state.bot_status = action.upper()
+
+        await manager.broadcast({"type": "control", "action": action})
+
+        return {"status": "ok", "action": action}
+
+
+
+    @app.get("/api/health")
+
+    async def health():
+
+        return {"status": "healthy", "timestamp": datetime.now().isoformat()}
+
+
+
+    @app.post("/api/report")
+
+    async def generate_report(hours: int = 24):
+
+        """generate_report 실행"""
+
+        import asyncio
+
+        from monitoring.paper_report import generate_paper_report
+
+        try:
+
+            loop = asyncio.get_event_loop()
+
+            data = await loop.run_in_executor(
+
+                None,
+
+                lambda: generate_paper_report(hours=hours, output_dir="reports/paper")
+
+            )
+
+            m = data.get("metrics", {})
+
+            return {
+
+                "status": "ok",
+
+                "message": f"reports/paper/ 에 리포트가 저장되었습니다",
+
+                "summary": {
+
+                    "total_pnl_pct":   round(m.get("total_pnl_pct", 0), 2),
+
+                    "win_rate":        round(float(m.get("win_rate", 0)), 1),  # 0~100 단위
+
+                    "total_trades":    m.get("total_trades", 0),
+
+                "fear_greed_index": self.signals.get("fear_greed",
+
+                                   self.signals.get("fear_greed_index", None)),
+
+                "fear_greed_label": self.signals.get("fear_greed_label", None),
+
+                "kimchi_premium":   self.signals.get("kimchi_premium", None),
+
+                "news_sentiment":   self.signals.get("news_sentiment", None),
+
+                "market_regime":    self.signals.get("market_regime", None),
+
+                    "sharpe_ratio":    round(m.get("sharpe_ratio", 0), 3),
+
+                    "max_drawdown_pct": round(m.get("max_drawdown_pct", 0), 2),
+
+                }
+
+            }
+
+        except Exception as e:
+
+            raise HTTPException(500, f"리포트 생성 실패: {e}")
+
+
+
+    # ── WebSocket ────────────────────────────────────────────────────
+
+    @app.websocket("/ws")
+
+    async def websocket_endpoint(websocket: WebSocket):
+
+        await manager.connect(websocket)
+
+        try:
+
+            # 초기 상태 전송
+
+            await websocket.send_text(json.dumps(dashboard_state.to_dict(), default=str))
+
+            while True:
+
+                # 클라이언트 메시지 수신 (ping/pong)
+
+                data = await websocket.receive_text()
+
+                if data == "ping":
+
+                    await websocket.send_text("pong")
+
+        except WebSocketDisconnect:
+
+            manager.disconnect(websocket)
+
+
+
+    return app
+
+
+
+
+
+async def _broadcast_loop():
+
+    """2"""
+
+    while True:
+
+        try:
+
+            await asyncio.sleep(2)
+
+            if manager.active_connections:
+
+                await manager.broadcast(dashboard_state.to_dict())
+
+        except asyncio.CancelledError:
+
+            break
+
+        except Exception as e:
+
+            logger.error(f" : {e}")
+
+
+
+
+
+# ── 상태 업데이트 헬퍼 ──────────────────────────────────────────────
+
+async def update_dashboard(data: dict):
+
+    """update_dashboard 실행"""
+
+    update_type = data.get("type", "")
+
+
+
+    if update_type == "trade":
+
+        dashboard_state.recent_trades.append(data)
+
+        if len(dashboard_state.recent_trades) > 100:
+
+            dashboard_state.recent_trades = dashboard_state.recent_trades[-100:]
+
+
+
+    elif update_type == "portfolio":
+
+        dashboard_state.portfolio.update(data)
+
+
+
+    elif update_type == "signal":
+
+        market = data.get("market", "")
+
+        if market == "__global__":
+
+            # 전역 시그널은 signals 최상위에 병합
+
+            for k, v in data.items():
+
+                if k not in ("type", "market"):
+
+                    dashboard_state.signals[k] = v
+
+        elif market:
+
+            dashboard_state.signals[market] = data
+
+    elif update_type == "metrics":
+
+        dashboard_state.metrics.update(data)
+
+
+
+    elif update_type == "alert":
+
+        dashboard_state.alerts.append(data)
+
+
+
+    elif update_type == "status":
+
+        dashboard_state.bot_status = data.get("status", "UNKNOWN")
+
+
+
+    # 브로드캐스트
+
+    await manager.broadcast({"type": update_type, **data})
+
+
+
+
+
+# ── 대시보드 HTML ────────────────────────────────────────────────────
+
 HTML_DASHBOARD = """
 <!DOCTYPE html>
 <html lang="ko">
@@ -632,37 +960,70 @@ poll();setInterval(poll,8000);
 </script>
 </body>
 </html>
-"""
-
-
-class DashboardServer:
-    """docstring"""
-
-    def __init__(self):
-        self.settings = get_settings()
-        self.app = None
-        self._server_task = None
-
-    def setup(self, engine_ref=None):
-        self.app = create_dashboard_app(engine_ref)
-
-    async def start(self):
-        if not FASTAPI_AVAILABLE or not self.app:
-            return
-
-        config = uvicorn.Config(
-            self.app,
-            host=self.settings.monitoring.dashboard_host,
-            port=_find_free_port(self.settings.monitoring.dashboard_port),
-            log_level="warning",
-        )
-        server = uvicorn.Server(config)
-        logger.info(
-            f"  : http://{self.settings.monitoring.dashboard_host}"
-            f":{self.settings.monitoring.dashboard_port}"
-        )
-        self._server_task = asyncio.create_task(server.serve())
-
-    async def stop(self):
-        if self._server_task:
+"""
+
+
+
+
+
+class DashboardServer:
+
+    """구현부"""
+
+
+
+    def __init__(self):
+
+        self.settings = get_settings()
+
+        self.app = None
+
+        self._server_task = None
+
+
+
+    def setup(self, engine_ref=None):
+
+        self.app = create_dashboard_app(engine_ref)
+
+
+
+    async def start(self):
+
+        if not FASTAPI_AVAILABLE or not self.app:
+
+            return
+
+
+
+        config = uvicorn.Config(
+
+            self.app,
+
+            host=self.settings.monitoring.dashboard_host,
+
+            port=_find_free_port(self.settings.monitoring.dashboard_port),
+
+            log_level="warning",
+
+        )
+
+        server = uvicorn.Server(config)
+
+        logger.info(
+
+            f"  : http://{self.settings.monitoring.dashboard_host}"
+
+            f":{self.settings.monitoring.dashboard_port}"
+
+        )
+
+        self._server_task = asyncio.create_task(server.serve())
+
+
+
+    async def stop(self):
+
+        if self._server_task:
+
             self._server_task.cancel()

@@ -54,7 +54,7 @@ class DatabaseManager:
         logger.info(f" DB : {self.db_path}")
 
     async def _create_tables(self):
-        """docstring"""
+        """_create_tables 실행"""
         schemas = [
             # 거래 내역
             """
@@ -134,7 +134,7 @@ class DatabaseManager:
 
     # ── 거래 기록 ─────────────────────────────────────────────────
     async def insert_trade(self, trade: Dict) -> bool:
-        """docstring"""
+        """insert_trade 실행"""
         if not self._conn:
             return False
         try:
@@ -167,7 +167,7 @@ class DatabaseManager:
             return False
 
     async def get_trades(self, market: str = None, limit: int = 100) -> List[Dict]:
-        """docstring"""
+        """get_trades 실행"""
         if not self._conn:
             return []
         try:
@@ -187,7 +187,7 @@ class DatabaseManager:
 
     # ── 성과 기록 ─────────────────────────────────────────────────
     async def save_daily_performance(self, perf: Dict) -> bool:
-        """docstring"""
+        """save_daily_performance 실행"""
         if not self._conn:
             return False
         try:
@@ -217,7 +217,7 @@ class DatabaseManager:
 
     # ── 신호 기록 ─────────────────────────────────────────────────
     async def log_signal(self, signal: Dict) -> bool:
-        """docstring"""
+        """log_signal 실행"""
         if not self._conn:
             return False
         try:

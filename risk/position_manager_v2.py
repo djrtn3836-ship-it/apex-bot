@@ -77,7 +77,7 @@ class PositionManagerV2:
         self.positions.pop(market, None)
 
     def check_exit(self, market: str, current_price: float) -> ExitSignal:
-        """docstring"""
+        """check_exit 실행"""
         pos = self.positions.get(market)
         if pos is None:
             return ExitSignal(False, ExitReason.SIGNAL_SELL)

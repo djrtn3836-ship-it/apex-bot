@@ -18,7 +18,7 @@ class SignalType(Enum):
 
 @dataclass
 class StrategySignal:
-    """docstring"""
+    """StrategySignal 클래스"""
     strategy_name: str
     market: str
     signal: SignalType
@@ -66,7 +66,7 @@ Signal = StrategySignal
 
 
 class BaseStrategy(ABC):
-    """docstring"""
+    """BaseStrategy 클래스"""
 
     # 전략 메타데이터 (하위 클래스에서 오버라이드)
     NAME: str = "base"
@@ -83,7 +83,7 @@ class BaseStrategy(ABC):
 
     @abstractmethod
     def _default_params(self) -> dict:
-        """docstring"""
+        """_default_params 실행"""
         return {}
 
     @abstractmethod
@@ -127,7 +127,7 @@ class BaseStrategy(ABC):
         timeframe: str,
         metadata: dict = None
     ) -> StrategySignal:
-        """docstring"""
+        """구현부"""
         self._signal_count += 1
         sig = StrategySignal(
             strategy_name=self.NAME,

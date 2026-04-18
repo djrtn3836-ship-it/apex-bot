@@ -20,7 +20,7 @@ class WilliamsRStrategy(BaseStrategy):
         return df
     
     def generate_signal(self, df: pd.DataFrame, **kwargs) -> Optional[Dict]:
-        """docstring"""
+        """generate_signal 실행"""
         df = self.calculate_indicator(df)
         
         if len(df) < self.period + 5:

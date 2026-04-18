@@ -6,7 +6,7 @@ from .base_strategy import BaseStrategy
 
 
 class IchimokuCloudStrategy(BaseStrategy):
-    """docstring"""
+    """IchimokuCloudStrategy 클래스"""
     
     def __init__(self):
         super().__init__()

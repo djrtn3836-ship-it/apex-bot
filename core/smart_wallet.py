@@ -48,7 +48,7 @@ class DustState(Enum):
 
 @dataclass
 class BotTransaction:
-    """docstring"""
+    """BotTransaction 클래스"""
     tx_id    : str
     qty      : float
     price    : float
@@ -398,7 +398,7 @@ class SmartWalletManager:
     # 매수 완료 후 기록
     # ═══════════════════════════════════════════════════════════
     def record_buy(self, symbol: str, qty: float, price: float):
-        """docstring"""
+        """record_buy 실행"""
         wallet = self._get_or_create(symbol)
 
         tx = BotTransaction(

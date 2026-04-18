@@ -23,7 +23,7 @@ class MCResult:
 
 
 class MonteCarloSimulator:
-    """docstring"""
+    """MonteCarloSimulator 클래스"""
 
     def __init__(self, n_simulations: int = 1000):
         self.n = n_simulations

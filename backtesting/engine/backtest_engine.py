@@ -52,7 +52,7 @@ class BacktestResult:
 
 
 class BacktestEngine:
-    """docstring"""
+    """BacktestEngine 클래스"""
 
     VERSION = "3.0.0"
 
@@ -148,7 +148,7 @@ class BacktestEngine:
         return result
 
     def _calc_metrics(self, result: BacktestResult) -> BacktestResult:
-        """docstring"""
+        """_calc_metrics 실행"""
         trades = result.trades
         eq     = result.equity_curve
         cfg    = self.config

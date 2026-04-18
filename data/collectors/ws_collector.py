@@ -138,7 +138,7 @@ class UpbitWebSocketCollector:
                         await self.on_error(e)
 
     async def run(self):
-        """docstring"""
+        """run 실행"""
         self._running = True
         logger.info(" WebSocket  ")
 
@@ -169,7 +169,7 @@ class UpbitWebSocketCollector:
             await asyncio.sleep(delay)
 
     async def stop(self):
-        """docstring"""
+        """stop 실행"""
         self._running = False
         if self._ws:
             await self._ws.close()
@@ -207,14 +207,14 @@ class MultiStreamCollector:
         self._tasks: List[asyncio.Task] = []
 
     def _chunk_markets(self) -> List[List[str]]:
-        """docstring"""
+        """_chunk_markets 실행"""
         chunks = []
         for i in range(0, len(self.all_markets), self.MAX_MARKETS_PER_STREAM):
             chunks.append(self.all_markets[i:i + self.MAX_MARKETS_PER_STREAM])
         return chunks
 
     async def _message_router(self, data: dict):
-        """docstring"""
+        """_message_router 실행"""
         msg_type = data.get("ty", data.get("type", ""))
 
         if msg_type == "ticker":
@@ -225,7 +225,7 @@ class MultiStreamCollector:
             await self.on_orderbook(data)
 
     async def start(self):
-        """docstring"""
+        """start 실행"""
         chunks = self._chunk_markets()
         logger.info(f" {len(chunks)}개 스트림으로 {len(self.all_markets)}개 마켓 수집 시작")
 
@@ -243,7 +243,7 @@ class MultiStreamCollector:
             await asyncio.sleep(0.3)
 
     async def stop(self):
-        """docstring"""
+        """stop 실행"""
         for collector in self._collectors:
             await collector.stop()
         for task in self._tasks:

@@ -31,7 +31,7 @@ class OrderSide(Enum):
 
 @dataclass
 class Order:
-    """docstring"""
+    """Order 클래스"""
     order_id: str = field(default_factory=lambda: str(uuid.uuid4()))
     market: str = ""
     side: OrderSide = OrderSide.BUY
@@ -71,7 +71,7 @@ class Order:
 
 
 class Position:
-    """docstring"""
+    """Position 클래스"""
 
     def __init__(
         self,
@@ -201,7 +201,7 @@ class OrderManager:
         strategy: str = "",
         signal_score: float = 0.0,
     ) -> Optional[Order]:
-        """docstring"""
+        """구현부"""
         volume = amount_krw / price
         order = Order(
             market=market,
@@ -242,7 +242,7 @@ class OrderManager:
         volume: float,
         reason: str = "signal",
     ) -> Optional[Order]:
-        """docstring"""
+        """구현부"""
         order = Order(
             market=market,
             side=OrderSide.SELL,
@@ -269,7 +269,7 @@ class OrderManager:
         return order
 
     async def _execute_order(self, order: Order) -> bool:
-        """docstring"""
+        """_execute_order 실행"""
         self._orders[order.order_id] = order
 
         if self.is_paper:

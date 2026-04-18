@@ -8,7 +8,7 @@ logger = get_logger(__name__)
 
 @dataclass
 class ExecutionRequest:
-    """docstring"""
+    """ExecutionRequest 클래스"""
     market: str
     side: str                        # "BUY" or "SELL"
     amount_krw: float = 0.0
@@ -74,6 +74,6 @@ class OrderExecutor:
 from enum import Enum
 
 class OrderSide(str, Enum):
-    """docstring"""
+    """OrderSide 클래스"""
     BUY  = "BUY"
     SELL = "SELL"

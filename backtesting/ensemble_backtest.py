@@ -15,7 +15,7 @@ from backtesting.data_loader import fetch_ohlcv
 
 @dataclass
 class EnsembleConfig:
-    """docstring"""
+    """EnsembleConfig 클래스"""
     strategies:      List[str] = field(default_factory=list)   # 사용할 전략 목록
     min_agree:       int   = 2       # 최소 동의 전략 수 (이 이상일 때만 진입)
     min_agree_sell:  int   = 1       # 매도 최소 동의 수 (매도는 보수적으로)
@@ -99,7 +99,7 @@ class EnsembleBacktester:
         min_agree:  int = 2,
         weights:    Dict[str, float] = None,
     ) -> BacktestResult:
-        """docstring"""
+        """구현부"""
         if strategies is None:
             strategies = self.DEFAULT_STRATEGIES
 
@@ -161,7 +161,7 @@ class EnsembleBacktester:
         days:       int = 365,
         min_agree:  int = 2,
     ) -> Dict[str, BacktestResult]:
-        """docstring"""
+        """구현부"""
         if strategies is None:
             strategies = self.DEFAULT_STRATEGIES
 

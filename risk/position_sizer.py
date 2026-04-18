@@ -48,6 +48,8 @@ class KellyPositionSizer:
         confidence: float = 0.5,
     ) -> float:
         """Returns:   (KRW),  MIN_ORDER_KRW"""
+        if total_capital <= 0:
+            return 0.0
         kelly_f = self._get_kelly_fraction(strategy)
         base_amount = total_capital * kelly_f
 

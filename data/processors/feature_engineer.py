@@ -215,7 +215,7 @@ class FeatureEngineer:
         return np.clip(scaled, -10.0, 10.0)
 
     def get_latest_features(self, df: pd.DataFrame, sequence_length: int = 60) -> Optional[np.ndarray]:
-        """docstring"""
+        """get_latest_features 실행"""
         features = self.transform(df)
         if features is None or len(features) < sequence_length:
             return None

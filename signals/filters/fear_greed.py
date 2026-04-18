@@ -177,7 +177,7 @@ class FearGreedMonitor:
         return abs(self._index - self._prev_index) >= 20
 
     def get_dashboard_info(self) -> Dict:
-        """docstring"""
+        """get_dashboard_info 실행"""
         if not self.is_valid:
             return {"index": None, "label": "N/A", "emoji": "⚪"}
         idx = self._index

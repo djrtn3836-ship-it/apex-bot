@@ -236,7 +236,7 @@ class OrderbookSignalAnalyzer:
         return fake_detected, fake_side, fake_conf, wall_vanished, wall_ratio
 
     def _update_history(self, market: str, bids: List, asks: List):
-        """docstring"""
+        """_update_history 실행"""
         if market not in self._wall_history:
             self._wall_history[market] = deque(maxlen=self.HISTORY_MAXLEN)
         now = time.time()

@@ -12,7 +12,7 @@ from backtesting.backtester import BacktestResult
 
 
 class PerformanceReporter:
-    """docstring"""
+    """PerformanceReporter 클래스"""
 
     def __init__(self, output_dir: str = "./reports/backtest"):
         self.output_dir = Path(output_dir)
@@ -40,7 +40,7 @@ class PerformanceReporter:
         results: List[BacktestResult],
         strategy_names: List[str] = None,
     ) -> Dict:
-        """docstring"""
+        """구현부"""
         comparison = {
             "generated_at": datetime.now().isoformat(),
             "strategies": [],

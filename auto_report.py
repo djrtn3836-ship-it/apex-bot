@@ -4,7 +4,7 @@ from datetime import datetime
 from pathlib import Path
 
 def generate_daily_report():
-    """docstring"""
+    """generate_daily_report 실행"""
     
     # 리포트 저장 폴더
     report_dir = Path("reports/daily")

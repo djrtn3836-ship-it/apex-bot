@@ -74,7 +74,7 @@ class PaperReport:
     # ================================================================
 
     def generate(self) -> Dict:
-        """docstring"""
+        """generate 실행"""
         logger.info(f" {self.hours}     ...")
 
         trades     = self._load_trades()
@@ -119,7 +119,7 @@ class PaperReport:
         return data
 
     def print_summary(self, data: Optional[Dict] = None) -> None:
-        """docstring"""
+        """print_summary 실행"""
         if data is None:
             trades     = self._load_trades()
             daily_perf = self._load_daily_performance()

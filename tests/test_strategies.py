@@ -32,7 +32,7 @@ def create_mock_df(n: int = 200, trend: str = "up") -> pd.DataFrame:
 
 
 def add_indicators(df: pd.DataFrame) -> pd.DataFrame:
-    """docstring"""
+    """add_indicators 실행"""
     c = df["close"]
     df["ema20"] = c.ewm(span=20, adjust=False).mean()
     df["ema50"] = c.ewm(span=50, adjust=False).mean()

@@ -249,7 +249,7 @@ class NewsSentimentAnalyzer:
     def get_recent_news(
         self, market: Optional[str] = None, n: int = 5
     ) -> List[Dict]:
-        """docstring"""
+        """구현부"""
         items = list(self._news_cache)
         if market:
             coin = market.replace("KRW-", "").lower()
@@ -266,7 +266,7 @@ class NewsSentimentAnalyzer:
         ]
 
     def get_dashboard_summary(self) -> Dict:
-        """docstring"""
+        """get_dashboard_summary 실행"""
         positive = sum(1 for i in self._news_cache if i.sentiment_score > 0.3)
         negative = sum(1 for i in self._news_cache if i.sentiment_score < -0.3)
         neutral  = len(self._news_cache) - positive - negative
@@ -361,7 +361,7 @@ class NewsSentimentAnalyzer:
     # ── 감성 분석 ───────────────────────────────────────────────
 
     def _score_item(self, item: NewsItem):
-        """docstring"""
+        """_score_item 실행"""
         title_lower = item.title.lower()
 
         # 1단계: FinBERT (고정밀)
@@ -397,7 +397,7 @@ class NewsSentimentAnalyzer:
         item.sentiment_score = self._keyword_score(title_lower)
 
     def _keyword_score(self, text: str) -> float:
-        """docstring"""
+        """_keyword_score 실행"""
         score = 0.0
         hits = 0
         for kw, val in BULLISH_KEYWORDS.items():
@@ -448,7 +448,7 @@ class NewsSentimentAnalyzer:
                 self._market_scores[market] = sum(scores) / len(scores)
 
     def _get_top_negative(self, market: str) -> str:
-        """docstring"""
+        """_get_top_negative 실행"""
         coin = market.replace("KRW-", "").lower()
         neg_items = [
             i for i in self._news_cache
@@ -478,7 +478,7 @@ _global_analyzer: Optional[NewsSentimentAnalyzer] = None
 
 
 def get_news_analyzer() -> NewsSentimentAnalyzer:
-    """docstring"""
+    """get_news_analyzer 실행"""
     global _global_analyzer
     if _global_analyzer is None:
         _global_analyzer = NewsSentimentAnalyzer(

@@ -51,7 +51,7 @@ class LiveReadinessChecker:
         self.max_score = 0
 
     def _load_paper_metrics(self) -> Dict[str, Any]:
-        """docstring"""
+        """_load_paper_metrics 실행"""
         try:
             import config.settings as settings_module
             from config.settings import Settings
@@ -88,7 +88,7 @@ class LiveReadinessChecker:
             return []
 
     def check(self) -> Dict[str, Any]:
-        """docstring"""
+        """check 실행"""
         print("\n" + "="*65)
         print("   APEX BOT -    ")
         print(f"   :  {self.days}")

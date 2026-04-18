@@ -51,7 +51,7 @@ def setup_telegram():
 
 
 async def test_telegram(token: str, chat_id: str):
-    """docstring"""
+    """test_telegram 실행"""
     try:
         import aiohttp
         url  = f"https://api.telegram.org/bot{token}/sendMessage"

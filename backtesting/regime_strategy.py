@@ -71,7 +71,7 @@ def build_regime_signal(
     df: pd.DataFrame,
     min_score: float = 1.0,
 ) -> Tuple[pd.Series, pd.DataFrame]:
-    """docstring"""
+    """구현부"""
     regime = detect_regime(df)
     counts = regime.value_counts().to_dict()
     logger.info(" : " + str({k: int(v) for k, v in counts.items()}))
@@ -127,7 +127,7 @@ class RegimeStrategyBacktester:
         market:    str   = "KRW-BTC",
         min_score: float = 1.0,
     ) -> Tuple[BacktestResult, pd.DataFrame]:
-        """docstring"""
+        """구현부"""
         signal, debug_df = build_regime_signal(df, min_score)
 
         regime_counts = debug_df["regime"].value_counts()

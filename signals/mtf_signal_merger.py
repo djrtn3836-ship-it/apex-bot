@@ -50,7 +50,7 @@ TF_WEIGHTS: Dict[str, float] = {
 
 
 class MTFSignalMerger:
-    """docstring"""
+    """MTFSignalMerger 클래스"""
 
     def __init__(self, weights: Dict[str, float] = None):
         self.weights = weights or TF_WEIGHTS

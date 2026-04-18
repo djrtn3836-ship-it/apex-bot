@@ -70,7 +70,7 @@ class KimchiPremiumMonitor:
         self._upbit_prices[market] = price
 
     def update_upbit_prices(self, price_map: Dict[str, float]):
-        """docstring"""
+        """update_upbit_prices 실행"""
         self._upbit_prices.update(price_map)
 
     def get_premium(self, market: str) -> Optional[float]:
@@ -134,11 +134,11 @@ class KimchiPremiumMonitor:
         return True, f"김치 프리미엄 정상 {pct:.1f}%", 0.0
 
     def get_all_premiums(self) -> Dict[str, Optional[float]]:
-        """docstring"""
+        """get_all_premiums 실행"""
         return {market: self.get_premium(market) for market in UPBIT_TO_BINANCE}
 
     def get_summary(self) -> str:
-        """docstring"""
+        """get_summary 실행"""
         lines = ["📊 김치 프리미엄 현황:"]
         for market in list(UPBIT_TO_BINANCE.keys())[:5]:
             prem = self.get_premium(market)
@@ -172,7 +172,7 @@ class KimchiPremiumMonitor:
             logger.warning(f"  : {e}")
 
     async def _fetch_binance_prices(self):
-        """docstring"""
+        """_fetch_binance_prices 실행"""
         if not AIOHTTP_OK:
             return
 

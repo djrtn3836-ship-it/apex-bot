@@ -18,7 +18,7 @@ BANNER = """APEX BOT  v2.0.0
      :  LIVE ()"""
 
 def check_live_requirements() -> bool:
-    """docstring"""
+    """check_live_requirements 실행"""
     print(BANNER)
     print("=" * 52)
     print("    ")
@@ -123,7 +123,7 @@ def check_live_requirements() -> bool:
 
 
 def confirm_live_start() -> bool:
-    """docstring"""
+    """confirm_live_start 실행"""
     print("=" * 52)
     print("    :    !")
     print("=" * 52)
@@ -163,7 +163,7 @@ def confirm_live_start() -> bool:
 
 
 async def main():
-    """docstring"""
+    """main 실행"""
     # 요건 검사
     if not check_live_requirements():
         sys.exit(1)

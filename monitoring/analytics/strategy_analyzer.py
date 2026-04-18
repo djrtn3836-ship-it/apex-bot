@@ -23,7 +23,7 @@ class StrategyStats:
 
 
 class StrategyAnalyzer:
-    """docstring"""
+    """StrategyAnalyzer 클래스"""
 
     GRADE_THRESHOLDS = {
         "S": {"win_rate": 0.60, "sharpe": 1.5, "expectancy": 0.005},

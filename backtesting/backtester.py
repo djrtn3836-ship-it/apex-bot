@@ -19,7 +19,7 @@ from backtesting.signal_generator import get_signals, STRATEGIES
 
 @dataclass
 class Trade:
-    """docstring"""
+    """Trade 클래스"""
     market:       str
     entry_time:   datetime
     exit_time:    Optional[datetime]
@@ -61,7 +61,7 @@ class Trade:
 
 @dataclass
 class BacktestResult:
-    """docstring"""
+    """BacktestResult 클래스"""
     market:          str
     strategy:        str
     start_date:      str
@@ -340,7 +340,7 @@ class Backtester:
         return self._calc_metrics(result)
 
     def _calc_metrics(self, r: BacktestResult) -> BacktestResult:
-        """docstring"""
+        """_calc_metrics 실행"""
         r.total_trades = len(r.trades)
 
         if r.total_trades == 0:

@@ -70,7 +70,7 @@ class PerformanceTracker:
         )
 
     def print_report(self, days: int = 14):
-        """docstring"""
+        """print_report 실행"""
         s = self.get_stats(days)
         grade = self._grade(s)
 

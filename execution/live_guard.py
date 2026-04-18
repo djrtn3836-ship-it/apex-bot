@@ -29,7 +29,7 @@ class LiveGuardReport:
 
 
 class LiveGuard:
-    """docstring"""
+    """LiveGuard 클래스"""
 
     def __init__(self, config: LiveGuardConfig = None):
         self.cfg = config or LiveGuardConfig()

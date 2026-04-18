@@ -13,7 +13,7 @@ from utils.helpers import calculate_profit_rate, format_percent
 
 @dataclass
 class Position:
-    """docstring"""
+    """Position 클래스"""
     market: str
     entry_price: float
     volume: float
@@ -49,7 +49,7 @@ class Position:
 
 @dataclass
 class TradeRecord:
-    """docstring"""
+    """TradeRecord 클래스"""
     market: str
     side: str
     price: float

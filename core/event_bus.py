@@ -12,7 +12,7 @@ logger = logging.getLogger(__name__)
 
 
 class EventType(Enum):
-    """docstring"""
+    """EventType 클래스"""
     # 데이터 이벤트
     CANDLE_UPDATED    = auto()   # 새 캔들 데이터
     TICK_RECEIVED     = auto()   # 체결 틱
@@ -51,7 +51,7 @@ class EventType(Enum):
 
 @dataclass
 class Event:
-    """docstring"""
+    """Event 클래스"""
     type: EventType
     data: Any
     source: str = "unknown"
@@ -75,12 +75,12 @@ class EventBus:
         self._error_count: int = 0
 
     def subscribe(self, event_type: EventType, handler: Callable[..., Coroutine]):
-        """docstring"""
+        """subscribe 실행"""
         self._subscribers[event_type].append(handler)
         logger.debug(f"  : {event_type.name} → {handler.__qualname__}")
 
     def unsubscribe(self, event_type: EventType, handler: Callable):
-        """docstring"""
+        """unsubscribe 실행"""
         if handler in self._subscribers[event_type]:
             self._subscribers[event_type].remove(handler)
 
@@ -93,7 +93,7 @@ class EventBus:
         await self._dispatch(event)
 
     async def _dispatch(self, event: Event):
-        """docstring"""
+        """_dispatch 실행"""
         handlers = self._subscribers.get(event.type, [])
         if not handlers:
             return
@@ -127,7 +127,7 @@ class EventBus:
                 await self._queue.put((1, error_event))
 
     async def run(self):
-        """docstring"""
+        """run 실행"""
         self._running = True
         logger.info("   ")
 
@@ -149,7 +149,7 @@ class EventBus:
         logger.info(f"    (: {self._processed_count}, : {self._error_count})")
 
     async def stop(self):
-        """docstring"""
+        """stop 실행"""
         self._running = False
 
     @property

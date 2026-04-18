@@ -230,7 +230,7 @@ class NpyCache:
         return result
 
     def clear(self, market: str = None, timeframe: str = None):
-        """docstring"""
+        """clear 실행"""
         import shutil
         if market and timeframe:
             folder = self._get_folder(market, timeframe)

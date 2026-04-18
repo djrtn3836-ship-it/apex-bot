@@ -27,7 +27,7 @@ class RateLimitManager:
             dq.popleft()
 
     def _wait_sync(self, dq: deque, limit: int, label: str):
-        """docstring"""
+        """_wait_sync 실행"""
         while True:
             now = time.time()
             self._cleanup(dq, now)
@@ -40,7 +40,7 @@ class RateLimitManager:
                 time.sleep(sleep_ms)
 
     async def _wait_async(self, dq: deque, limit: int, label: str):
-        """docstring"""
+        """_wait_async 실행"""
         while True:
             now = time.time()
             self._cleanup(dq, now)

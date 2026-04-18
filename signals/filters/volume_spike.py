@@ -17,7 +17,7 @@ from loguru import logger
 
 @dataclass
 class VolumeSpike:
-    """docstring"""
+    """VolumeSpike 클래스"""
     market: str
     ratio: float         # 평균 대비 배수
     direction: str       # "UP" / "DOWN" / "NEUTRAL"

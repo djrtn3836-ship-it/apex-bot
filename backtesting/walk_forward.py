@@ -303,7 +303,7 @@ class WalkForwardRunner:
     # ── 전략 동적 로드 ───────────────────────────────────────────
 
     def _load_strategy(self, strategy_name: str, params: Dict):
-        """docstring"""
+        """_load_strategy 실행"""
         mapping = {
             "MACD_Cross": (
                 "strategies.momentum.macd_cross",

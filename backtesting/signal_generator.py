@@ -115,7 +115,7 @@ def signal_macd_momentum(df: pd.DataFrame) -> pd.Series:
 
 def signal_volume_spike(df: pd.DataFrame, vol_mult: float = 2.0,
                         period: int = 20) -> pd.Series:
-    """docstring"""
+    """signal_volume_spike 실행"""
     avg_vol = df["volume"].rolling(period).mean()
     spike   = df["volume"] > avg_vol * vol_mult
     sig = pd.Series(0, index=df.index)
@@ -177,7 +177,7 @@ STRATEGIES: Dict[str, Callable] = {
 
 
 def get_signals(strategy_name: str, df: pd.DataFrame, **kwargs) -> pd.Series:
-    """docstring"""
+    """get_signals 실행"""
     if strategy_name not in STRATEGIES:
         raise ValueError(f"Unknown strategy: {strategy_name}. : {list(STRATEGIES)}")
     fn = STRATEGIES[strategy_name]

@@ -17,7 +17,7 @@ class AlertLevel(Enum):
 
 @dataclass
 class Alert:
-    """docstring"""
+    """Alert 클래스"""
     level: AlertLevel
     category: str       # TRADE / RISK / SYSTEM / PERFORMANCE
     title: str
@@ -60,11 +60,11 @@ class AlertManager:
         self._running = False
 
     def add_handler(self, handler: Callable):
-        """docstring"""
+        """add_handler 실행"""
         self._handlers.append(handler)
 
     async def start(self):
-        """docstring"""
+        """start 실행"""
         self._running = True
         asyncio.create_task(self._process_loop())
 
@@ -74,7 +74,7 @@ class AlertManager:
     # ── 알림 생성 메서드 ──────────────────────────────────────────
     async def trade(self, action: str, market: str, price: float,
                     amount: float, profit_rate: float = None, strategy: str = ""):
-        """docstring"""
+        """trade 실행"""
         sign = "+" if (profit_rate or 0) >= 0 else ""
         profit_str = f" | 수익률={sign}{profit_rate:.2f}%" if profit_rate is not None else ""
         alert = Alert(
@@ -87,7 +87,7 @@ class AlertManager:
         await self._enqueue(alert)
 
     async def risk_warning(self, event: str, detail: str, market: str = ""):
-        """docstring"""
+        """risk_warning 실행"""
         alert = Alert(
             level=AlertLevel.WARNING,
             category="RISK",
@@ -98,7 +98,7 @@ class AlertManager:
         await self._enqueue(alert)
 
     async def circuit_breaker(self, level: int, reason: str, duration_h: float):
-        """docstring"""
+        """circuit_breaker 실행"""
         alert = Alert(
             level=AlertLevel.CRITICAL,
             category="RISK",
@@ -108,7 +108,7 @@ class AlertManager:
         await self._enqueue(alert)
 
     async def system_error(self, error: str, context: str = ""):
-        """docstring"""
+        """system_error 실행"""
         alert = Alert(
             level=AlertLevel.CRITICAL,
             category="SYSTEM",
@@ -118,7 +118,7 @@ class AlertManager:
         await self._enqueue(alert)
 
     async def performance_update(self, stats: Dict):
-        """docstring"""
+        """performance_update 실행"""
         pnl = stats.get("daily_pnl", 0)
         alert = Alert(
             level=AlertLevel.INFO,
@@ -134,14 +134,14 @@ class AlertManager:
 
     # ── 내부 처리 ─────────────────────────────────────────────────
     async def _enqueue(self, alert: Alert):
-        """docstring"""
+        """_enqueue 실행"""
         try:
             await self._queue.put_nowait(alert)
         except asyncio.QueueFull:
             logger.warning("    -  ")
 
     async def _process_loop(self):
-        """docstring"""
+        """_process_loop 실행"""
         while self._running:
             try:
                 alert = await asyncio.wait_for(self._queue.get(), timeout=1.0)
@@ -204,14 +204,14 @@ class AlertManager:
 
     def get_recent_alerts(self, n: int = 20,
                            category: str = None) -> List[Dict]:
-        """docstring"""
+        """get_recent_alerts 실행"""
         alerts = self._alert_history
         if category:
             alerts = [a for a in alerts if a.category == category]
         return [a.to_dict() for a in alerts[-n:]]
 
     def get_alert_stats(self) -> Dict:
-        """docstring"""
+        """get_alert_stats 실행"""
         by_level = {}
         by_category = {}
         for a in self._alert_history:

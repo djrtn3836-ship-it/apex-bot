@@ -8,7 +8,7 @@ from loguru import logger
 
 
 class LiveReadinessChecker:
-    """docstring"""
+    """LiveReadinessChecker 클래스"""
 
     def __init__(self, db_path: str = "database/apex_bot.db"):
         self.db_path = pathlib.Path(db_path)

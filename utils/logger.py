@@ -6,7 +6,7 @@ from loguru import logger
 
 
 def setup_logger(log_level: str = "INFO", log_dir: Path = None) -> None:
-    """docstring"""
+    """setup_logger 실행"""
     # 기존 핸들러 제거
     logger.remove()
 
@@ -65,7 +65,7 @@ def setup_logger(log_level: str = "INFO", log_dir: Path = None) -> None:
 
 
 def get_logger(name: str):
-    """docstring"""
+    """get_logger 실행"""
     return logger.bind(module=name)
 
 
@@ -81,7 +81,7 @@ def log_trade(action: str, market: str, price: float, amount: float,
 
 
 def log_signal(market: str, signal_type: str, score: float, strategies: list):
-    """docstring"""
+    """log_signal 실행"""
     logger.info(
         f"SIGNAL | {market} | {signal_type} | ={score:.2f} | "
         f"={', '.join(strategies)}"
@@ -89,5 +89,5 @@ def log_signal(market: str, signal_type: str, score: float, strategies: list):
 
 
 def log_risk(event: str, detail: str):
-    """docstring"""
+    """log_risk 실행"""
     logger.warning(f"RISK | {event} | {detail}")

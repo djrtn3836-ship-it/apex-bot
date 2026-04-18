@@ -28,7 +28,7 @@ class VolumeProfileAnalyzer:
         self.value_area_pct = value_area_pct
     
     def analyze(self, df: pd.DataFrame) -> Optional[VolumeProfileResult]:
-        """docstring"""
+        """analyze 실행"""
         try:
             if len(df) < 20:
                 return None

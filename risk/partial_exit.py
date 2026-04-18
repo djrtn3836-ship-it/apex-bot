@@ -15,7 +15,7 @@ from loguru import logger
 
 @dataclass
 class PartialExitLevel:
-    """docstring"""
+    """PartialExitLevel 클래스"""
     profit_pct: float     # 익절 발동 수익률 (예: 0.05 = 5%)
     exit_ratio: float     # 청산 비율 (예: 0.25 = 25%)
     executed: bool = False
@@ -23,7 +23,7 @@ class PartialExitLevel:
 
 @dataclass
 class PartialExitState:
-    """docstring"""
+    """PartialExitState 클래스"""
     market: str
     entry_price: float
     initial_volume: float
@@ -155,17 +155,17 @@ class PartialExitManager:
         return 0.0
 
     def get_remaining_volume(self, market: str) -> float:
-        """docstring"""
+        """get_remaining_volume 실행"""
         state = self._positions.get(market)
         return state.remaining_volume if state else 0.0
 
     def get_exited_ratio(self, market: str) -> float:
-        """docstring"""
+        """get_exited_ratio 실행"""
         state = self._positions.get(market)
         return state.total_exited_ratio if state else 0.0
 
     def remove_position(self, market: str):
-        """docstring"""
+        """remove_position 실행"""
         self._positions.pop(market, None)
 
     def restore_executed_levels(self, market: str, exited_ratio: float):
@@ -189,7 +189,7 @@ class PartialExitManager:
         return self._positions.copy()
 
     def pending_levels(self, market: str) -> int:
-        """docstring"""
+        """pending_levels 실행"""
         state = self._positions.get(market)
         if not state:
             return 0

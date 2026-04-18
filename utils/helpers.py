@@ -10,7 +10,7 @@ from loguru import logger
 
 # ── 시간 유틸리티 ──────────────────────────────────────────────────
 def now_kst() -> datetime:
-    """docstring"""
+    """now_kst 실행"""
     from datetime import timedelta
     utc_now = datetime.now(timezone.utc)
     kst = timezone(timedelta(hours=9))
@@ -23,31 +23,31 @@ def ts_to_datetime(ts_ms: int) -> datetime:
 
 
 def format_currency(amount: float, currency: str = "KRW") -> str:
-    """docstring"""
+    """format_currency 실행"""
     if currency == "KRW":
         return f"₩{amount:,.0f}"
     return f"{amount:.8f} {currency}"
 
 
 def format_percent(value: float) -> str:
-    """docstring"""
+    """format_percent 실행"""
     sign = "+" if value >= 0 else ""
     return f"{sign}{value:.2f}%"
 
 
 # ── 수학 유틸리티 ──────────────────────────────────────────────────
 def safe_divide(a: float, b: float, default: float = 0.0) -> float:
-    """docstring"""
+    """safe_divide 실행"""
     return a / b if b != 0 else default
 
 
 def clamp(value: float, min_val: float, max_val: float) -> float:
-    """docstring"""
+    """clamp 실행"""
     return max(min_val, min(max_val, value))
 
 
 def round_price(price: float, market: str = "KRW-BTC") -> float:
-    """docstring"""
+    """round_price 실행"""
     if price >= 2_000_000:
         return round(price / 1000) * 1000
     elif price >= 1_000_000:
@@ -76,7 +76,7 @@ def calculate_profit_rate(entry: float, current: float, fee_rate: float = 0.001)
 
 # ── 재시도 데코레이터 ──────────────────────────────────────────────
 def retry(max_attempts: int = 3, delay: float = 1.0, exceptions=(Exception,)):
-    """docstring"""
+    """retry 실행"""
     def decorator(func: Callable) -> Callable:
         @functools.wraps(func)
         def wrapper(*args, **kwargs) -> Any:
@@ -95,7 +95,7 @@ def retry(max_attempts: int = 3, delay: float = 1.0, exceptions=(Exception,)):
 
 
 def async_retry(max_attempts: int = 3, delay: float = 1.0, exceptions=(Exception,)):
-    """docstring"""
+    """async_retry 실행"""
     def decorator(func: Callable) -> Callable:
         @functools.wraps(func)
         async def wrapper(*args, **kwargs) -> Any:
@@ -115,7 +115,7 @@ def async_retry(max_attempts: int = 3, delay: float = 1.0, exceptions=(Exception
 
 # ── 성능 측정 ──────────────────────────────────────────────────────
 class Timer:
-    """docstring"""
+    """Timer 클래스"""
     def __init__(self, name: str = ""):
         self.name = name
         self._start = None

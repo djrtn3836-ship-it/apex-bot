@@ -245,7 +245,7 @@ class RegimeDetector:
         hurst: float, ema_bull_aligned: bool, ema_bear_aligned: bool,
         price: float, ema200: float,
     ) -> MarketRegime:
-        """docstring"""
+        """구현부"""
 
         # 고변동성 (방향 불명)
         if atr_pct > 5.0 or historical_vol > 100:
@@ -363,7 +363,7 @@ class RegimeDetector:
         return self._cache.get(market, MarketRegime.UNKNOWN)
 
     def is_tradeable(self, regime: MarketRegime) -> bool:
-        """docstring"""
+        """is_tradeable 실행"""
         allowed = self.get_allowed_strategies(regime)
         # allowed가 빈 리스트면 거래 불가, None이면 모두 허용
         return allowed is None or len(allowed) > 0

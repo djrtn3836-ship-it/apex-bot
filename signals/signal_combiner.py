@@ -20,7 +20,7 @@ from config.settings import get_settings
 
 @dataclass
 class CombinedSignal:
-    """docstring"""
+    """CombinedSignal 클래스"""
     market: str
     signal_type: SignalType
     score: float
@@ -293,7 +293,7 @@ class SignalCombiner:
         )
 
     def get_score_breakdown(self, signals: List[Signal]) -> Dict:
-        """docstring"""
+        """get_score_breakdown 실행"""
         breakdown = {}
         for sig in signals:
             weight = self.STRATEGY_WEIGHTS.get(sig.strategy_name, 1.0)

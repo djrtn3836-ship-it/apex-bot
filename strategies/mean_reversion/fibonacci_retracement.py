@@ -7,7 +7,7 @@ from .base_strategy import BaseStrategy
 
 
 class FibonacciRetracementStrategy(BaseStrategy):
-    """docstring"""
+    """FibonacciRetracementStrategy 클래스"""
     
     def __init__(self):
         super().__init__()

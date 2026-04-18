@@ -407,7 +407,7 @@ class UpbitAdapter:
             return []
 
     def sync_paper_balance(self, krw_balance: float, positions: dict):
-        """docstring"""
+        """sync_paper_balance 실행"""
         if not self.is_paper:
             return
         self._paper_balance["KRW"] = krw_balance

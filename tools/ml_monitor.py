@@ -88,7 +88,7 @@ async def run_ml_predict(market: str, df):
 
 
 def make_signal_bar(buy: float, hold: float, sell: float, width: int = 20) -> str:
-    """docstring"""
+    """make_signal_bar 실행"""
     b = int(buy * width)
     h = int(hold * width)
     s = width - b - h
@@ -96,7 +96,7 @@ def make_signal_bar(buy: float, hold: float, sell: float, width: int = 20) -> st
 
 
 async def predict_all(target_coins: list) -> list:
-    """docstring"""
+    """predict_all 실행"""
     results = []
     for market in target_coins:
         coin = market.replace("KRW-", "")

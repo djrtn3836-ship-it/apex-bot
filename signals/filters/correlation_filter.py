@@ -77,7 +77,7 @@ class CorrelationFilter:
             self._check_btc_shock()
 
     def update_prices(self, price_map: Dict[str, float]):
-        """docstring"""
+        """update_prices 실행"""
         for market, price in price_map.items():
             self.update_price(market, price)
 
@@ -189,7 +189,7 @@ class CorrelationFilter:
     # ── Volatility Spike ────────────────────────────────────────────
 
     def _is_volatility_spike(self, market: str) -> bool:
-        """docstring"""
+        """_is_volatility_spike 실행"""
         history = self._price_history.get(market)
         if not history or len(history) < 20:
             return False

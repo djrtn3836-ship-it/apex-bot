@@ -55,7 +55,7 @@ class StateMachine:
 
     @property
     def can_trade(self) -> bool:
-        """docstring"""
+        """can_trade 실행"""
         if self._state != BotState.RUNNING:
             return False
         if self._circuit_break_until and datetime.now() < self._circuit_break_until:
@@ -63,7 +63,7 @@ class StateMachine:
         return True
 
     def transition(self, new_state: BotState, reason: str = "") -> bool:
-        """docstring"""
+        """transition 실행"""
         if new_state not in self.VALID_TRANSITIONS.get(self._state, []):
             logger.warning(
                 f"    : {self._state.name} → {new_state.name}"
@@ -89,7 +89,7 @@ class StateMachine:
         return True
 
     def activate_circuit_breaker(self, hours: int = 48, reason: str = "드로다운 한도 초과"):
-        """docstring"""
+        """activate_circuit_breaker 실행"""
         self._circuit_break_until = datetime.now() + timedelta(hours=hours)
         self.transition(BotState.CIRCUIT_BREAK, reason)
         logger.critical(
@@ -99,7 +99,7 @@ class StateMachine:
         )
 
     def check_circuit_breaker_reset(self) -> bool:
-        """docstring"""
+        """check_circuit_breaker_reset 실행"""
         if (self._state == BotState.CIRCUIT_BREAK and
                 self._circuit_break_until and
                 datetime.now() >= self._circuit_break_until):

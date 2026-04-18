@@ -25,7 +25,7 @@ class OrderStatus(Enum):
 
 @dataclass
 class ExecutionRequest:
-    """docstring"""
+    """ExecutionRequest 클래스"""
     market: str
     side: OrderSide
     amount_krw: float           # 매수금액 (KRW)
@@ -38,7 +38,7 @@ class ExecutionRequest:
 
 @dataclass
 class ExecutionResult:
-    """docstring"""
+    """ExecutionResult 클래스"""
     request: ExecutionRequest
     status: OrderStatus
     order_uuid: str = ""
@@ -152,7 +152,7 @@ class OrderExecutor:
 
     # ── 시장가 주문 ───────────────────────────────────────────────
     async def _execute_market(self, req: ExecutionRequest) -> ExecutionResult:
-        """docstring"""
+        """_execute_market 실행"""
         result = ExecutionResult(request=req, status=OrderStatus.SUBMITTED)
 
         if req.side == OrderSide.BUY:
@@ -199,7 +199,7 @@ class OrderExecutor:
 
     # ── 긴급 전량 청산 ────────────────────────────────────────────
     async def emergency_sell_all(self, market: str, reason: str = "긴급 청산") -> ExecutionResult:
-        """docstring"""
+        """emergency_sell_all 실행"""
         coin = market.split("-")[1]
         volume = await self.adapter.get_balance(coin)
         if volume <= 0:
@@ -222,7 +222,7 @@ class OrderExecutor:
 
     # ── 미체결 주문 전체 취소 ────────────────────────────────────
     async def cancel_all_orders(self, market: str = None) -> int:
-        """docstring"""
+        """cancel_all_orders 실행"""
         orders = await self.adapter.get_open_orders(market)
         cancelled = 0
         for order in orders:
@@ -234,7 +234,7 @@ class OrderExecutor:
 
     # ── 통계 ──────────────────────────────────────────────────────
     def get_execution_stats(self) -> Dict:
-        """docstring"""
+        """get_execution_stats 실행"""
         if not self._execution_history:
             return {}
         filled = [r for r in self._execution_history if r.status == OrderStatus.FILLED]
