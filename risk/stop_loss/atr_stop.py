@@ -22,19 +22,19 @@ def _get_profile_by_price(entry_price: float) -> dict:
     """(  )
       SL ,  SL"""
     if entry_price >= 10_000_000:       # BTC급 (1000만원 이상)
-        return {"min_sl": 0.010, "max_sl": 0.025, "sl_mult": 1.5, "tp_mult": 3.0}
+        return {"min_sl": 0.010, "max_sl": 0.015, "sl_mult": 1.5, "tp_mult": 3.0}
     elif entry_price >= 1_000_000:      # ETH/BNB급 (100만원 이상)
-        return {"min_sl": 0.012, "max_sl": 0.030, "sl_mult": 1.8, "tp_mult": 3.5}
+        return {"min_sl": 0.012, "max_sl": 0.018, "sl_mult": 1.8, "tp_mult": 3.5}
     elif entry_price >= 100_000:        # SOL/AVAX급 (10만원 이상)
-        return {"min_sl": 0.015, "max_sl": 0.035, "sl_mult": 2.0, "tp_mult": 4.0}
+        return {"min_sl": 0.015, "max_sl": 0.020, "sl_mult": 2.0, "tp_mult": 4.0}
     elif entry_price >= 1_000:          # 중가 코인 (1000원 이상)
-        return {"min_sl": 0.018, "max_sl": 0.040, "sl_mult": 2.0, "tp_mult": 4.0}
+        return {"min_sl": 0.018, "max_sl": 0.020, "sl_mult": 2.0, "tp_mult": 4.0}
     elif entry_price >= 10:             # 저가 코인 (10원 이상)
-        return {"min_sl": 0.020, "max_sl": 0.050, "sl_mult": 2.5, "tp_mult": 5.0}
+        return {"min_sl": 0.020, "max_sl": 0.022, "sl_mult": 2.5, "tp_mult": 5.0}
     elif entry_price >= 1:              # 초저가 (1원 이상)
-        return {"min_sl": 0.025, "max_sl": 0.060, "sl_mult": 2.5, "tp_mult": 5.0}
+        return {"min_sl": 0.025, "max_sl": 0.025, "sl_mult": 2.5, "tp_mult": 5.0}
     else:                               # 극초저가 (1원 미만, SHIB류)
-        return {"min_sl": 0.025, "max_sl": 0.070, "sl_mult": 3.0, "tp_mult": 6.0}
+        return {"min_sl": 0.025, "max_sl": 0.025, "sl_mult": 3.0, "tp_mult": 6.0}
 
 
 class ATRStopLoss:
@@ -83,6 +83,11 @@ class ATRStopLoss:
 
 
         raw_sl_dist = atr * sl_mult
+
+        # [SL-OPT] 슬리피지 보정: 실제 체결가는 SL보다 불리
+        # 알트코인 평균 슬리피지 0.08% 반영 → SL을 약간 타이트하게
+        SLIP_BUFFER = 0.0008  # 0.08% 슬리피지 버퍼
+        raw_sl_dist = raw_sl_dist * (1 - SLIP_BUFFER)
         sl_dist = max(
             entry_price * min_sl,
             min(raw_sl_dist, entry_price * max_sl),
