@@ -26,9 +26,20 @@ def _floor_vol(market: str, volume: float) -> float:
 
 
 def _ceil_vol(market: str, vol: float) -> float:
-    d = _UPBIT_VOL_PREC.get(market, 4)
-    f = 10 ** d
+    """Upbit 수량 올림 처리 - 외부 dict 불필요 버전"""
+    import math as _math
+    _PREC_MAP = {
+        "KRW-BTC": 8, "KRW-ETH": 8, "KRW-XRP": 2,
+        "KRW-SOL": 4, "KRW-ADA": 2, "KRW-DOGE": 2,
+        "KRW-AVAX": 4, "KRW-DOT": 2, "KRW-LINK": 4,
+        "KRW-ATOM": 4, "KRW-BEAM": 2, "KRW-RED": 2,
+        "KRW-BLAST": 2, "KRW-COMP": 4, "KRW-DOOD": 2,
+        "KRW-POKT": 2, "KRW-INJ": 4, "KRW-AGLD": 2,
+    }
+    prec = _PREC_MAP.get(market, 4)
+    f = 10 ** prec
     return _math.ceil(vol * f) / f
+
 
 MIN_POSITION_KRW  = 20_000
 MAX_POSITION_RATE = 0.20

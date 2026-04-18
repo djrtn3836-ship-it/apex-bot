@@ -40,7 +40,7 @@ REGIME_POLICY: Dict[str, Dict] = {
         "allow_surge_buy":   True,
         "position_size_pct": 1.0,    # 기본 포지션 100%
         "surge_size_pct":    1.0,
-        "min_ml_score":      0.62,
+        "min_ml_score":      0.35,
         "description":       "강세장 - 전략 모두 허용",
     },
     "RECOVERY": {
@@ -48,7 +48,7 @@ REGIME_POLICY: Dict[str, Dict] = {
         "allow_surge_buy":   True,
         "position_size_pct": 0.8,    # 포지션 80%로 축소
         "surge_size_pct":    1.0,
-        "min_ml_score":      0.64,
+        "min_ml_score":      0.38,
         "description":       "회복장 - 보수적 진입",
     },
     "BEAR_WATCH": {

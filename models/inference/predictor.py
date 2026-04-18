@@ -61,7 +61,7 @@ class MLPredictor:
     """
 
     CLASS_NAMES    = ["BUY", "HOLD", "SELL"]
-    MIN_CONFIDENCE = 0.38  # lowered further: catch BUY/SELL at 0.40+
+    MIN_CONFIDENCE = 0.32  # lowered further: catch BUY/SELL at 0.40+
     TEMPERATURE    = 0.5   # Temperature Scaling: 신뢰도 분포 날카롭게 (0.5 = sharp)
     SEQ_LEN        = 60
 
@@ -322,47 +322,77 @@ class MLPredictor:
 
     # ── 피처 추출 ────────────────────────────────────────────────
 
-    def _extract_features(self, df: pd.DataFrame) -> Optional[np.ndarray]:
-        """DataFrame → 정규화된 피처 배열 (SEQ_LEN, feature_count)"""
-        required = [
-            "open", "high", "low", "close", "volume",
-            "ema20", "ema50", "ema200", "rsi", "macd", "macd_signal",
-            "macd_hist", "bb_upper", "bb_mid", "bb_lower", "bb_pct",
-            "bb_width", "atr", "atr_pct", "stoch_k", "stoch_d", "vwap",
-            "adx", "di_plus", "di_minus", "obv", "cci", "mfi",
-            "vol_ratio", "supertrend_dir",
-        ]
-        available = [c for c in required if c in df.columns]
-        if len(available) < 10:
-            return None
-
+    def _extract_features(self, df):
         try:
-            data = df[available].tail(self.SEQ_LEN).values.astype(np.float32)
-            if len(data) < self.SEQ_LEN:
-                pad  = np.zeros(
-                    (self.SEQ_LEN - len(data), data.shape[1]), dtype=np.float32
-                )
-                data = np.vstack([pad, data])
-
-            # Z-score 정규화
-            mean = data.mean(axis=0, keepdims=True)
-            std  = data.std(axis=0,  keepdims=True) + 1e-8
-            data = (data - mean) / std
-
-            # feature_count 맞춤
-            target = self.settings.ml.feature_count
-            if data.shape[1] < target:
-                pad  = np.zeros((self.SEQ_LEN, target - data.shape[1]), dtype=np.float32)
-                data = np.hstack([data, pad])
+            if df is None or len(df) < 10:
+                return None
+            req = ['open','high','low','close','volume']
+            if not all(col in df.columns for col in req):
+                return None
+            import pandas as _pd
+            c = df['close'].values.astype(float)
+            o = df['open'].values.astype(float)
+            h = df['high'].values.astype(float)
+            l = df['low'].values.astype(float)
+            v = df['volume'].values.astype(float)
+            def _safe(col):
+                return df[col].values.astype(float) if col in df.columns else np.zeros(len(df))
+            def _ret(arr, n=1):
+                r = np.zeros(len(arr))
+                r[n:] = (arr[n:] - arr[:-n]) / (np.abs(arr[:-n]) + 1e-9)
+                return r
+            def _zs(arr):
+                mu = np.nanmean(arr)
+                sd = np.nanstd(arr) + 1e-9
+                return (arr - mu) / sd
+            feats = []
+            for n in [1, 2, 3, 5, 8, 13, 21]:
+                feats.append(_zs(_ret(c, n)))
+            for col in ['ema5','ema10','ema20','ema50','ema100','ema200']:
+                e = _safe(col)
+                feats.append(_zs((c - e) / (np.abs(e) + 1e-9)))
+            for col in ['rsi','rsi_fast','rsi_slow']:
+                feats.append(_zs(_safe(col) / 100.0))
+            feats.append(_zs(_safe('bb_pct')))
+            feats.append(_zs(_safe('bb_width')))
+            feats.append(_zs(_safe('vol_ratio')))
+            feats.append(_zs(np.log1p(v)))
+            feats.append(_zs(_safe('atr_pct')))
+            body = (c - o) / (np.abs(o) + 1e-9)
+            rng  = (h - l) / (np.abs(o) + 1e-9) + 1e-9
+            uw   = (h - np.maximum(c, o)) / rng
+            lw   = (np.minimum(c, o) - l) / rng
+            feats += [_zs(body), _zs(rng), _zs(uw), _zs(lw)]
+            for col in ['macd','macd_signal','macd_hist']:
+                feats.append(_zs(_safe(col)))
+            feats.append(_zs(_safe('stoch_k') / 100.0))
+            feats.append(_zs(_safe('stoch_d') / 100.0))
+            feats.append(_zs(_safe('obv')))
+            rh = _pd.Series(h).rolling(20, min_periods=1).max().values
+            rl = _pd.Series(l).rolling(20, min_periods=1).min().values
+            rr = rh - rl + 1e-9
+            feats += [_zs((c - rl) / rr), _zs((h - rl) / rr)]
+            for n in [10, 20]:
+                hv = _pd.Series(_ret(c, 1)).rolling(n, min_periods=2).std().fillna(0).values
+                feats.append(_zs(hv))
+            SEQ  = getattr(self, 'SEQ_LEN',    60)
+            ISIZ = getattr(self, 'INPUT_SIZE', 120)
+            arr  = np.stack(feats, axis=0)
+            n_f, T = arr.shape
+            if T >= SEQ:
+                arr = arr[:, -SEQ:]
             else:
-                data = data[:, :target]
-
-            data = np.nan_to_num(data, nan=0.0, posinf=1.0, neginf=-1.0)
-            return data
-
+                arr = np.concatenate([np.zeros((n_f, SEQ - T)), arr], axis=1)
+            arr = arr.T
+            if n_f < ISIZ:
+                arr = np.concatenate([arr, np.zeros((SEQ, ISIZ - n_f))], axis=1)
+            else:
+                arr = arr[:, :ISIZ]
+            return np.nan_to_num(arr, nan=0.0, posinf=1.0, neginf=-1.0).astype(np.float32)
         except Exception as e:
-            logger.error(f"피처 추출 오류: {e}")
+            self.logger.warning(f'_extract_features error: {e}')
             return None
+
 
     # ── 재학습 트리거 ────────────────────────────────────────────
 

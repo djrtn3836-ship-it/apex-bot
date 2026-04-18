@@ -27,6 +27,7 @@ class PPOOnlineTrainer:
     BACKUP_PATH    = Path("models/saved/ppo/best_model_backup.zip")
     MIN_EXPERIENCES = 50    # 최소 경험 수집 후 학습
     MAX_BUFFER      = 200   # [FIX] 1000->200 조기학습 (하루 15회 거래 기준 ~2주)
+    MIN_VALID_DATE  = "2026-04-16T21:37:00"  # [FIX] 수정후 정상 데이터만 학습
     RETRAIN_EPISODES = 200  # PPO 재학습 에피소드 수
 
     def __init__(self):
@@ -48,9 +49,12 @@ class PPOOnlineTrainer:
         features: Optional[np.ndarray] = None,
     ):
         """거래 결과를 experience buffer에 추가"""
-        # 보상 계산: 수익률 - 수수료(0.05%) - 장기보유 페널티
-        fee_penalty   = 0.0005
-        time_penalty  = max(0, hold_hours - 24) * 0.0001
+        # [FIX] profit_rate 단위 정규화: 소수(<0.1)로 들어오면 *100
+        if abs(profit_rate) < 0.1 and profit_rate != 0:
+            profit_rate = profit_rate * 100
+        # 보상 계산: 수익률(%) - 수수료(0.05%) - 장기보유 페널티
+        fee_penalty   = 0.05   # [FIX] 0.0005% → 0.05% (% 단위 기준)
+        time_penalty  = max(0, hold_hours - 24) * 0.01  # [FIX] % 단위 기준
         reward = profit_rate - fee_penalty - time_penalty
 
         experience = {

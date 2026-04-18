@@ -1,4 +1,5 @@
-﻿$env:PYTHONIOENCODING = "utf-8"
+﻿# start_bot.ps1 - 자동 재시작 스크립트
+$env:PYTHONIOENCODING = "utf-8"
 $env:PYTHONUTF8 = "1"
 $botDir = "C:\Users\hdw38\Desktop\달콩\bot\apex_bot"
 $python = "C:\Users\hdw38\AppData\Local\Programs\Python\Python312\python.exe"
@@ -11,4 +12,6 @@ if (-not $running) {
         -WorkingDirectory $botDir `
         -WindowStyle Hidden
     Add-Content "$botDir\logs\scheduler.log" "$(Get-Date) - Bot started by scheduler"
+} else {
+    Add-Content "$botDir\logs\scheduler.log" "$(Get-Date) - Bot already running (PID=$($running[0].Id))"
 }

@@ -246,7 +246,7 @@ class TradingEngine(
         self._last_signal_time:  Dict[str, float] = {}
         self._sell_cooldown:     Dict[str, datetime] = {}  # market -> sell_time, prevent rebuy for 10min
         self._ml_predictions: dict = {}  # ML 예측 캐시
-        self._signal_cooldown    = 300
+        self._signal_cooldown    = 60
         self._device             = "cpu"
         self._buying_markets:    set = set()
         self._selling_markets:   set = set()

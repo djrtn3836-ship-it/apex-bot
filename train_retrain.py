@@ -40,7 +40,7 @@ CANDLES_PER  = 1000
 
 # ★ 핵심 파라미터 개선
 FORWARD_N    = 8       # 8시간 후 수익률 (단기 매매 최적화, 기존 24→8)
-BUY_THR      = 0.012   # +1.2% 이상 → BUY (기존 0.8%→1.2%, 노이즈 제거)
+BUY_THR      = 0.008   # +1.2% 이상 → BUY (기존 0.8%→1.2%, 노이즈 제거)
 SELL_THR     = -0.010  # -1.0% 이하 → SELL (비대칭 손절)
 USE_PEAK     = True    # N봉 내 최고점/최저점으로 레이블 (피크 기반)
 PEAK_WINDOW  = 4       # 피크 확인 범위 (FORWARD_N의 절반)
@@ -361,7 +361,14 @@ scheduler = torch.optim.lr_scheduler.CosineAnnealingWarmRestarts(
 
 train_ds = TensorDataset(torch.tensor(X_train), torch.tensor(y_train))
 val_ds   = TensorDataset(torch.tensor(X_val),   torch.tensor(y_val))
-train_dl = DataLoader(train_ds, batch_size=BATCH_SIZE, shuffle=True,  num_workers=0)
+# ── 클래스 불균형 보정: WeightedRandomSampler ──────────────────
+_lbl_arr = np.array([train_ds[j][1].item() if hasattr(train_ds[j][1],'item') else int(train_ds[j][1]) for j in range(len(train_ds))])
+_cls_cnt = np.bincount(_lbl_arr.astype(int), minlength=3)
+_cls_w   = 1.0 / (_cls_cnt.astype(float) + 1e-9)
+_smp_w   = _cls_w[_lbl_arr.astype(int)]
+from torch.utils.data import WeightedRandomSampler as _WRS
+_sampler = _WRS(torch.DoubleTensor(_smp_w), len(_smp_w), replacement=True)
+train_dl = DataLoader(train_ds, batch_size=BATCH_SIZE, sampler=_sampler, shuffle=False,  num_workers=0)
 val_dl   = DataLoader(val_ds,   batch_size=BATCH_SIZE, shuffle=False, num_workers=0)
 
 best_val_acc  = 0.0

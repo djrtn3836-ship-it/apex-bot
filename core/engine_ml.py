@@ -32,7 +32,10 @@ class EngineMLMixin:
                 None, self._ml_predictor.predict, market, df
             )
             if result:
-                from monitoring.dashboard import dashboard_state
+                try:
+                    from monitoring.dashboard import dashboard_state
+                except Exception:
+                    dashboard_state = None
                 from datetime import datetime
                 _sig  = result.get("signal",     "HOLD")
                 _conf = result.get("confidence", 0.0)
@@ -45,25 +48,28 @@ class EngineMLMixin:
                     "sell_prob":  round(float(_sp),   3),
                     "market":     market,
                 }
-                if "ml_predictions" not in dashboard_state.signals:
-                    dashboard_state.signals["ml_predictions"] = {}
-                dashboard_state.signals["ml_predictions"][market] = {
-                    "signal":          result.get("signal"),
-                    "confidence":      round(result.get("confidence", 0), 4),
-                    "buy_prob":        round(result.get("buy_prob",   0), 4),
-                    "hold_prob":       round(result.get("hold_prob",  0), 4),
-                    "sell_prob":       round(result.get("sell_prob",  0), 4),
-                    "model_agreement": round(result.get("model_agreement", 0), 4),
-                    "inference_ms":    round(result.get("inference_ms",    0), 2),
-                    "updated_at":      datetime.now().strftime("%H:%M:%S"),
+                if dashboard_state is not None:
+                    if "ml_predictions" not in dashboard_state.signals:
+                        dashboard_state.signals["ml_predictions"] = {}
+                    dashboard_state.signals["ml_predictions"][market] = {
+                        "signal":          result.get("signal"),
+                        "confidence":      round(result.get("confidence", 0), 4),
+                        "buy_prob":        round(result.get("buy_prob",   0), 4),
+                        "hold_prob":       round(result.get("hold_prob",  0), 4),
+                        "sell_prob":       round(result.get("sell_prob",  0), 4),
+                        "model_agreement": round(result.get("model_agreement", 0), 4),
+                        "inference_ms":    round(result.get("inference_ms",    0), 2),
+                        "updated_at":      datetime.now().strftime("%H:%M:%S"),
                 }
-                dashboard_state.signals["ml_predictions"][market] = _ml_pred_data
-                dashboard_state.signals["ml_prediction"]           = _ml_pred_data
-                dashboard_state.signals["ml_last_updated"] = (
-                    datetime.now().isoformat()
+                if dashboard_state is not None:
+                    dashboard_state.signals["ml_predictions"][market] = _ml_pred_data
+                    dashboard_state.signals["ml_prediction"]           = _ml_pred_data
+                    dashboard_state.signals["ml_last_updated"] = (
+                        datetime.now().isoformat()
                 )
-                dashboard_state.signals["ml_model_loaded"] = (
-                    self._ml_predictor._is_loaded
+                if dashboard_state is not None:
+                    dashboard_state.signals["ml_model_loaded"] = (
+                        self._ml_predictor._is_loaded
                 )
             return result
         except Exception as e:
@@ -87,23 +93,27 @@ class EngineMLMixin:
                     f"코인당 {elapsed/len(results):.1f}ms"
                 )
                 try:
-                    if "ml_predictions" not in dashboard_state.signals:
-                        dashboard_state.signals["ml_predictions"] = {}
+                    if dashboard_state is not None:
+                        if "ml_predictions" not in dashboard_state.signals:
+                            dashboard_state.signals["ml_predictions"] = {}
                     for mkt, res in results.items():
-                        dashboard_state.signals["ml_predictions"][mkt] = {
-                            "signal":          res.get("signal"),
-                            "confidence":      round(res.get("confidence", 0), 4),
-                            "buy_prob":        round(res.get("buy_prob",   0), 4),
-                            "hold_prob":       round(res.get("hold_prob",  0), 4),
-                            "sell_prob":       round(res.get("sell_prob",  0), 4),
-                            "model_agreement": round(res.get("model_agreement", 0), 4),
-                            "updated_at":      datetime.now().strftime("%H:%M:%S"),
+                        if dashboard_state is not None:
+                            dashboard_state.signals["ml_predictions"][mkt] = {
+                                "signal":          res.get("signal"),
+                                "confidence":      round(res.get("confidence", 0), 4),
+                                "buy_prob":        round(res.get("buy_prob",   0), 4),
+                                "hold_prob":       round(res.get("hold_prob",  0), 4),
+                                "sell_prob":       round(res.get("sell_prob",  0), 4),
+                                "model_agreement": round(res.get("model_agreement", 0), 4),
+                                "updated_at":      datetime.now().strftime("%H:%M:%S"),
                         }
-                    dashboard_state.signals["ml_last_updated"] = (
-                        datetime.now().isoformat()
+                    if dashboard_state is not None:
+                        dashboard_state.signals["ml_last_updated"] = (
+                            datetime.now().isoformat()
                     )
-                    dashboard_state.signals["ml_model_loaded"] = (
-                        self._ml_predictor._is_loaded
+                    if dashboard_state is not None:
+                        dashboard_state.signals["ml_model_loaded"] = (
+                            self._ml_predictor._is_loaded
                     )
                 except Exception as _db_e:
                     logger.debug(f" ML   : {_db_e}")
