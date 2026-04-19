@@ -753,8 +753,10 @@ class EngineScheduleMixin:
         >24h  : +0.3%
         """
         h = self._get_hold_hours(market)
-        if h < 6:
-            return 1.5
-        elif h < 24:
-            return 0.8
-        return 0.3
+        if h >= 48:
+            return -999.0  # 48h+ 강제청산 (손실도 감수)
+        elif h >= 24:
+            return 0.5     # 24~48h: +0.5% 익절
+        elif h >= 6:
+            return 0.8     # 6~24h: +0.8% 익절
+        return 1.5         # 0~6h: +1.5% 익절

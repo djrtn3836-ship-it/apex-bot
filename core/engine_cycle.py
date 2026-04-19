@@ -589,7 +589,7 @@ class EngineCycleMixin:
                 (confidence >= 0.65 and pnl_pct >= 1.5) or                        # 강한 수익 익절
                 (confidence >= 0.65 and pnl_pct <= -1.5) or                       # [FIX-RR] -2.0 → -1.5
                 (pnl_pct >= 3.0) or                                                # 3% 무조건 익절
-                (pnl_pct <= -2.5 and confidence >= 0.50) or                       # [FIX-RR] -3.0 → -2.5 비상손절
+                (pnl_pct <= -2.5 and (confidence >= 0.50 or _held_min >= 720)) or # [FIX] 12h+ 보유시 confidence 완화
                 (pnl_pct >= self._time_based_tp_threshold(market))                 # 시간 기반 익절
             ):
                 logger.info(
