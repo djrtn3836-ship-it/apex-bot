@@ -222,11 +222,18 @@ class WalkForwardRunner:
 
         try:
             study = optuna.create_study(direction="minimize")
-            study.optimize(
-                objective,
-                n_trials=self.n_trials,
-                timeout=180,
-                show_progress_bar=False,
+            # [FIX] asyncio 이벤트루프 충돌 방지: run_in_executor로 동기 실행
+            import asyncio, functools
+            loop = asyncio.get_event_loop()
+            await loop.run_in_executor(
+                None,
+                functools.partial(
+                    study.optimize,
+                    objective,
+                    n_trials=self.n_trials,
+                    timeout=180,
+                    show_progress_bar=False,
+                )
             )
             return study.best_params
         except Exception as e:
