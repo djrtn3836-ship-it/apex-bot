@@ -1,5 +1,5 @@
 {
-  "updated_at": "2026-04-13T02:00:07.891368",
+  "updated_at": "2026-04-20T02:00:09.126733",
   "in_sample_days": 90,
   "out_sample_days": 30,
   "strategies": {
@@ -10,11 +10,11 @@
         "signal": 9
       },
       "weight_boost": 1.5,
-      "oos_sharpe": 11.805,
-      "oos_win_rate": 66.7,
-      "oos_pnl_pct": 0.55,
-      "is_active": true,
-      "updated_at": "2026-04-13T02:00:04.941666"
+      "oos_sharpe": 3.243,
+      "oos_win_rate": 28.6,
+      "oos_pnl_pct": 0.25,
+      "is_active": false,
+      "updated_at": "2026-04-20T02:00:06.192562"
     },
     "RSI_Divergence": {
       "params": {
@@ -27,7 +27,7 @@
       "oos_win_rate": 50.0,
       "oos_pnl_pct": 0.0,
       "is_active": false,
-      "updated_at": "2026-04-13T02:00:04.991513"
+      "updated_at": "2026-04-20T02:00:06.243058"
     },
     "Supertrend": {
       "params": {
@@ -40,7 +40,7 @@
       "oos_win_rate": 50.0,
       "oos_pnl_pct": 0.0,
       "is_active": false,
-      "updated_at": "2026-04-13T02:00:05.707741"
+      "updated_at": "2026-04-20T02:00:06.888035"
     },
     "Bollinger_Squeeze": {
       "params": {
@@ -53,7 +53,7 @@
       "oos_win_rate": 50.0,
       "oos_pnl_pct": 0.0,
       "is_active": false,
-      "updated_at": "2026-04-13T02:00:05.913074"
+      "updated_at": "2026-04-20T02:00:07.128344"
     },
     "VWAP_Reversion": {
       "params": {
@@ -66,7 +66,7 @@
       "oos_win_rate": 50.0,
       "oos_pnl_pct": 0.0,
       "is_active": false,
-      "updated_at": "2026-04-13T02:00:06.960359"
+      "updated_at": "2026-04-20T02:00:08.171910"
     },
     "VolBreakout": {
       "params": {
@@ -78,7 +78,7 @@
       "oos_win_rate": 50.0,
       "oos_pnl_pct": 0.0,
       "is_active": false,
-      "updated_at": "2026-04-13T02:00:07.160138"
+      "updated_at": "2026-04-20T02:00:08.427560"
     },
     "ATR_Channel": {
       "params": {
@@ -91,7 +91,7 @@
       "oos_win_rate": 50.0,
       "oos_pnl_pct": 0.0,
       "is_active": false,
-      "updated_at": "2026-04-13T02:00:07.847360"
+      "updated_at": "2026-04-20T02:00:09.085003"
     },
     "OrderBlock_SMC": {
       "params": {
@@ -103,7 +103,7 @@
       "oos_win_rate": 50.0,
       "oos_pnl_pct": 0.0,
       "is_active": false,
-      "updated_at": "2026-04-13T02:00:07.888885"
+      "updated_at": "2026-04-20T02:00:09.123823"
     }
   }
 }
