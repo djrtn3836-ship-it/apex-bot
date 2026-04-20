@@ -242,6 +242,14 @@ class TradingEngine(
             self.ppo_online_trainer = None
             logger.warning(f" PPOOnlineTrainer  : {_ppo_e}")
 
+        try:
+            from monitoring.performance_tracker import PerformanceTracker
+            self.performance_tracker = PerformanceTracker()
+            logger.info("PerformanceTracker 초기화 완료")
+        except Exception as _pt_e:
+            self.performance_tracker = None
+            logger.warning(f"PerformanceTracker 초기화 실패: {_pt_e}")
+
         self._market_prices:     Dict[str, float] = {}
         self._last_signal_time:  Dict[str, float] = {}
         self._sell_cooldown:     Dict[str, datetime] = {}  # market -> sell_time, prevent rebuy for 10min

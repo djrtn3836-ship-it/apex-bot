@@ -259,15 +259,15 @@ class EngineScheduleMixin:
             # ✅ FIX: 매 시간 성과를 daily_performance DB에 저장
             try:
                 from datetime import datetime as _dt_now
-                # ✅ FIX3: sharpe_ratio + max_drawdown 추가 저장
+                # [FIX] report 변수 제거 -> _pm 직접 사용
                 _pm = self.performance_tracker.get_metrics(days=14)
                 await self.db_manager.save_daily_performance({
-                    "date":           report.get("date"),
-                    "total_assets":   report.get("total_assets",   0),
-                    "daily_pnl":      report.get("daily_pnl",      0),
-                    "open_positions": report.get("open_positions",  0),
-                    "win_rate":       _pm.get("win_rate",     report.get("win_rate", 0)),
-                    "trade_count":    _pm.get("total_trades", report.get("trade_count", 0)),
+                    "date":           _dt_now.now().strftime("%Y-%m-%d"),
+                    "total_assets":   0,
+                    "daily_pnl":      0,
+                    "open_positions": len(getattr(self, "_positions", {})),
+                    "win_rate":       _pm.get("win_rate", 0),
+                    "trade_count":    _pm.get("total_trades", 0),
                     "max_drawdown":   _pm.get("max_drawdown", 0),
                     "sharpe_ratio":   _pm.get("sharpe_ratio", 0),
                 })
