@@ -27,7 +27,12 @@ class AutoTrainer:
     TIMEOUT_SEC  = 2400     # 최대 학습 시간 40분 (v4 증가)
 
     def __init__(self):
-        self._last_retrain: Optional[datetime] = None   # ✅ Optional 정상 동작
+        # [FIX] 봇 재시작 시 모델 파일 mtime으로 _last_retrain 복원
+        _mtime = None
+        if self.MODEL_PATH.exists():
+            from datetime import datetime as _dt
+            _mtime = _dt.fromtimestamp(self.MODEL_PATH.stat().st_mtime)
+        self._last_retrain: Optional[datetime] = _mtime
         self._last_val_acc: float = 0.0
         self._retrain_count: int  = 0
         self._is_training: bool   = False  # 중복 실행 방지
