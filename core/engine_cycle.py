@@ -371,7 +371,7 @@ class EngineCycleMixin:
                         _sl_levels  = self.atr_stop.get_dynamic_levels(
                             _df_pos, entry_price, current_price, _profit_pct
                         )
-                        basic_sl = _sl_levels.stop_loss
+                        basic_sl = max(_sl_levels.stop_loss, entry_price * 0.97)  # [FIX-SL] ATR cap -3%
                         basic_tp = _sl_levels.take_profit
                         if _profit_pct >= 0.03:
                             logger.info(
