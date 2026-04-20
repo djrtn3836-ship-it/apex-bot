@@ -233,8 +233,8 @@ class EngineScheduleMixin:
                 return
 
             # ✅ FIX: update()는 호환용 pass, get_metrics()로 dict 반환
-            await self.performance_tracker.update(trades)
-            metrics = self.performance_tracker.get_metrics(days=14)
+            await self.perf_tracker.update(trades)
+            metrics = self.perf_tracker.get_metrics(days=14)
 
             sharpe  = metrics.get("sharpe_ratio", 0)
             mdd     = metrics.get("max_drawdown",  0)
@@ -244,7 +244,7 @@ class EngineScheduleMixin:
             score = 0
             if hasattr(self, "live_readiness"):
                 try:
-                    score = await self.live_readiness.check(self.performance_tracker)
+                    score = await self.live_readiness.check(self.perf_tracker)
                 except Exception:
                     pass
 
@@ -260,7 +260,7 @@ class EngineScheduleMixin:
             try:
                 from datetime import datetime as _dt_now
                 # [FIX] report 변수 제거 -> _pm 직접 사용
-                _pm = self.performance_tracker.get_metrics(days=14)
+                _pm = self.perf_tracker.get_metrics(days=14)
                 await self.db_manager.save_daily_performance({
                     "date":           _dt_now.now().strftime("%Y-%m-%d"),
                     "total_assets":   0,
