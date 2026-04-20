@@ -179,6 +179,18 @@ class EngineBuyMixin:
                 market, df_processed,
                 fear_greed_index=self.fear_greed.index,
             )
+            # [MDD-L1] regime 및 ADX 캐시 저장
+            if not hasattr(self, "_last_regime_cache"):
+                self._last_regime_cache = {}
+            if not hasattr(self, "_adx_cache"):
+                self._adx_cache = {}
+            self._last_regime_cache[market] = regime.value if hasattr(regime, "value") else str(regime)
+            try:
+                _adx_series = df_processed.get("adx", df_processed.get("ADX", None))
+                if _adx_series is not None:
+                    self._adx_cache[market] = float(_adx_series.iloc[-1])
+            except Exception:
+                self._adx_cache[market] = 0
 
             if regime == MarketRegime.TRENDING_DOWN:
                 logger.info(f'[ANALYZE] {market} TRENDING_DOWN 차단 (regime={regime})')
@@ -595,19 +607,19 @@ class EngineBuyMixin:
             # Vol_Breakout: ADX>35 + TRENDING_UP + FearGreed>40 동시 충족 시만 허용
             if name in ("Vol_Breakout", "VolBreakout", "volatility_break"):
                 if _fg_now < 40:
-                    logger.debug(
+                    logger.info(
                         f"[MDD-L1] {market} Vol_Breakout 차단 "
                         f"(FearGreed={_fg_now}<40)"
                     )
                     continue
                 if _adx_now < 35:
-                    logger.debug(
+                    logger.info(
                         f"[MDD-L1] {market} Vol_Breakout 차단 "
                         f"(ADX={_adx_now:.1f}<35)"
                     )
                     continue
-                if _regime_now not in (None, "TRENDING_UP"):
-                    logger.debug(
+                if _regime_now is not None and "TRENDING_UP" not in str(_regime_now).upper():
+                    logger.info(
                         f"[MDD-L1] {market} Vol_Breakout 차단 "
                         f"(regime={_regime_now}≠TRENDING_UP)"
                     )
