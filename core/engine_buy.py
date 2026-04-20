@@ -179,18 +179,26 @@ class EngineBuyMixin:
                 market, df_processed,
                 fear_greed_index=self.fear_greed.index,
             )
-            # [MDD-L1] regime 및 ADX 캐시 저장
+            # [MDD-L1] regime 및 ADX 캐시 저장 (TRENDING_DOWN return 전에 먼저 저장)
             if not hasattr(self, "_last_regime_cache"):
                 self._last_regime_cache = {}
             if not hasattr(self, "_adx_cache"):
                 self._adx_cache = {}
-            self._last_regime_cache[market] = regime.value if hasattr(regime, "value") else str(regime)
+            _regime_str = regime.value if hasattr(regime, "value") else str(regime)
+            self._last_regime_cache[market] = _regime_str
             try:
                 _adx_series = df_processed.get("adx", df_processed.get("ADX", None))
-                if _adx_series is not None:
+                if _adx_series is not None and len(_adx_series) > 0:
                     self._adx_cache[market] = float(_adx_series.iloc[-1])
+                else:
+                    self._adx_cache[market] = 0
             except Exception:
                 self._adx_cache[market] = 0
+            logger.debug(
+                f"[MDD-L1] {market} 캐시저장 "
+                f"regime={_regime_str} ADX={self._adx_cache.get(market,0):.1f} "
+                f"FG={getattr(self.fear_greed,'index',50)}"
+            )
 
             if regime == MarketRegime.TRENDING_DOWN:
                 logger.info(f'[ANALYZE] {market} TRENDING_DOWN 차단 (regime={regime})')
