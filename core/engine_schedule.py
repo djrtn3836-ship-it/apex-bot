@@ -233,6 +233,8 @@ class EngineScheduleMixin:
                 return
 
             # ✅ FIX: update()는 호환용 pass, get_metrics()로 dict 반환
+            if not getattr(self, 'perf_tracker', None):
+                return
             await self.perf_tracker.update(trades)
             metrics = self.perf_tracker.get_metrics(days=14)
 
