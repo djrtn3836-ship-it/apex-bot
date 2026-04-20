@@ -47,6 +47,10 @@ class EngineBuyMixin:
     """매수 분석, 신호 평가, 매수 실행 관련 메서드 Mixin"""
 
     async def _analyze_market(self, market: str):
+        # [MDD-L3] 서킷브레이커 활성 시 매수 전면 차단
+        if getattr(self, "_circuit_breaker_active", False):
+            logger.debug(f"[MDD-L3] {market} 매수 차단 (서킷브레이커 활성)")
+            return
         # Dynamic ML threshold based on Fear & Greed Index (v2.0.4 fixed)
         fgi_idx = getattr(self.fear_greed, 'index', None) or 50
         logger.info("[ANALYZE] %s 진입" % market)
@@ -582,6 +586,36 @@ class EngineBuyMixin:
             f"  ({market}): {list(selected.keys())} "
             f"[전체 {len(self._strategies)}개 중 {len(selected)}개]"
         )
+        # [MDD-L1] Vol_Breakout / ML_Ensemble 레짐 필터
+        _fg_now   = getattr(self.fear_greed, "index", 50) or 50
+        _regime_now = getattr(self, "_last_regime_cache", {}).get(market, None)
+        _adx_now    = getattr(self, "_adx_cache", {}).get(market, 0)
+        _filtered = {}
+        for name, strategy in selected.items():
+            # Vol_Breakout: ADX>35 + TRENDING_UP + FearGreed>40 동시 충족 시만 허용
+            if name in ("Vol_Breakout", "VolBreakout", "volatility_break"):
+                if _fg_now < 40:
+                    logger.debug(
+                        f"[MDD-L1] {market} Vol_Breakout 차단 "
+                        f"(FearGreed={_fg_now}<40)"
+                    )
+                    continue
+                if _adx_now < 35:
+                    logger.debug(
+                        f"[MDD-L1] {market} Vol_Breakout 차단 "
+                        f"(ADX={_adx_now:.1f}<35)"
+                    )
+                    continue
+                if _regime_now not in (None, "TRENDING_UP"):
+                    logger.debug(
+                        f"[MDD-L1] {market} Vol_Breakout 차단 "
+                        f"(regime={_regime_now}≠TRENDING_UP)"
+                    )
+                    continue
+            # ML_Ensemble: 누적 거래 30건 미만이면 등록만 하고 나중에 크기 50% 축소
+            _filtered[name] = strategy
+        selected = _filtered
+
         for name, strategy in selected.items():
             tasks.append(asyncio.get_event_loop().run_in_executor(
                 None, strategy.analyze, market, df, {}
@@ -864,6 +898,30 @@ class EngineBuyMixin:
             market=market,
             confidence=_ml_conf,
         )
+
+        # [MDD-L2] 연속손실 / ATR 변동성 기반 동적 포지션 축소
+        _consec_loss = getattr(self, "_consecutive_loss_count", 0)
+        if _consec_loss >= 3:
+            _before = position_size
+            position_size *= 0.5
+            logger.info(
+                f"[MDD-L2] 연속손실 {_consec_loss}건 → 포지션 50% 축소 "
+                f"({market}): ₩{_before:,.0f} → ₩{position_size:,.0f}"
+            )
+        # ATR 고변동성 시 포지션 추가 축소 (ATR > 기준값 1.5배)
+        try:
+            _atr_now = float(df["atr"].iloc[-1]) if "atr" in df.columns else 0
+            _atr_base = float(df["close"].iloc[-1]) * 0.02
+            if _atr_now > 0 and _atr_now > _atr_base * 1.5:
+                _before2 = position_size
+                position_size *= 0.7
+                logger.debug(
+                    f"[MDD-L2] ATR 고변동성 ({market}) "
+                    f"ATR={_atr_now:.1f} > 기준={_atr_base:.1f}×1.5 "
+                    f"→ 30% 축소: ₩{_before2:,.0f} → ₩{position_size:,.0f}"
+                )
+        except Exception:
+            pass
 
         if getattr(signal, "bear_reversal", False):
             position_size *= 0.5

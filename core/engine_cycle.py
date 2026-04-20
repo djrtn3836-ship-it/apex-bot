@@ -115,6 +115,25 @@ class EngineCycleMixin:
 
 
     async def _cycle(self):
+        # [MDD-L3] 포트폴리오 서킷브레이커
+        try:
+            from datetime import datetime as _dt
+            _today = _dt.now().strftime("%Y-%m-%d")
+            _daily_loss_key = f"_daily_loss_{_today}"
+            _daily_loss = getattr(self, _daily_loss_key, 0.0)
+            _krw_bal = getattr(self, "_krw_balance", 0)
+            _loss_limit = _krw_bal * 0.02  # 일일 2% 한도
+            if _daily_loss < -_loss_limit and _loss_limit > 0:
+                logger.warning(
+                    f"[MDD-L3] 🚨 서킷브레이커 발동! "
+                    f"일일손실 ₩{abs(_daily_loss):,.0f} > "
+                    f"한도 ₩{_loss_limit:,.0f} (2%) → 신규매수 중단"
+                )
+                self._circuit_breaker_active = True
+            else:
+                self._circuit_breaker_active = False
+        except Exception:
+            self._circuit_breaker_active = False
         """FIX v2.0.1: ML       
                 :  →   (   )
                 :   →  (   )"""
@@ -397,6 +416,12 @@ class EngineCycleMixin:
                     )
 
                 if current_price <= basic_sl:
+                    # [MDD-L2] 연속손실 카운터 증가
+                    _cl = getattr(self, "_consecutive_loss_count", 0)
+                    self._consecutive_loss_count = _cl + 1
+                    logger.debug(
+                        f"[MDD-L2] 연속손실 카운터: {self._consecutive_loss_count}건"
+                    )
                     loss_pct = (current_price - entry_price) / entry_price * 100
                     logger.info(
                         f"    ({market}): "
@@ -409,6 +434,8 @@ class EngineCycleMixin:
                     continue
 
                 if current_price >= basic_tp:
+                    # [MDD-L2] 수익 청산 시 연속손실 카운터 리셋
+                    self._consecutive_loss_count = 0
                     profit_pct = (current_price - entry_price) / entry_price * 100
                     logger.info(
                         f"    ({market}): "

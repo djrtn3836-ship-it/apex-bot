@@ -27,10 +27,17 @@ class KellyPositionSizer:
     # ── 전략별 보정 계수 ──────────────────────────────────────
     STRATEGY_MULTIPLIER = {
         "BEAR_REVERSAL":     1.2,   # 역발상 매수 → 약간 공격적
+        "Bollinger_Squeeze": 1.1,   # 100% 승률 → 약간 공격적
+        "Order_Block":       1.0,   # 78% 승률 → 표준
+        "RSI_Divergence":    0.9,   # 75% 승률 → 약간 보수
+        "VWAP_Reversion":    0.8,   # 55% 승률 → 보수적
+        "MACD_Cross":        0.8,   # 55% 승률 → 보수적
         "OrderBlock_SMC":    1.0,
-        "VWAP_Reversion":    0.9,
-        "volatility_break":  1.1,
-        "ml_signal":         1.3,   # ML 고신뢰 → 더 공격적
+        "Vol_Breakout":      0.3,   # [MDD] 36% 승률 → 최소화
+        "VolBreakout":       0.3,   # [MDD] 동일
+        "volatility_break":  0.3,   # [MDD] 동일
+        "ML_Ensemble":       0.5,   # [MDD] 데이터 부족 → 보수적
+        "ml_signal":         1.0,   # ML 신호 표준화
         "default":           1.0,
     }
 
