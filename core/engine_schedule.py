@@ -565,44 +565,42 @@ class EngineScheduleMixin:
 
 
     async def _ws_reconnect_loop(self):
+        """WebSocket 상태 감시 및 재시작 루프 (중복 재시작 방지)"""
         RECONNECT_DELAY = 5
         MAX_DELAY       = 60
         delay = RECONNECT_DELAY
+        _restarting = False  # 재시작 중복 방지 플래그
         while True:
             try:
-                if self.ws_collector and (not self.ws_collector._running or ((__import__("time").time() - self.ws_collector._last_message_time) > 60)):
+                import time as _t
+                _not_running = self.ws_collector and not self.ws_collector._running
+                _stale = self.ws_collector and (_t.time() - self.ws_collector._last_message_time) > 60
+                if (_not_running or _stale) and not _restarting:
+                    _restarting = True
                     logger.warning(
-                        f" WebSocket   → {delay}   "
+                        f"[WS-WATCH] WebSocket 이상 감지 → {delay}초 후 재시작"
                     )
-                    
-                    # ===== 시그널 평가 및 진입 로직 (v2.1.0) =====
-                                # 데이터 가져오기
-                                
-                                # ML 점수 가져오기 (캐시 또는 새로 계산)
-                                
-                                # 시그널 평가
-                            
-                    
-                    # =================================================
-
                     await asyncio.sleep(delay)
-                    # ws_collector.run()이 내부 재연결 루프를 포함하므로
-                    # _running=False → stop() → asyncio.ensure_future(run()) 으로 재시작
                     try:
                         await self.ws_collector.stop()
                         import asyncio as _aw
                         _aw.ensure_future(self.ws_collector.run())
+                        await asyncio.sleep(5)  # run() 시작 대기
                         logger.info("[WS-RESTART] WebSocket 재시작 완료")
+                        delay = RECONNECT_DELAY
                     except Exception as _ws_restart_e:
                         logger.warning(f"[WS-RESTART] 재시작 실패: {_ws_restart_e}")
-                    delay = RECONNECT_DELAY
+                        delay = min(delay * 2, MAX_DELAY)
+                    finally:
+                        _restarting = False
                 else:
                     delay = RECONNECT_DELAY
                     await asyncio.sleep(10)
             except Exception as e:
-                logger.error(f" WebSocket  : {e}")
+                logger.error(f"[WS-WATCH] 루프 오류: {e}")
                 delay = min(delay * 2, MAX_DELAY)
                 await asyncio.sleep(delay)
+                _restarting = False
 
     # ── 대시보드 상태 업데이트 ───────────────────────────────────
 
