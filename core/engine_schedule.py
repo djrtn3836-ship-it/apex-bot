@@ -570,7 +570,7 @@ class EngineScheduleMixin:
         delay = RECONNECT_DELAY
         while True:
             try:
-                if self.ws_collector and not self.ws_collector.is_healthy():
+                if self.ws_collector and (not self.ws_collector._running or ((__import__("time").time() - self.ws_collector._last_message_time) > 60)):
                     logger.warning(
                         f" WebSocket   → {delay}   "
                     )
