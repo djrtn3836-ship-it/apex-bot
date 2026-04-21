@@ -17,3 +17,6 @@ create_strategies.py
 upgrade_trading_logic.py
 
 fix4_only.py
+# 모델 파일 (대용량 - git 제외)
+models/saved/*.pt
+models/saved/*.pt.tmp
