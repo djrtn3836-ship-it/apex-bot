@@ -606,6 +606,23 @@ class EngineBuyMixin:
             f"  ({market}): {list(selected.keys())} "
             f"[전체 {len(self._strategies)}개 중 {len(selected)}개]"
         )
+        # [TIME-FILTER] 새벽 00~06시 저유동성 구간 Order_Block 차단
+        from datetime import datetime as _dt_tf
+        _now_hour = _dt_tf.now().hour
+        if 0 <= _now_hour < 6:
+            _ob_names = {"Order_Block", "VolBreakout", "Vol_Breakout"}
+            selected  = {n: s for n, s in selected.items() if n not in _ob_names}
+            if not selected:
+                logger.info(
+                    f"[TIME-FILTER] {market} 새벽({_now_hour}시) "
+                    f"Order_Block 단독 → 전략 없음 차단"
+                )
+                return []
+            logger.debug(
+                f"[TIME-FILTER] {market} 새벽({_now_hour}시) "
+                f"Order_Block 제외 후 잔여전략: {list(selected.keys())}"
+            )
+
         # [MDD-L1] Vol_Breakout / ML_Ensemble 레짐 필터
         _fg_now   = getattr(self.fear_greed, "index", 50) or 50
         _regime_now = getattr(self, "_last_regime_cache", {}).get(market, None)
