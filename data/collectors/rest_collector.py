@@ -39,7 +39,7 @@ class UpbitRateLimiter:
         "default":          30,
     }
     WINDOW_SEC = 1
-    BUFFER = 2  # 잔여량 이 값 이하면 다음 윈도우까지 대기
+    BUFFER = 1  # 잔여량 이 값 이하면 다음 윈도우까지 대기
 
     def __init__(self):
         # group → {"remaining": int, "win_start": float}
