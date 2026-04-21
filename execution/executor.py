@@ -199,19 +199,37 @@ class OrderExecutor:
 
     # ── 체결 확인 루프 ────────────────────────────────────────────
     async def _wait_for_fill(self, order_uuid: str) -> Optional[Dict]:
-        """( FILL_TIMEOUT)"""
+        """체결 대기 루프 (FILL_TIMEOUT 초과 시 부분체결 반환)"""
         start = time.time()
+        last_order = None
         while time.time() - start < self.FILL_TIMEOUT:
             await asyncio.sleep(self.FILL_CHECK_INTERVAL)
             order = await self.adapter.get_order(order_uuid)
             if not order:
                 continue
+            last_order = order
             state = order.get("state", "")
             if state == "done":
                 return order
             elif state in ("cancel", "cancelled"):
                 return None
-        return None  # 타임아웃
+            # 부분체결(wait) 상태 처리 - 체결된 수량이 있으면 기록
+            elif state == "wait":
+                exec_vol = float(order.get("executed_volume", 0))
+                if exec_vol > 0:
+                    logger.debug(
+                        f"[PARTIAL] {order_uuid[:8]} "
+                        f"부분체결 {exec_vol:.6f} 대기 중..."
+                    )
+        # 타임아웃 - 부분체결이 있으면 반환, 없으면 None
+        if last_order and float(last_order.get("executed_volume", 0)) > 0:
+            logger.warning(
+                f"[FILL-TIMEOUT] {order_uuid[:8]} "
+                f"타임아웃 - 부분체결 수량으로 처리: "
+                f"{last_order.get('executed_volume')} "
+            )
+            return last_order
+        return None  # 완전 미체결
 
     # ── 긴급 전량 청산 ────────────────────────────────────────────
     async def emergency_sell_all(self, market: str, reason: str = "긴급 청산") -> ExecutionResult:

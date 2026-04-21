@@ -610,8 +610,35 @@ class EngineBuyMixin:
         _fg_now   = getattr(self.fear_greed, "index", 50) or 50
         _regime_now = getattr(self, "_last_regime_cache", {}).get(market, None)
         _adx_now    = getattr(self, "_adx_cache", {}).get(market, 0)
+
+        # [LIVE-SAFE] 실거래 초기 30일 Vol_Breakout 완전 차단
+        import os as _os
+        from datetime import datetime as _dtnow, timedelta as _td
+        _live_start_str = _os.getenv("LIVE_START_DATE", "")
+        _vol_breakout_live_blocked = False
+        if _live_start_str and getattr(self.settings, "mode", "paper") == "live":
+            try:
+                _live_start = _dtnow.fromisoformat(_live_start_str)
+                _days_since_live = (_dtnow.now() - _live_start).days
+                if _days_since_live < 30:
+                    _vol_breakout_live_blocked = True
+                    logger.debug(
+                        f"[LIVE-SAFE] Vol_Breakout 실거래 초기 차단 "
+                        f"(실거래 {_days_since_live}일차 < 30일)"
+                    )
+            except Exception:
+                pass
+
         _filtered = {}
         for name, strategy in selected.items():
+            # [LIVE-SAFE] 실거래 초기 30일 Vol_Breakout 완전 차단
+            if name in ("Vol_Breakout", "VolBreakout", "volatility_break"):
+                if _vol_breakout_live_blocked:
+                    logger.info(
+                        f"[LIVE-SAFE] {market} Vol_Breakout 완전 차단 "
+                        f"(실거래 초기 30일 안전모드)"
+                    )
+                    continue
             # Vol_Breakout: ADX>35 + TRENDING_UP + FearGreed>40 동시 충족 시만 허용
             if name in ("Vol_Breakout", "VolBreakout", "volatility_break"):
                 if _fg_now < 40:

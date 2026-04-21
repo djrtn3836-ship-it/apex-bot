@@ -278,8 +278,8 @@ print(f"  SELL: {label_counts[2]}개 ({label_counts[2]/total*100:.1f}%)")
 print(f"  피처 shape: {X.shape}")
 
 # ── 클래스 균형: 가중치 기반 (오버샘플링 최소화)
-# BUY/SELL은 소수 클래스 → 2배 오버샘플, HOLD는 언더샘플
-target_cnt = int(np.median(list(label_counts.values())) * 1.5)
+# BUY/SELL은 소수 클래스 → 3배 오버샘플, HOLD는 언더샘플 강화 [FIX: 불균형 개선]
+target_cnt = int(np.median(list(label_counts.values())) * 3.0)
 X_bal, y_bal = [], []
 for cls in [0, 1, 2]:
     idx = np.where(y == cls)[0]
@@ -348,11 +348,11 @@ class_weights = torch.tensor(
     1.0 / (class_counts / class_counts.sum() + 1e-9),
     dtype=torch.float32
 ).to(device)
-class_weights = class_weights / class_weights.sum() * 3  # 정규화
+class_weights = class_weights / class_weights.sum() * 5  # 정규화 [FIX: BUY/SELL 가중치 강화]
 
 criterion = nn.CrossEntropyLoss(
     weight=class_weights,
-    label_smoothing=0.05  # 과적합 방지 (기존 0.1→0.05)
+    label_smoothing=0.10  # [FIX] HOLD 과다예측 방지 위해 0.05→0.10 복원
 )
 optimizer = torch.optim.AdamW(model.parameters(), lr=LR, weight_decay=1e-4)
 scheduler = torch.optim.lr_scheduler.CosineAnnealingWarmRestarts(
