@@ -570,7 +570,7 @@ class EngineScheduleMixin:
         delay = RECONNECT_DELAY
         while True:
             try:
-                if self.ws_collector and not self.ws_collector.is_connected():
+                if self.ws_collector and not self.ws_collector.is_healthy():
                     logger.warning(
                         f" WebSocket   → {delay}   "
                     )
@@ -586,8 +586,15 @@ class EngineScheduleMixin:
                     # =================================================
 
                     await asyncio.sleep(delay)
-                    await self.ws_collector.reconnect()
-                    logger.info(" WebSocket  ")
+                    # ws_collector.run()이 내부 재연결 루프를 포함하므로
+                    # _running=False → stop() → asyncio.ensure_future(run()) 으로 재시작
+                    try:
+                        await self.ws_collector.stop()
+                        import asyncio as _aw
+                        _aw.ensure_future(self.ws_collector.run())
+                        logger.info("[WS-RESTART] WebSocket 재시작 완료")
+                    except Exception as _ws_restart_e:
+                        logger.warning(f"[WS-RESTART] 재시작 실패: {_ws_restart_e}")
                     delay = RECONNECT_DELAY
                 else:
                     delay = RECONNECT_DELAY
