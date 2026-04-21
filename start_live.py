@@ -97,7 +97,7 @@ def check_live_requirements() -> bool:
     print("=" * 52)
     print("     ")
     print("=" * 52)
-    print("  :  ≥ 55% | Sharpe ≥ 1.5 | MDD ≤ 10%")
+    print("  :  ≥ 55% | Sharpe ≥ 0.5 | MDD ≤ 30%")
     print()
 
     # 결과 출력

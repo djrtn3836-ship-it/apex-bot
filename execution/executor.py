@@ -169,15 +169,31 @@ class OrderExecutor:
         result.status = OrderStatus.FILLED
         result.executed_volume = float(order.get("executed_volume", 0))
         result.fee = float(order.get("fee", order.get("paid_fee", 0)))
-        result.executed_price = float(order.get("price", 0))
 
-        # 시장가 슬리피지 추정
-        if result.executed_volume > 0 and result.executed_price == 0:
-            # 체결가 재조회
-            current_price = await self.adapter.get_current_price(req.market)
-            if current_price:
-                slippage = self.settings.trading.slippage_rate
-                result.executed_price = current_price * (1 + slippage if req.side == OrderSide.BUY else 1 - slippage)
+        # [FIX] Upbit 시장가 주문은 "price" 대신 "avg_price" 또는 trades 평균 사용
+        _price = (
+            order.get("avg_price")           # 시장가 체결 평균가
+            or order.get("price")             # 지정가 체결가
+            or order.get("executed_price")    # 폴백1
+        )
+        if _price:
+            result.executed_price = float(_price)
+        else:
+            # trades 배열에서 가중평균가 계산
+            _trades = order.get("trades", [])
+            if _trades:
+                _total_vol = sum(float(t.get("volume", 0)) for t in _trades)
+                if _total_vol > 0:
+                    result.executed_price = sum(
+                        float(t.get("price", 0)) * float(t.get("volume", 0))
+                        for t in _trades
+                    ) / _total_vol
+            # 최후 수단: 현재가 + 슬리피지
+            if result.executed_price == 0 and result.executed_volume > 0:
+                current_price = await self.adapter.get_current_price(req.market)
+                if current_price:
+                    slippage = self.settings.trading.slippage_rate
+                    result.executed_price = current_price * (1 + slippage if req.side == OrderSide.BUY else 1 - slippage)
 
         return result
 

@@ -124,7 +124,7 @@ class EngineSellMixin:
                 )
                 _mode = (
                     "paper"
-                    if getattr(self.settings, "paper_mode", True)
+                    if (getattr(self.settings, "mode", "paper") != "live")
                     else "live"
                 )
                 await self.db_manager.insert_trade({
@@ -177,7 +177,7 @@ class EngineSellMixin:
             symbol=_symbol, current_price=current_price, confidence=_confidence,
         )
 
-        if getattr(self.settings, "paper_mode", True):
+        if (getattr(self.settings, "mode", "paper") != "live"):
             pos           = self.portfolio._positions.get(market)
             _raw_qty      = float(
                 getattr(pos, "volume",
@@ -243,7 +243,7 @@ class EngineSellMixin:
                     "profit_rate": profit_rate * 100,  # [FIX-FINAL] 소수→% 변환
                     "strategy":    getattr(pos, "strategy", "unknown"),
                     "reason":      reason,
-                    "mode":        "paper",
+                    "mode":        getattr(self.settings, "mode", "paper"),
                 }
                 if _asyncio.get_event_loop().is_running():
                     _asyncio.ensure_future(
