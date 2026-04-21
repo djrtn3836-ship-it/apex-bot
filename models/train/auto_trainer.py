@@ -90,10 +90,16 @@ class AutoTrainer:
                 logger.info(f"[AutoTrainer] 백업 완료: {self.BACKUP_PATH}")
 
             # ── 별도 프로세스로 학습 실행 ─────────────────────
+            # [FIX] CUDA_LAUNCH_BLOCKING=1 : Blackwell 크래시 동기화 강제
+            import os as _os
+            _env = _os.environ.copy()
+            _env["CUDA_LAUNCH_BLOCKING"] = "1"
+            _env["PYTORCH_NO_CUDA_MEMORY_CACHING"] = "0"
             proc = await asyncio.create_subprocess_exec(
                 sys.executable, self.TRAIN_SCRIPT,
                 stdout=asyncio.subprocess.PIPE,
                 stderr=asyncio.subprocess.PIPE,
+                env=_env,
             )
             stdout, stderr = await asyncio.wait_for(
                 proc.communicate(), timeout=self.TIMEOUT_SEC

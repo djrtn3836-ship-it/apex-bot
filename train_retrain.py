@@ -482,3 +482,20 @@ else:
     print(f"\n{'='*60}")
     print(f"  훈련 실패 | Val Acc: {best_val_acc:.4f} | ROLLBACK")
     print(f"{'='*60}")
+
+
+# ── CUDA context 명시적 해제 (Windows Blackwell 크래시 방지) ──────────
+try:
+    import gc
+    gc.collect()
+    if torch.cuda.is_available():
+        torch.cuda.synchronize()   # 모든 CUDA 작업 완료 대기
+        torch.cuda.empty_cache()   # 캐시 메모리 해제
+        torch.cuda.reset_peak_memory_stats()  # 통계 초기화
+        # CUDA context 명시적 종료
+        for i in range(torch.cuda.device_count()):
+            with torch.cuda.device(i):
+                torch.cuda.empty_cache()
+    print("  CUDA context 정상 해제 완료")
+except Exception as _e:
+    print(f"  CUDA cleanup 경고 (무시 가능): {_e}")
