@@ -7,7 +7,9 @@
 - 실패시 이전 모델 자동 복원 (rollback)
 """
 
+import sys
 import asyncio
+import json
 import shutil
 from datetime import datetime
 from pathlib import Path
@@ -81,7 +83,6 @@ class AutoTrainer:
 
     async def _retrain(self) -> bool:
         """실제 재학습 프로세스 실행"""
-        import sys
         try:
             # ── 기존 모델 백업 ────────────────────────────────
             if self.MODEL_PATH.exists():
@@ -98,11 +99,37 @@ class AutoTrainer:
                 proc.communicate(), timeout=self.TIMEOUT_SEC
             )
 
+            # [FIX] Windows CUDA 크래시 코드 무시 (학습 자체는 성공)
+            _CRASH_CODES = {3221226505, 3221225477}
             if proc.returncode != 0:
                 err_msg = stderr.decode(errors="replace")[-500:]
-                logger.error(f"[AutoTrainer] 재학습 실패 (returncode={proc.returncode}): {err_msg}")
-                self._rollback()
-                return False
+                _saved_ok = False
+                try:
+                    _tr = Path("models/saved/train_result.json")
+                    if _tr.exists():
+                        _saved_ok = json.loads(
+                            _tr.read_text(encoding="utf-8")
+                        ).get("saved", False)
+                except Exception:
+                    pass
+                if proc.returncode in _CRASH_CODES and _saved_ok:
+                    logger.warning(
+                        f"[AutoTrainer] ⚠️ Windows CUDA 크래시 무시 "
+                        f"(returncode={proc.returncode}) "
+                        f"→ saved=True 확인 → 학습 성공 처리"
+                    )
+                    # stdout 대신 train_result.json에서 val_acc 직접 읽기
+                    try:
+                        _result = json.loads(
+                            Path("models/saved/train_result.json").read_text(encoding="utf-8")
+                        )
+                        stdout = str(_result.get("best_val_acc", 0)).encode()
+                    except Exception:
+                        pass
+                else:
+                    logger.error(f"[AutoTrainer] 재학습 실패 (returncode={proc.returncode}): {err_msg}")
+                    self._rollback()
+                    return False
 
             # ── 결과 파싱 ─────────────────────────────────────
             output  = stdout.decode(errors="replace")

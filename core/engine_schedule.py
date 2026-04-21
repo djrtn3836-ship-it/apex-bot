@@ -28,6 +28,7 @@ import time
 import asyncio
 from datetime import datetime
 from loguru import logger
+from monitoring.paper_report import generate_paper_report
 
 
 class EngineScheduleMixin:
@@ -590,7 +591,7 @@ class EngineScheduleMixin:
 
     async def _update_dashboard_state(self, krw: float, total_value: float):
         try:
-            from monitoring.dashboard import dashboard_state  # [FIX] dashboard_state 임포트
+            from monitoring.dashboard import dashboard_state
             stats     = self.portfolio.get_statistics()
             daily_pnl = self.portfolio.get_daily_pnl(total_value)
             drawdown  = self.portfolio.get_current_drawdown(total_value)
