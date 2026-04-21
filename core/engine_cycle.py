@@ -759,7 +759,7 @@ class EngineCycleMixin:
                         f" [Scanner]  : {market} | "
                         f" ={candidate['vol_ratio']:.1f}x | "
                         f"={candidate['price_change']:.2%} | "
-                        f"={candidate['trade_amount']:,.0f}"
+                        f"={candidate.get('trade_amount', 0):,.0f}"
                     )
 
             if len(self._dynamic_markets) > cfg["max_dynamic_coins"]:

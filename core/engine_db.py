@@ -300,7 +300,7 @@ class EngineDBMixin:
     def _save_cooldown_to_db(self):
 
         # 만료된 sell_cooldown 자동 정리 (20분 초과)
-        now_clean = _dt_clean.now()
+        now_clean = datetime.now()
         self._sell_cooldown = {
             k: v for k, v in self._sell_cooldown.items()
             if (now_clean - v).total_seconds() < 1200
