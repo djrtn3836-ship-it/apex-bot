@@ -84,6 +84,9 @@ class RestCollector:
                         logger.warning(f"API 429 Rate Limit ({market}) → 1초 대기")
                         await asyncio.sleep(1.0)
                         return None
+                    if resp.status == 401:
+                        logger.critical(f"[API-401] API 키 인증 실패 ({market}) - 실거래 위험! 키 확인 필요")
+                        return None
                     if resp.status != 200:
                         logger.error(f"API  ({resp.status}): {market}")
                         return None

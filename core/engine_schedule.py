@@ -114,6 +114,16 @@ class EngineScheduleMixin:
             "cron", day_of_week="sun", hour=4, minute=0,
             id="ppo_online_retrain",
         )
+
+        # WebSocket 재연결 루프 태스크 등록
+        import asyncio as _asyncio_ws
+        try:
+            loop = _asyncio_ws.get_event_loop()
+            if loop.is_running():
+                _asyncio_ws.ensure_future(self._ws_reconnect_loop())
+                logger.info("[WS-TASK] _ws_reconnect_loop 태스크 등록 완료")
+        except Exception as _ws_e:
+            logger.warning(f"[WS-TASK] 등록 실패: {_ws_e}")
         logger.info(
             f"    "
             f"({len(self.scheduler.get_jobs())}개 작업)"

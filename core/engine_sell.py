@@ -225,9 +225,14 @@ class EngineSellMixin:
         result = await self.executor.execute(req)
 
         if result.executed_price > 0:
-            proceeds, profit_rate = self.portfolio.close_position(
+            _close_result = self.portfolio.close_position(
                 market, result.executed_price, result.fee, reason
             )
+            if _close_result is None:
+                logger.error(f"[SELL-SKIP] {market} 포지션 없음 (이미 청산) - DB 저장 건너뜀")
+                return
+            proceeds, profit_rate = _close_result
+            profit_rate = float(profit_rate or 0)  # None 방어
 
             try:
                 import asyncio as _asyncio
@@ -240,7 +245,7 @@ class EngineSellMixin:
                     "amount_krw":  proceeds,
                     "fee":         result.fee if hasattr(result, "fee") else 0.0,
                     # [FIX2] close_position 반환값은 이미 % 단위 → * 100 제거
-                    "profit_rate": profit_rate * 100,  # [FIX-FINAL] 소수→% 변환
+                    "profit_rate": float(profit_rate or 0) * 100,  # [FIX-FINAL] 소수→% 변환
                     "strategy":    getattr(pos, "strategy", "unknown"),
                     "reason":      reason,
                     "mode":        getattr(self.settings, "mode", "paper"),
