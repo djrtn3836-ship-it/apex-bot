@@ -272,19 +272,32 @@ class EngineScheduleMixin:
             # ✅ FIX: 매 시간 성과를 daily_performance DB에 저장
             try:
                 from datetime import datetime as _dt_now
-                # [FIX] report 변수 제거 -> _pm 직접 사용
                 _pm = self.perf_tracker.get_metrics(days=14)
+                # 실제 잔고 및 포지션 수 조회
+                try:
+                    _krw_bal     = await self.adapter.get_balance("KRW")
+                    _total_asset = self.portfolio.get_total_value(_krw_bal)
+                    _daily_pnl   = self.portfolio.get_daily_pnl(_total_asset)
+                    _open_pos    = self.portfolio.position_count
+                except Exception:
+                    _krw_bal     = 0
+                    _total_asset = 0
+                    _daily_pnl   = 0
+                    _open_pos    = len(getattr(self, "_positions", {}))
                 await self.db_manager.save_daily_performance({
                     "date":           _dt_now.now().strftime("%Y-%m-%d"),
-                    "total_assets":   0,
-                    "daily_pnl":      0,
-                    "open_positions": len(getattr(self, "_positions", {})),
+                    "total_assets":   _total_asset,
+                    "daily_pnl":      _daily_pnl,
+                    "open_positions": _open_pos,
                     "win_rate":       _pm.get("win_rate", 0),
                     "trade_count":    _pm.get("total_trades", 0),
                     "max_drawdown":   _pm.get("max_drawdown", 0),
                     "sharpe_ratio":   _pm.get("sharpe_ratio", 0),
                 })
-                logger.debug("✅ hourly performance DB 저장 완료")
+                logger.debug(
+                    f"✅ hourly performance DB 저장 완료 "
+                    f"(assets={int(_total_asset):,} pnl={int(_daily_pnl):+,} pos={_open_pos})"
+                )
             except Exception as _dbe:
                 logger.debug(f"hourly performance DB 저장 실패: {_dbe}")
 
