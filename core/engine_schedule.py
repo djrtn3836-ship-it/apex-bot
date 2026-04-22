@@ -291,6 +291,9 @@ class EngineScheduleMixin:
                     "open_positions": _open_pos,
                     "win_rate":       _pm.get("win_rate", 0),
                     "trade_count":    _pm.get("total_trades", 0),
+                    "win_count":      int(_pm.get("win_trades", 0)),
+                    "max_drawdown":   _pm.get("max_drawdown", 0),
+                    "sharpe_ratio":   _pm.get("sharpe_ratio", 0),
                     "max_drawdown":   _pm.get("max_drawdown", 0),
                     "sharpe_ratio":   _pm.get("sharpe_ratio", 0),
                 })
@@ -347,10 +350,13 @@ class EngineScheduleMixin:
                 "open_positions": report.get("open_positions",  0),
                 "win_rate":       report.get("win_rate",        0),
                 "trade_count":    report.get("trade_count",     0),
+                "win_count":      int(report.get("win_count",   0)),
+                "max_drawdown":   report.get("max_drawdown",    0),
+                "sharpe_ratio":   report.get("sharpe_ratio",    0),
             })
             logger.info(" daily_performance DB  ")
         except Exception as _dpe:
-            logger.debug(f"daily_performance  : {_dpe}")
+            logger.warning(f"⚠️ daily_performance 저장 실패: {_dpe}")
 
 
     async def _scheduled_model_retrain(self):
