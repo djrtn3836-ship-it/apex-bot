@@ -96,7 +96,7 @@ if GYM_AVAILABLE:
             super().__init__()
             self.df = df.reset_index(drop=True)
             self.feature_cols = feature_cols or self._default_features()
-            self.n_features = len(self.feature_cols) + 3  # +3 position info
+            self.n_features = len(self.feature_cols) + 6  # +3 position +3 market context
 
             # Gymnasium 공간 정의
             self.observation_space = spaces.Box(
@@ -144,6 +144,7 @@ if GYM_AVAILABLE:
 
             if action == 1:  # BUY
                 if self.position == 0:
+                    self._entry_step = self.current_step  # 진입 시점 기록
                     invest = self.capital * 0.20  # 20% 투자
                     fee = invest * self.FEE_RATE
                     self.position = (invest - fee) / current_price
@@ -159,7 +160,11 @@ if GYM_AVAILABLE:
                     pnl = net - (self.position * self.entry_price)
                     pnl_pct = pnl / (self.position * self.entry_price)
 
-                    reward = pnl_pct * 100  # 수익률 기반 보상
+                    # 수익률 보상 + 보유시간 패널티 + 승리 보너스
+                    hold_steps = self.current_step - getattr(self, '_entry_step', self.current_step)
+                    hold_penalty = hold_steps * 0.002  # 봉당 -0.002% 패널티
+                    win_bonus = 0.5 if pnl_pct > 0 else 0.0  # 승리 보너스
+                    reward = pnl_pct * 100 - hold_penalty + win_bonus
                     if pnl > 0:
                         self.win_count += 1
                     self.trade_count += 1
@@ -171,9 +176,11 @@ if GYM_AVAILABLE:
 
             else:  # HOLD
                 if self.position > 0:
-                    # 미실현 수익 변화 → 작은 보상
+                    # 미실현 수익 변화 → 아주 작은 보상 (홀딩 억제)
                     unr_pnl = (current_price - self.entry_price) / self.entry_price
-                    reward = unr_pnl * 0.05
+                    hold_steps = self.current_step - getattr(self, '_entry_step', self.current_step)
+                    hold_penalty = hold_steps * 0.001  # 봉당 -0.001% 보유 패널티
+                    reward = unr_pnl * 0.01 - hold_penalty  # 홀딩 보상 0.05→0.01로 축소
 
             # DD 페널티
             total_value = self.capital + self.position * current_price
@@ -211,8 +218,16 @@ if GYM_AVAILABLE:
                 unrealized_pnl = (close - self.entry_price) / self.entry_price
             hold_ratio = (self.current_step - 60) / len(self.df)
 
+            # 시장 컨텍스트 추가 (FearGreed, regime, kimchi)
+            fg = float(getattr(self, 'fear_greed', 50)) / 100.0  # 0~1 정규화
+            regime_map = {'TRENDING_UP': 1.0, 'TRENDING_DOWN': -1.0,
+                          'RANGING': 0.0, 'VOLATILE': 0.5}
+            regime = regime_map.get(getattr(self, 'regime', 'RANGING'), 0.0)
+            kimchi = float(getattr(self, 'kimchi_premium', 0.0)) / 10.0  # 정규화
+
             obs = np.array(
-                features_norm + [in_position, unrealized_pnl, hold_ratio],
+                features_norm + [in_position, unrealized_pnl, hold_ratio,
+                                 fg, regime, kimchi],
                 dtype=np.float32
             )
             return obs
