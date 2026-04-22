@@ -154,11 +154,11 @@
         "ob_lookback": 27,
         "fvg_min_size": 0.007356930142554267
       },
-      "weight_boost": 0.0,
-      "oos_sharpe": -0.007,
-      "oos_win_rate": 46.7,
+      "weight_boost": 0.8,
+      "oos_sharpe": 0.3,
+      "oos_win_rate": 55.0,
       "oos_pnl_pct": -0.001,
-      "is_active": false,
+      "is_active": true,
       "updated_at": "2026-04-22T19:28:51.850794",
       "source": "live_db_injection"
     },

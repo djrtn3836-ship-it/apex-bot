@@ -26,25 +26,50 @@ class VWAPReversionStrategy(BaseStrategy):
             dev    = (price - vwap_v) / (vwap_v + 1e-9)
             atr    = float(pd.concat([df["high"]-df["low"],(df["high"]-df["close"].shift()).abs(),(df["low"]-df["close"].shift()).abs()],axis=1).max(axis=1).rolling(14).mean().iloc[-1]) or price * 0.02
 
+            # 레짐 컨텍스트 확인 (외부에서 주입된 regime 속성 활용)
+            regime = getattr(self, '_current_regime', None)
+            regime_str = str(regime).upper() if regime else ''
+
+            # RSI 과매도/과매수 확인 (추가 컨펌)
+            rsi = None
+            if len(df) >= 14:
+                delta = df["close"].diff()
+                gain  = delta.where(delta > 0, 0).rolling(14).mean()
+                loss  = (-delta.where(delta < 0, 0)).rolling(14).mean()
+                rs    = gain / (loss + 1e-9)
+                rsi   = float(100 - 100 / (1 + rs.iloc[-1]))
+
             if dev < -self.params["dev_threshold"]:
-                # ✅ 동적 score: VWAP 이탈 정도 비례
+                # TRENDING_DOWN 레짐에서는 BUY 차단 (추세 역행 방지)
+                if 'TRENDING_DOWN' in regime_str:
+                    return None
+                # RSI 과매도(< 35) 확인 시 신뢰도 상향
+                rsi_boost = 0.06 if (rsi is not None and rsi < 35) else 0.0
                 depth = min(abs(dev) / 0.10, 1.0)
-                score = round(min(0.55 + depth * 0.40, 0.95), 3)
-                conf  = round(min(0.55 + depth * 0.37, 0.92), 3)
+                score = round(min(0.55 + depth * 0.40 + rsi_boost, 0.95), 3)
+                conf  = round(min(0.55 + depth * 0.37 + rsi_boost, 0.92), 3)
                 return self._create_signal(
                     signal=SignalType.BUY, score=score, confidence=conf,
                     market=market, entry_price=price,
                     stop_loss=price - atr * 1.5, take_profit=vwap_v,
-                    reason=f"VWAP 하방 이탈({dev*100:.1f}%)", timeframe=timeframe)
+                    reason=f"VWAP 하방이탈({dev*100:.1f}% RSI={rsi:.0f if rsi else '?'})",
+                    timeframe=timeframe)
             if dev > self.params["dev_threshold"]:
+                # TRENDING_UP 레짐에서는 SELL 차단 (추세 역행 방지)
+                if 'TRENDING_UP' in regime_str:
+                    return None
+                # RSI 과매수(> 65) 확인 시 신뢰도 상향
+                rsi_boost = 0.06 if (rsi is not None and rsi > 65) else 0.0
                 depth = min(abs(dev) / 0.10, 1.0)
-                score = round(min(0.55 + depth * 0.40, 0.95), 3)
-                conf  = round(min(0.55 + depth * 0.37, 0.92), 3)
+                score = round(min(0.55 + depth * 0.40 + rsi_boost, 0.95), 3)
+                conf  = round(min(0.55 + depth * 0.37 + rsi_boost, 0.92), 3)
                 return self._create_signal(
                     signal=SignalType.SELL, score=-score, confidence=conf,
                     market=market, entry_price=price,
                     stop_loss=price + atr * 1.5, take_profit=vwap_v,
-                    reason=f"VWAP 상방 이탈({dev*100:.1f}%)", timeframe=timeframe)
-        except Exception:
-            pass
+                    reason=f"VWAP 상방이탈({dev*100:.1f}% RSI={rsi:.0f if rsi else '?'})",
+                    timeframe=timeframe)
+        except Exception as e:
+            import logging
+            logging.getLogger(__name__).debug(f"VWAP signal error: {e}")
         return None

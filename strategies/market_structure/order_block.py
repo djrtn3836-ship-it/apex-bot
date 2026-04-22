@@ -30,33 +30,44 @@ class OrderBlockStrategy(BaseStrategy):
             bear_ob = recent[(recent["close"] < recent["open"]) &
                              (ratio > self.params["body_ratio"])]
 
+            # 볼륨 컨펌: 평균 대비 1.3배 이상 = 강한 오더블록
+            vol_ratio = 1.0
+            if "volume" in df.columns:
+                vol_avg   = float(df["volume"].rolling(20).mean().iloc[-1]) or 1.0
+                vol_ratio = float(df["volume"].iloc[-1]) / (vol_avg + 1e-9)
+            vol_boost = 0.08 if vol_ratio >= 1.3 else (0.04 if vol_ratio >= 1.1 else 0.0)
+
+            # 동적 포지션 크기 힌트 (score에 반영)
+            # vol_ratio 높을수록 score 상향 → engine이 포지션 크기 결정에 활용
             if not bull_ob.empty:
                 ob_low      = float(bull_ob["low"].iloc[-1])
                 touch_dist  = abs(price - ob_low) / (ob_low + 1e-9)
                 if touch_dist < self.params["touch_pct"]:
-                    # ✅ 동적 score: 바디 비율과 터치 근접도 반영
                     body_str = float(ratio[bull_ob.index[-1]])
                     prox     = 1.0 - (touch_dist / self.params["touch_pct"])
-                    score    = round(min(0.55 + body_str * 0.25 + prox * 0.15, 0.95), 3)
-                    conf     = round(min(0.60 + body_str * 0.20 + prox * 0.12, 0.92), 3)
+                    score    = round(min(0.55 + body_str * 0.25 + prox * 0.15 + vol_boost, 0.95), 3)
+                    conf     = round(min(0.60 + body_str * 0.20 + prox * 0.12 + vol_boost, 0.93), 3)
                     return self._create_signal(
                         signal=SignalType.BUY, score=score, confidence=conf,
                         market=market, entry_price=price,
                         stop_loss=ob_low - atr, take_profit=price + atr * 3.0,
-                        reason=f"불리시 오더블록 지지(바디={body_str:.2f})", timeframe=timeframe)
+                        reason=f"불리시 OB(바디={body_str:.2f} vol={vol_ratio:.1f}x prox={prox:.2f})",
+                        timeframe=timeframe)
             if not bear_ob.empty:
                 ob_high     = float(bear_ob["high"].iloc[-1])
                 touch_dist  = abs(price - ob_high) / (ob_high + 1e-9)
                 if touch_dist < self.params["touch_pct"]:
                     body_str = float(ratio[bear_ob.index[-1]])
                     prox     = 1.0 - (touch_dist / self.params["touch_pct"])
-                    score    = round(min(0.55 + body_str * 0.25 + prox * 0.15, 0.95), 3)
-                    conf     = round(min(0.60 + body_str * 0.20 + prox * 0.12, 0.92), 3)
+                    score    = round(min(0.55 + body_str * 0.25 + prox * 0.15 + vol_boost, 0.95), 3)
+                    conf     = round(min(0.60 + body_str * 0.20 + prox * 0.12 + vol_boost, 0.93), 3)
                     return self._create_signal(
                         signal=SignalType.SELL, score=-score, confidence=conf,
                         market=market, entry_price=price,
                         stop_loss=ob_high + atr, take_profit=price - atr * 3.0,
-                        reason=f"베어리시 오더블록 저항(바디={body_str:.2f})", timeframe=timeframe)
-        except Exception:
-            pass
+                        reason=f"베어리시 OB(바디={body_str:.2f} vol={vol_ratio:.1f}x prox={prox:.2f})",
+                        timeframe=timeframe)
+        except Exception as e:
+            import logging
+            logging.getLogger(__name__).debug(f"OrderBlock signal error: {e}")
         return None
