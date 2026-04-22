@@ -111,7 +111,7 @@ class EngineScheduleMixin:
         )
         self.scheduler.add_job(
             self._scheduled_ppo_online_retrain,
-            "cron", day_of_week="sun", hour=4, minute=0,
+            "cron", hour=4, minute=0,
             id="ppo_online_retrain",
         )
 

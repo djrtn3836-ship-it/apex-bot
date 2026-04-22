@@ -72,6 +72,10 @@ class PPOOnlineTrainer:
         if len(self._buffer) > self.MAX_BUFFER:
             self._buffer.pop(0)
 
+        # 10건마다 버퍼 자동 저장 (재시작 복원용)
+        if self._total_experiences % 10 == 0:
+            self._save_buffer()
+
         logger.debug(
             f"[PPOOnline] 경험 추가 ({market}): "
             f"action={action} reward={reward:.4f} | "
