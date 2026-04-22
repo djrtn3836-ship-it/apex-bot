@@ -167,6 +167,16 @@ class EngineBuyMixin:
                         f"POC={_vp.poc_price:,.0f} "
                         f"VAH={_vp.vah:,.0f} VAL={_vp.val:,.0f} RR={_rr:.2f}"
                     )
+                    # POC 컨텍스트 캐시 저장 (진입 신뢰도 부스트용)
+                    if not hasattr(self, "_vp_cache"):
+                        self._vp_cache = {}
+                    self._vp_cache[market] = {
+                        "poc": float(_vp.poc_price),
+                        "vah": float(_vp.vah),
+                        "val": float(_vp.val),
+                        "rr":  float(_rr),
+                        "price": float(_cur_price),
+                    }
             except Exception as _ve:
                 logger.info(f"[VolumeProfile]  ({market}): {_ve}")
 
@@ -678,6 +688,35 @@ class EngineBuyMixin:
                     )
                     continue
             # ML_Ensemble: 누적 거래 30건 미만이면 등록만 하고 나중에 크기 50% 축소
+
+            # [REGIME-MATRIX] 레짐별 전략 허용 매트릭스
+            _regime_str = str(_regime_now).upper() if _regime_now else 'RANGING'
+            _REGIME_MATRIX = {
+                # 전략명: {레짐: 허용여부}
+                'MACD_Cross':        {'TRENDING_UP': True,  'RANGING': False, 'VOLATILE': False, 'TRENDING_DOWN': False},
+                'Supertrend':        {'TRENDING_UP': True,  'RANGING': False, 'VOLATILE': False, 'TRENDING_DOWN': False},
+                'VWAP_Reversion':    {'TRENDING_UP': True,  'RANGING': True,  'VOLATILE': False, 'TRENDING_DOWN': False},
+                'RSI_Divergence':    {'TRENDING_UP': True,  'RANGING': True,  'VOLATILE': True,  'TRENDING_DOWN': True},
+                'Bollinger_Squeeze': {'TRENDING_UP': True,  'RANGING': True,  'VOLATILE': True,  'TRENDING_DOWN': False},
+                'ATR_Channel':       {'TRENDING_UP': True,  'RANGING': True,  'VOLATILE': True,  'TRENDING_DOWN': False},
+                'OrderBlock_SMC':    {'TRENDING_UP': True,  'RANGING': True,  'VOLATILE': False, 'TRENDING_DOWN': False},
+                'VolBreakout':       {'TRENDING_UP': True,  'RANGING': False, 'VOLATILE': False, 'TRENDING_DOWN': False},
+            }
+            if name in _REGIME_MATRIX and _regime_now is not None:
+                _allowed = False
+                for _r_key, _r_val in _REGIME_MATRIX[name].items():
+                    if _r_key in _regime_str:
+                        _allowed = _r_val
+                        break
+                else:
+                    _allowed = True  # 매트릭스에 없는 레짐은 허용
+                if not _allowed:
+                    logger.debug(
+                        f"[REGIME-MATRIX] {market} {name} 차단 "
+                        f"(regime={_regime_now})"
+                    )
+                    continue
+
             _filtered[name] = strategy
         selected = _filtered
 
@@ -777,8 +816,8 @@ class EngineBuyMixin:
             except Exception as e:
                 logger.info(f'{market} VolumeProfile  : {e}')
                 vp_rr = 999  # 에러 시 통과
-            if vp_rr < 0.0:  # disabled: was 0.8, too strict
-                logger.info(f"{market} VolumeProfile RR : {vp_rr:.2f}")
+            if vp_rr < -0.5:  # RR -0.5 미만은 차단 (저항 직전 진입 방지)
+                logger.info(f"{market} VolumeProfile RR 차단: {vp_rr:.2f}")
                 return None
             
             # 3. Multi-Timeframe Confirmation (v2.1.0)
