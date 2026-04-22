@@ -132,15 +132,18 @@ class WalkForwardRunner:
         processor = CandleProcessor()
         dfs: Dict[str, pd.DataFrame] = {}
 
+        # [FIX] 500 하드캡 제거 → 인샘플+아웃샘플 전체 기간 조회
+        # 업비트 API 최대 200개 제한으로 day 단위로 변경
         total_candles = min(
-            (self.in_sample_days + self.out_sample_days) * 24,
-            500,
+            self.in_sample_days + self.out_sample_days + 10,  # 여유 10일
+            200,  # 업비트 일봉 최대 200개
         )
+        _candle_type = "day"  # 시간봉 대신 일봉 사용
 
         for market in self.target_markets:
             try:
                 df_raw = await collector.get_ohlcv(
-                    market, "minute60", total_candles
+                    market, _candle_type, total_candles
                 )
                 if df_raw is not None and len(df_raw) > 100:
                     df = await processor.process(market, df_raw, "60")
