@@ -296,6 +296,9 @@ class TradingEngine(
             await self._restore_sl_cooldown()
             self._load_strategies()
 
+            # [FIX] walk_forward 파라미터 적용 — 전략 로드 직후 실행
+            self._apply_walk_forward_params()
+
             self._device = await asyncio.get_event_loop().run_in_executor(
                 None,
                 lambda: setup_gpu(
