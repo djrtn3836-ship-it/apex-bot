@@ -642,8 +642,11 @@ class EngineCycleMixin:
             from backtesting.walk_forward import WalkForwardRunner
             params = WalkForwardRunner.load_optimized_params()
             if not params:
-                logger.info("Walk-Forward   →  ")
+                logger.info("Walk-Forward 파라미터 없음 → 기본값 유지")
                 return
+            # [FIX] load_optimized_params가 전체 dict를 반환할 경우 strategies 키 파싱
+            if "strategies" in params:
+                params = params["strategies"]
             applied = 0
             for strategy_name, info in params.items():
                 if strategy_name not in self._strategies:

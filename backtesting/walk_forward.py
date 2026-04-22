@@ -210,23 +210,28 @@ class WalkForwardRunner:
     async def _optimize(
         self, strategy_name: str, dfs: Dict[str, pd.DataFrame]
     ) -> Dict:
-        """Optuna"""
+        """Optuna (asyncio 스코프 버그 수정)"""
+        import functools  # asyncio는 상단 import 사용 (로컬 재선언 금지)
         if not OPTUNA_OK or not dfs:
             return self._default_params(strategy_name)
 
-        loop = asyncio.get_event_loop()
-
+        # [FIX] objective는 순수 동기 함수 — asyncio/loop 참조 제거
+        # _evaluate는 캐싱된 dfs만 사용하므로 동기 래퍼로 실행 가능
         def objective(trial: "optuna.Trial") -> float:
-            params  = self._suggest_params(trial, strategy_name)
-            metrics = loop.run_until_complete(
-                self._evaluate(strategy_name, dfs, params)
-            )
+            params = self._suggest_params(trial, strategy_name)
+            # 동기 환경에서 새 이벤트루프로 평가 실행
+            _loop = asyncio.new_event_loop()
+            try:
+                metrics = _loop.run_until_complete(
+                    self._evaluate(strategy_name, dfs, params)
+                )
+            finally:
+                _loop.close()
             return -metrics["sharpe"]
 
         try:
             study = optuna.create_study(direction="minimize")
-            # [FIX] asyncio 이벤트루프 충돌 방지: run_in_executor로 동기 실행
-            import asyncio, functools
+            # run_in_executor로 동기 Optuna 최적화를 별도 스레드에서 실행
             loop = asyncio.get_event_loop()
             await loop.run_in_executor(
                 None,
@@ -240,7 +245,7 @@ class WalkForwardRunner:
             )
             return study.best_params
         except Exception as e:
-            logger.debug("Optuna  ({}): {}".format(strategy_name, e))
+            logger.debug("Optuna 최적화 실패 ({}): {}".format(strategy_name, e))
             return self._default_params(strategy_name)
 
     # ── 성과 평가 ────────────────────────────────────────────────
@@ -488,11 +493,14 @@ class WalkForwardRunner:
 
     @staticmethod
     def load_optimized_params() -> Optional[Dict]:
-        """(   )"""
+        """config/optimized_params.json → strategies dict 반환"""
         if not PARAM_FILE.exists():
             return None
         try:
             data    = json.loads(PARAM_FILE.read_text(encoding="utf-8"))
+            # [FIX] strategies 키가 있으면 그 하위 딕셔너리만 반환
+            if "strategies" in data:
+                return data["strategies"]
             updated = data.get("updated_at", "2000-01-01")
             try:
                 age = (datetime.now() - datetime.fromisoformat(updated)).days
