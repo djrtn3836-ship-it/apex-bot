@@ -24,14 +24,25 @@ class AutoTrainer:
     MODEL_PATH   = Path("models/saved/ensemble_best.pt")
     BACKUP_PATH  = Path("models/saved/ensemble_backup.pt")
     MIN_IMPROVE  = 0.005    # val_acc 최소 향상 허용폭 (0.5%)
-    RETRAIN_DAYS = 3        # 강제 재학습 주기 (일) — v4 적용 후 3일
+    RETRAIN_DAYS = 1        # 강제 재학습 주기 (일) — 매일 재학습
     TRAIN_SCRIPT = "train_retrain.py"
     TIMEOUT_SEC  = 2400     # 최대 학습 시간 40분 (v4 증가)
 
     def __init__(self):
-        # [FIX] 봇 재시작 시 모델 파일 mtime으로 _last_retrain 복원
+        # [FIX] train_result.json timestamp 기준으로 _last_retrain 복원
         _mtime = None
-        if self.MODEL_PATH.exists():
+        _result_path = pathlib.Path("models/saved/train_result.json")
+        if _result_path.exists():
+            try:
+                import json
+                _r = json.loads(_result_path.read_text(encoding="utf-8"))
+                _ts = _r.get("timestamp", "")
+                if _ts:
+                    from datetime import datetime as _dt
+                    _mtime = _dt.fromisoformat(_ts)
+            except Exception:
+                pass
+        if _mtime is None and self.MODEL_PATH.exists():
             from datetime import datetime as _dt
             _mtime = _dt.fromtimestamp(self.MODEL_PATH.stat().st_mtime)
         self._last_retrain: Optional[datetime] = _mtime
