@@ -580,7 +580,9 @@ class SurgeDetector:
                     current_vol / prev_vol < 0.2):
                 return True
             return False
-        except Exception:
+        except Exception as _e:
+            import logging as _lg
+            _lg.getLogger("surge_detector").debug(f"[WARN] surge_detector 오류 무시: {_e}")
             return False
 
     # ══════════════════════════════════════════════════════════
@@ -613,7 +615,9 @@ class SurgeDetector:
             e15  = c15.ewm(span=20, adjust=False).mean()
             tf15 = float(c15.iloc[-1]) > float(e15.iloc[-1])
             return tf5 and tf15
-        except Exception:
+        except Exception as _e:
+            import logging as _lg
+            _lg.getLogger("surge_detector").debug(f"[WARN] surge_detector 오류 무시: {_e}")
             return False
 
     # ══════════════════════════════════════════════════════════
@@ -628,7 +632,9 @@ class SurgeDetector:
                 v = float(vols.iloc[i])
                 obv.append(obv[-1] + (v if c > p else (-v if c < p else 0)))
             return obv
-        except Exception:
+        except Exception as _e:
+            import logging as _lg
+            _lg.getLogger("surge_detector").debug(f"[WARN] surge_detector 오류 무시: {_e}")
             return None
 
     def _calc_rsi(self, closes, period: int = 14) -> Optional[float]:
@@ -641,7 +647,9 @@ class SurgeDetector:
             if loss == 0:
                 return 100.0
             return float(100 - 100 / (1 + gain / loss))
-        except Exception:
+        except Exception as _e:
+            import logging as _lg
+            _lg.getLogger("surge_detector").debug(f"[WARN] surge_detector 오류 무시: {_e}")
             return None
 
     def _calc_macd(self, closes, fast=12, slow=26, signal=9):

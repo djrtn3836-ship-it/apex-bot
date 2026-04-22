@@ -222,7 +222,9 @@ class EngineMLMixin:
                     p = await processor.process(markets[i], df, "60")
                     if p is not None and len(p) > 100:
                         processed_dfs.append(p)
-                except Exception:
+                except Exception as _e:
+                    import logging as _lg
+                    _lg.getLogger("engine_ml").debug(f"[WARN] engine_ml 오류 무시: {_e}")
                     pass
 
             if not processed_dfs:

@@ -264,12 +264,16 @@ class EngineCycleMixin:
             _ml_df     = None
             try:
                 _ml_df = self.cache_manager.get_candles(_ml_market, "1h")
-            except Exception:
+            except Exception as _e:
+                import logging as _lg
+                _lg.getLogger("engine_cycle").debug(f"[WARN] engine_cycle 오류 무시: {_e}")
                 pass
             if _ml_df is None or len(_ml_df) < 10:
                 try:
                     _ml_df = self.cache_manager.get_candles(_ml_market, "1d")
-                except Exception:
+                except Exception as _e:
+                    import logging as _lg
+                    _lg.getLogger("engine_cycle").debug(f"[WARN] engine_cycle 오류 무시: {_e}")
                     pass
             if _ml_df is None or len(_ml_df) < 10:
                 for _attr in ["_df_cache", "_candle_cache", "_ohlcv_cache"]:
@@ -299,7 +303,9 @@ class EngineCycleMixin:
                     dashboard_state.signals["ml_predictions"] = {
                         _ml_market: dashboard_state.signals["ml_prediction"]
                     }
-        except Exception:
+        except Exception as _e:
+            import logging as _lg
+            _lg.getLogger("engine_cycle").debug(f"[WARN] engine_cycle 오류 무시: {_e}")
             pass
 
         await self._update_dashboard_state(krw, total_value)
@@ -828,14 +834,18 @@ class EngineCycleMixin:
             df_5m = None
             try:
                 df_5m = await self.rest_collector.get_ohlcv(market, "minute5", 60)
-            except Exception:
+            except Exception as _e:
+                import logging as _lg
+                _lg.getLogger("engine_cycle").debug(f"[WARN] engine_cycle 오류 무시: {_e}")
                 pass
 
             # 15분봉 (세력 매집) - 40개
             df_15m = None
             try:
                 df_15m = await self.rest_collector.get_ohlcv(market, "minute15", 40)
-            except Exception:
+            except Exception as _e:
+                import logging as _lg
+                _lg.getLogger("engine_cycle").debug(f"[WARN] engine_cycle 오류 무시: {_e}")
                 pass
 
             # BTC 5분봉 (역행 강도 분석)
@@ -845,7 +855,9 @@ class EngineCycleMixin:
                     btc_df_5m = await self.rest_collector.get_ohlcv(
                         "KRW-BTC", "minute5", 30
                     )
-                except Exception:
+                except Exception as _e:
+                    import logging as _lg
+                    _lg.getLogger("engine_cycle").debug(f"[WARN] engine_cycle 오류 무시: {_e}")
                     pass
 
             # 체결 내역 (체결 강도)
@@ -860,21 +872,27 @@ class EngineCycleMixin:
                     ) as r:
                         if r.status == 200:
                             ticks = await r.json()
-            except Exception:
+            except Exception as _e:
+                import logging as _lg
+                _lg.getLogger("engine_cycle").debug(f"[WARN] engine_cycle 오류 무시: {_e}")
                 pass
 
             # 오더북
             orderbook = None
             try:
                 orderbook = self.cache_manager.get_orderbook(market)
-            except Exception:
+            except Exception as _e:
+                import logging as _lg
+                _lg.getLogger("engine_cycle").debug(f"[WARN] engine_cycle 오류 무시: {_e}")
                 pass
 
             # ticker (52주 고점)
             ticker = None
             try:
                 ticker = self._market_prices_meta.get(market) if hasattr(self, "_market_prices_meta") else None
-            except Exception:
+            except Exception as _e:
+                import logging as _lg
+                _lg.getLogger("engine_cycle").debug(f"[WARN] engine_cycle 오류 무시: {_e}")
                 pass
 
             # 급등 분석 실행
@@ -1127,7 +1145,9 @@ class EngineCycleMixin:
                     )
         try:
             await self.telegram.send_message(" | ".join(lines))
-        except Exception:
+        except Exception as _e:
+            import logging as _lg
+            _lg.getLogger("engine_cycle").debug(f"[WARN] engine_cycle 오류 무시: {_e}")
             pass
         logger.info(f"[Backtest v2]  | {len(results)}개 결과")
         return results

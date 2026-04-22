@@ -458,7 +458,9 @@ class EngineBuyMixin:
                                 )
                                 if _fetched is not None and len(_fetched) >= 5:
                                     _tf_data[_tf_key] = _fetched
-                            except Exception:
+                            except Exception as _e:
+                                import logging as _lg
+                                _lg.getLogger("engine_buy").debug(f"[WARN] engine_buy 오류 무시: {_e}")
                                 pass
 
                     if _tf_data:
@@ -654,7 +656,9 @@ class EngineBuyMixin:
                         f"[LIVE-SAFE] Vol_Breakout 실거래 초기 차단 "
                         f"(실거래 {_days_since_live}일차 < 30일)"
                     )
-            except Exception:
+            except Exception as _e:
+                import logging as _lg
+                _lg.getLogger("engine_buy").debug(f"[WARN] engine_buy 오류 무시: {_e}")
                 pass
 
         _filtered = {}
@@ -1024,7 +1028,9 @@ class EngineBuyMixin:
                     f"ATR={_atr_now:.1f} > 기준={_atr_base:.1f}×1.5 "
                     f"→ 30% 축소: ₩{_before2:,.0f} → ₩{position_size:,.0f}"
                 )
-        except Exception:
+        except Exception as _e:
+            import logging as _lg
+            _lg.getLogger("engine_buy").debug(f"[WARN] engine_buy 오류 무시: {_e}")
             pass
 
         if getattr(signal, "bear_reversal", False):

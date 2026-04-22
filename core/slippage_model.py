@@ -55,7 +55,9 @@ class SlippageModel:
                     best_bid = float(bids[0][0])
                     spread_pct = (best_ask - best_bid) / best_bid * 100
                     spread_adj = spread_pct * 0.5  # 스프레드의 50% 슬리피지
-            except Exception:
+            except Exception as _e:
+                import logging as _lg
+                _lg.getLogger("slippage_model").debug(f"[WARN] slippage_model 오류 무시: {_e}")
                 pass
 
         # 2. 주문 크기 반영 (클수록 슬리피지 증가)

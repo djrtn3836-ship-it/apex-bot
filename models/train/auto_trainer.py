@@ -116,7 +116,9 @@ class AutoTrainer:
                         _saved_ok = json.loads(
                             _tr.read_text(encoding="utf-8")
                         ).get("saved", False)
-                except Exception:
+                except Exception as _e:
+                    import logging as _lg
+                    _lg.getLogger("auto_trainer").debug(f"[WARN] auto_trainer 오류 무시: {_e}")
                     pass
                 if proc.returncode in _CRASH_CODES and _saved_ok:
                     logger.warning(
@@ -130,7 +132,9 @@ class AutoTrainer:
                             Path("models/saved/train_result.json").read_text(encoding="utf-8")
                         )
                         stdout = str(_result.get("best_val_acc", 0)).encode()
-                    except Exception:
+                    except Exception as _e:
+                        import logging as _lg
+                        _lg.getLogger("auto_trainer").debug(f"[WARN] auto_trainer 오류 무시: {_e}")
                         pass
                 else:
                     logger.error(f"[AutoTrainer] 재학습 실패 (returncode={proc.returncode}): {err_msg}")

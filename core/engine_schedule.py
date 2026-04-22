@@ -258,7 +258,9 @@ class EngineScheduleMixin:
             if hasattr(self, "live_readiness"):
                 try:
                     score = await self.live_readiness.check(self.perf_tracker)
-                except Exception:
+                except Exception as _e:
+                    import logging as _lg
+                    _lg.getLogger("engine_schedule").debug(f"[WARN] engine_schedule 오류 무시: {_e}")
                     pass
 
             logger.info(
@@ -514,7 +516,9 @@ class EngineScheduleMixin:
                 ):
                     premium_val = self.kimchi_monitor.premium_pct
                 dashboard_state.signals["kimchi_premium"] = premium_val
-            except Exception:
+            except Exception as _e:
+                import logging as _lg
+                _lg.getLogger("engine_schedule").debug(f"[WARN] engine_schedule 오류 무시: {_e}")
                 pass
             logger.info(f"   : {summary}")
         except Exception as e:
@@ -634,7 +638,9 @@ class EngineScheduleMixin:
                 else:
                     _regime = "NEUTRAL"
                 dashboard_state.signals["market_regime"] = _regime
-            except Exception:
+            except Exception as _e:
+                import logging as _lg
+                _lg.getLogger("engine_schedule").debug(f"[WARN] engine_schedule 오류 무시: {_e}")
                 pass
 
             _pos_dict = {}
@@ -703,7 +709,9 @@ class EngineScheduleMixin:
                 if premiums:
                     vals       = [v for v in premiums.values() if v is not None]
                     kimchi_pct = round(sum(vals) / len(vals), 2) if vals else None
-            except Exception:
+            except Exception as _e:
+                import logging as _lg
+                _lg.getLogger("engine_schedule").debug(f"[WARN] engine_schedule 오류 무시: {_e}")
                 pass
 
             bear_count = getattr(self, "_bear_reversal_today", 0)
@@ -718,13 +726,17 @@ class EngineScheduleMixin:
                     "부정적" if score < -0.3 else
                     "중립"
                 )
-            except Exception:
+            except Exception as _e:
+                import logging as _lg
+                _lg.getLogger("engine_schedule").debug(f"[WARN] engine_schedule 오류 무시: {_e}")
                 pass
 
             last_regime = "--"
             try:
                 last_regime = getattr(self, "_last_regime", "--")
-            except Exception:
+            except Exception as _e:
+                import logging as _lg
+                _lg.getLogger("engine_schedule").debug(f"[WARN] engine_schedule 오류 무시: {_e}")
                 pass
 
             dashboard_state.signals.update({
