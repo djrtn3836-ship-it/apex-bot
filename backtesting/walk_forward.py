@@ -272,17 +272,20 @@ class WalkForwardRunner:
             for market, df in dfs.items():
                 if len(df) < 50:
                     continue
-                for i in range(50, len(df) - 5):
+                # 방향 중립 평가: BUY=롱, SELL/없음=숏 방향 수익률
+                _step = max(1, len(df) // 60)  # 최대 60샘플로 제한 (속도)
+                for i in range(50, len(df) - 10, _step):
                     sub = df.iloc[:i]
                     sig = strategy.generate_signal(sub, market)
                     if sig is None:
                         continue
+                    entry = df["close"].iloc[i]
+                    exit_ = df["close"].iloc[i + 5]
+                    raw_ret = (exit_ - entry) / entry * 100
                     if sig.signal == SignalType.BUY:
-                        future_ret = (
-                            df["close"].iloc[i + 5]
-                            - df["close"].iloc[i]
-                        ) / df["close"].iloc[i] * 100
-                        all_returns.append(float(future_ret))
+                        all_returns.append(float(raw_ret))
+                    elif hasattr(SignalType, "SELL") and sig.signal == SignalType.SELL:
+                        all_returns.append(float(-raw_ret))  # 숏 방향
 
         except Exception as e:
             logger.debug(

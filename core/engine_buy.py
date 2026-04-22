@@ -607,8 +607,9 @@ class EngineBuyMixin:
             f"[전체 {len(self._strategies)}개 중 {len(selected)}개]"
         )
         # [TIME-FILTER] 새벽 00~06시 저유동성 구간 Order_Block 차단
-        from datetime import datetime as _dt_tf
-        _now_hour = _dt_tf.now().hour
+        from datetime import datetime as _dt_tf, timezone, timedelta
+        _KST = timezone(timedelta(hours=9))
+        _now_hour = _dt_tf.now(_KST).hour
         if 0 <= _now_hour < 6:
             _ob_names = {"Order_Block", "VolBreakout", "Vol_Breakout"}
             selected  = {n: s for n, s in selected.items() if n not in _ob_names}
