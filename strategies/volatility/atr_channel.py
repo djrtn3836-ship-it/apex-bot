@@ -41,6 +41,7 @@ class ATRChannelStrategy(BaseStrategy):
                     market=market, entry_price=price,
                     stop_loss=price + atr_v * 1.5, take_profit=float(mid.iloc[-1]),
                     reason=f"ATR 채널 상단 돌파", timeframe=timeframe)
-        except Exception:
-            pass
+        except Exception as e:
+            import logging
+            logging.getLogger(__name__).debug(f"atr_channel signal error: {e}")
         return None

@@ -52,6 +52,7 @@ class SupertrendStrategy(BaseStrategy):
                     market=market, entry_price=price,
                     stop_loss=price + atr_v * 1.5, take_profit=price - atr_v * 3.0,
                     reason="Supertrend 하향 전환", timeframe=timeframe)
-        except Exception:
-            pass
+        except Exception as e:
+            import logging
+            logging.getLogger(__name__).debug(f"supertrend signal error: {e}")
         return None

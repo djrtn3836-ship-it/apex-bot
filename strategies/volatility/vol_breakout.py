@@ -47,6 +47,7 @@ class VolBreakoutStrategy(BaseStrategy):
                         stop_loss=price + atr * 1.5, take_profit=price - atr * 3.0,
                         reason=f"거래량 급증 하락(×{cur_vol/avg_vol:.1f}, {ret*100:.1f}%)",
                         timeframe=timeframe)
-        except Exception:
-            pass
+        except Exception as e:
+            import logging
+            logging.getLogger(__name__).debug(f"vol_breakout signal error: {e}")
         return None
