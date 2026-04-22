@@ -50,6 +50,7 @@ class BollingerSqueezeStrategy(BaseStrategy):
                     market=market, entry_price=price,
                     stop_loss=price + atr * 1.5, take_profit=price - atr * 3.0,
                     reason=f"BB 스퀴즈 상단({cur_bb_pct:.2f})", timeframe=timeframe)
-        except Exception:
-            pass
+        except Exception as e:
+            import logging
+            logging.getLogger(__name__).debug(f"Bollinger_Squeeze signal error: {e}")
         return None

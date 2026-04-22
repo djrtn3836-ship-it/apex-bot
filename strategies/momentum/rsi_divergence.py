@@ -29,26 +29,63 @@ class RSIDivergenceStrategy(BaseStrategy):
             price = float(df["close"].iloc[-1])
             atr   = float(pd.concat([df["high"]-df["low"],(df["high"]-df["close"].shift()).abs(),(df["low"]-df["close"].shift()).abs()],axis=1).max(axis=1).rolling(14).mean().iloc[-1]) or price * 0.02
 
+            # 실제 다이버전스 감지 (최근 20봉 내 가격/RSI 고저점 비교)
+            lb = min(20, len(df) - 1)
+            price_lows  = df["close"].iloc[-lb:]
+            rsi_lows    = rsi.iloc[-lb:]
+            price_highs = df["close"].iloc[-lb:]
+            rsi_highs   = rsi.iloc[-lb:]
+
+            # 불리시 다이버전스: 가격 신저점 + RSI 고저점
+            price_new_low = float(price_lows.iloc[-1]) <= float(price_lows.min())
+            rsi_higher    = float(rsi_lows.iloc[-1])  >  float(rsi_lows.min())
+            bull_diverge  = price_new_low and rsi_higher
+
+            # 베어리시 다이버전스: 가격 신고점 + RSI 저고점
+            price_new_high = float(price_highs.iloc[-1]) >= float(price_highs.max())
+            rsi_lower      = float(rsi_highs.iloc[-1])   <  float(rsi_highs.max())
+            bear_diverge   = price_new_high and rsi_lower
+
+            # MACD 다이버전스 확인 (복합 컨펌)
+            macd_bull = False
+            macd_bear = False
+            if len(df) >= 26:
+                exp1 = df["close"].ewm(span=12, adjust=False).mean()
+                exp2 = df["close"].ewm(span=26, adjust=False).mean()
+                macd_hist = (exp1 - exp2) - (exp1 - exp2).ewm(span=9, adjust=False).mean()
+                macd_bull = float(macd_hist.iloc[-1]) > float(macd_hist.iloc[-2])  # 히스토그램 상승
+                macd_bear = float(macd_hist.iloc[-1]) < float(macd_hist.iloc[-2])  # 히스토그램 하락
+
             if cur < self.params["oversold"]:
-                # ✅ 동적 score: RSI가 낮을수록(극단적일수록) 높은 score
                 depth = (self.params["oversold"] - cur) / self.params["oversold"]
-                score = round(min(0.55 + depth * 0.40, 0.95), 3)
-                conf  = min(0.50 + depth * 0.45, 0.92)
+                # 복합 다이버전스 보너스
+                div_boost = 0.10 if bull_diverge else 0.0
+                macd_boost = 0.05 if macd_bull else 0.0
+                score = round(min(0.55 + depth * 0.40 + div_boost + macd_boost, 0.95), 3)
+                conf  = round(min(0.50 + depth * 0.45 + div_boost + macd_boost, 0.93), 3)
+                reason = f"RSI 과매도({cur:.1f})"
+                if bull_diverge: reason += " +불리시다이버전스"
+                if macd_bull:    reason += " +MACD컨펌"
                 return self._create_signal(
                     signal=SignalType.BUY, score=score, confidence=conf,
                     market=market, entry_price=price,
                     stop_loss=price - atr * 1.5, take_profit=price + atr * 3.0,
-                    reason=f"RSI 과매도({cur:.1f})", timeframe=timeframe)
+                    reason=reason, timeframe=timeframe)
             if cur > self.params["overbought"]:
-                # ✅ 동적 score: RSI가 높을수록(극단적일수록) 높은 score
                 depth = (cur - self.params["overbought"]) / (100 - self.params["overbought"])
-                score = round(min(0.55 + depth * 0.40, 0.95), 3)
-                conf  = min(0.50 + depth * 0.45, 0.92)
+                div_boost  = 0.10 if bear_diverge else 0.0
+                macd_boost = 0.05 if macd_bear else 0.0
+                score = round(min(0.55 + depth * 0.40 + div_boost + macd_boost, 0.95), 3)
+                conf  = round(min(0.50 + depth * 0.45 + div_boost + macd_boost, 0.93), 3)
+                reason = f"RSI 과매수({cur:.1f})"
+                if bear_diverge: reason += " +베어리시다이버전스"
+                if macd_bear:    reason += " +MACD컨펌"
                 return self._create_signal(
                     signal=SignalType.SELL, score=-score, confidence=conf,
                     market=market, entry_price=price,
                     stop_loss=price + atr * 1.5, take_profit=price - atr * 3.0,
-                    reason=f"RSI 과매수({cur:.1f})", timeframe=timeframe)
-        except Exception:
-            pass
+                    reason=reason, timeframe=timeframe)
+        except Exception as e:
+            import logging
+            logging.getLogger(__name__).debug(f"RSI_Divergence signal error: {e}")
         return None
