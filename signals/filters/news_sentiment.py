@@ -168,7 +168,9 @@ class NewsSentimentAnalyzer:
             try:
                 nltk.download("vader_lexicon", quiet=True)
                 self._vader = SentimentIntensityAnalyzer()
-            except Exception:
+            except Exception as _e:
+                import logging as _lg
+                _lg.getLogger("news_sentiment").debug(f"[WARN] news_sentiment 오류 무시: {_e}")
                 pass
 
         self._finbert = None
@@ -377,7 +379,9 @@ class NewsSentimentAnalyzer:
                 else:
                     item.sentiment_score = 0.0
                 return
-            except Exception:
+            except Exception as _e:
+                import logging as _lg
+                _lg.getLogger("news_sentiment").debug(f"[WARN] news_sentiment 오류 무시: {_e}")
                 pass
 
         # 2단계: VADER
@@ -390,7 +394,9 @@ class NewsSentimentAnalyzer:
                     title_lower, item.sentiment_score
                 )
                 return
-            except Exception:
+            except Exception as _e:
+                import logging as _lg
+                _lg.getLogger("news_sentiment").debug(f"[WARN] news_sentiment 오류 무시: {_e}")
                 pass
 
         # 3단계: 순수 키워드 규칙
@@ -465,7 +471,9 @@ class NewsSentimentAnalyzer:
         try:
             import torch
             return torch.cuda.is_available()
-        except ImportError:
+        except ImportError as _e:
+            import logging as _lg
+            _lg.getLogger("news_sentiment").debug(f"[WARN] news_sentiment 오류 무시: {_e}")
             return False
 
 

@@ -230,7 +230,9 @@ class RestCollector:
                         None, pyupbit.get_tickers_krw_ticker, market_str
                     )
                     return result
-                except Exception:
+                except Exception as _e:
+                    import logging as _lg
+                    _lg.getLogger("rest_collector").debug(f"[WARN] rest_collector 오류 무시: {_e}")
                     pass
             return await self._fetch_ticker_api(markets)
 

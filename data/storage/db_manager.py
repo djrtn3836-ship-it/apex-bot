@@ -343,6 +343,8 @@ class DatabaseManager:
                     sell_vol += vol
             if buy_vol > 0:
                 return sell_vol / buy_vol
-        except Exception as e:
+        except Exception as _e:
+            import logging as _lg
+            _lg.getLogger("db_manager").debug(f"[WARN] db_manager 오류 무시: {_e}")
             pass
         return 0.0

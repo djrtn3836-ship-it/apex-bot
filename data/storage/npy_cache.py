@@ -156,7 +156,9 @@ class NpyCache:
             if ts is not None:
                 try:
                     df.index = pd.to_datetime(ts)
-                except Exception:
+                except Exception as _e:
+                    import logging as _lg
+                    _lg.getLogger("npy_cache").debug(f"[WARN] npy_cache 오류 무시: {_e}")
                     pass
 
             elapsed = (time.perf_counter() - t_start) * 1000
@@ -188,7 +190,9 @@ class NpyCache:
             meta = json.loads(meta_path.read_text(encoding="utf-8"))
             age  = time.time() - meta.get("updated_at", 0)
             return age < max_age_seconds
-        except Exception:
+        except Exception as _e:
+            import logging as _lg
+            _lg.getLogger("npy_cache").debug(f"[WARN] npy_cache 오류 무시: {_e}")
             return False
 
     def get_age_seconds(self, market: str, timeframe: str) -> float:
@@ -225,7 +229,9 @@ class NpyCache:
             try:
                 meta = json.loads(meta_path.read_text(encoding="utf-8"))
                 result.append(meta)
-            except Exception:
+            except Exception as _e:
+                import logging as _lg
+                _lg.getLogger("npy_cache").debug(f"[WARN] npy_cache 오류 무시: {_e}")
                 pass
         return result
 

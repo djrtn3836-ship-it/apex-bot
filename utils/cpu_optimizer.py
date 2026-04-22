@@ -137,5 +137,7 @@ def log_cpu_status():
             f"={[f'{u:.0f}%' for u in usage[:6]]}(P) "
             f"{[f'{u:.0f}%' for u in usage[6:]]}(E)"
         )
-    except Exception:
+    except Exception as _e:
+        import logging as _lg
+        _lg.getLogger("cpu_optimizer").debug(f"[WARN] cpu_optimizer 오류 무시: {_e}")
         pass

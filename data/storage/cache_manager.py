@@ -232,7 +232,9 @@ class CacheManager:
                     df = None
                 if df is not None and len(df) > 0:
                     return df
-        except Exception:
+        except Exception as _e:
+            import logging as _lg
+            _lg.getLogger("cache_manager").debug(f"[WARN] cache_manager 오류 무시: {_e}")
             pass
         return None
 
@@ -249,7 +251,9 @@ class CacheManager:
                     npy.save(market, interval, df)
                 elif hasattr(npy, 'set'):
                     npy.set(market, interval, df)
-        except Exception:
+        except Exception as _e:
+            import logging as _lg
+            _lg.getLogger("cache_manager").debug(f"[WARN] cache_manager 오류 무시: {_e}")
             pass
 
     def get_stats(self) -> dict:

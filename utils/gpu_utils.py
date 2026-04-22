@@ -182,7 +182,9 @@ def maybe_compile(model, **kwargs):
     """Skip torch.compile on Windows + RTX 5060 (use inference_mode + AMP instead)."""
     try:
         logger.info("torch.compile skipped on Windows - using inference_mode + AMP")
-    except ImportError:
+    except ImportError as _e:
+        import logging as _lg
+        _lg.getLogger("gpu_utils").debug(f"[WARN] gpu_utils 오류 무시: {_e}")
         pass
     return model
 
