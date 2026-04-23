@@ -40,6 +40,9 @@ class BollingerSqueezeStrategy2(BaseStrategy):
     MIN_DELTA_FLOW       = 0.0    # 최소 델타 오더플로우
     MIN_CONFIDENCE       = 0.45
 
+    def _default_params(self) -> dict:
+        return {"bb_period": 20, "bb_std": 2.0, "kc_atr_mult": 1.5, "min_confidence": 0.45}
+
     def __init__(self):
         super().__init__()
         self._context_engine = MarketContextEngine()

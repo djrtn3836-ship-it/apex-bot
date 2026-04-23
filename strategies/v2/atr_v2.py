@@ -37,6 +37,9 @@ class ATRChannelStrategy2(BaseStrategy):
     BREAKOUT_CONFIRM_BARS = 2     # 돌파 확인 캔들 수
     MIN_CONFIDENCE       = 0.45
 
+    def _default_params(self) -> dict:
+        return {"atr_period": 14, "channel_period": 20, "min_imbalance": 0.55, "min_confidence": 0.45}
+
     def __init__(self):
         super().__init__()
         self._context_engine = MarketContextEngine()

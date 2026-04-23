@@ -35,6 +35,9 @@ class VolBreakoutStrategy2(BaseStrategy):
     RETEST_TOLERANCE   = 0.005   # 되돌림 허용 오차 0.5%
     MAX_CANDLES_WAIT   = 5       # 되돌림 대기 최대 캔들 수
 
+    def _default_params(self) -> dict:
+        return {"vp_lookback": 20, "vp_bins": 50, "breakout_min_vol": 2.5}
+
     def __init__(self):
         super().__init__()
         self._context_engine = MarketContextEngine()

@@ -33,6 +33,9 @@ class RSIDivergenceStrategy2(BaseStrategy):
     MIN_SCORE        = 2     # 최소 TF 합의 수
     MIN_CONFIDENCE   = 0.45
 
+    def _default_params(self) -> dict:
+        return {"rsi_period": 14, "min_score": 2, "min_confidence": 0.45}
+
     def __init__(self):
         super().__init__()
         self._context_engine = MarketContextEngine()

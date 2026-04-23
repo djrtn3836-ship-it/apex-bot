@@ -40,6 +40,9 @@ class MACDCrossStrategy2(BaseStrategy):
     MIN_VOLUME_RANK   = 0.30    # 최소 거래량 순위
     MIN_CONFIDENCE    = 0.45
 
+    def _default_params(self) -> dict:
+        return {"fast": 8, "slow": 21, "sig": 5, "min_confidence": 0.45}
+
     def __init__(self):
         super().__init__()
         self._context_engine = MarketContextEngine()

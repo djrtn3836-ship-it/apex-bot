@@ -42,6 +42,9 @@ class VWAPReversionStrategy2(BaseStrategy):
     TARGET_BAND        = 0      # 목표 밴드 (VWAP 중심선)
     MIN_CONFIDENCE     = 0.45
 
+    def _default_params(self) -> dict:
+        return {"anchor_lookback": 30, "entry_band": 2, "min_rsi_oversold": 38}
+
     def __init__(self):
         super().__init__()
         self._context_engine = MarketContextEngine()

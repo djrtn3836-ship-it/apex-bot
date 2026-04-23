@@ -36,6 +36,9 @@ class SupertrendStrategy2(BaseStrategy):
     PULLBACK_MAX_PCT  = 0.015  # 되돌림 최대 허용 비율 1.5%
     MIN_VOLUME_RANK   = 0.25   # 최소 거래량 순위
 
+    def _default_params(self) -> dict:
+        return {"min_consensus": 2, "pullback_max_pct": 0.015, "min_volume_rank": 0.25}
+
     def __init__(self):
         super().__init__()
         self._context_engine  = MarketContextEngine()

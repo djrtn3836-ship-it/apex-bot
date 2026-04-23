@@ -40,6 +40,9 @@ class OrderBlockStrategy2(BaseStrategy):
     ENTRY_SPLIT        = True  # 분할 진입 여부
     MIN_VOLUME_RANK    = 0.3   # 최소 거래량 순위
 
+    def _default_params(self) -> dict:
+        return {"impulse_atr_mult": 2.5, "volume_spike_mult": 2.0, "max_touch_count": 2}
+
     def __init__(self):
         super().__init__()
         self._context_engine = MarketContextEngine()
