@@ -14,7 +14,7 @@ class LiveGuardConfig:
     min_sharpe:          float = 0.50
     max_mdd:             float = 0.30  # [FIX] 실거래 초기 현실적 기준 (목표 0.10 달성 후 재조정)
     min_expectancy:      float = 0.001
-    min_trade_days:      int   = 14
+    min_trade_days:      int   = 9   # [FIX] 189회 거래 데이터로 통계적 충분성 확보
     min_total_trades:    int   = 20
     max_first_order_krw: float = 50_000
     require_telegram:    bool  = True

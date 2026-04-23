@@ -36,6 +36,9 @@ class OrderBlockStrategy(BaseStrategy):
                 vol_avg   = float(df["volume"].rolling(20).mean().iloc[-1]) or 1.0
                 vol_ratio = float(df["volume"].iloc[-1]) / (vol_avg + 1e-9)
             vol_boost = 0.08 if vol_ratio >= 1.3 else (0.04 if vol_ratio >= 1.1 else 0.0)
+        # [FIX] 거래량 0 또는 극소량 시 신호 차단
+        if vol_ratio < 0.3:
+            return None
 
             # 동적 포지션 크기 힌트 (score에 반영)
             # vol_ratio 높을수록 score 상향 → engine이 포지션 크기 결정에 활용

@@ -250,13 +250,14 @@
         "ob_lookback": 28,
         "fvg_min_size": 0.00503056952330682
       },
-      "weight_boost": 1.0,
+      "weight_boost": 0.0,
       "oos_sharpe": 4.565,
       "oos_win_rate": 71.4,
       "oos_pnl_pct": 0.685,
-      "is_active": true,
+      "is_active": false,
       "updated_at": "2026-04-22T19:28:51.850794",
-      "source": "live_db_injection"
+      "source": "live_db_injection",
+      "deactivated_reason": "vol=0.0x 진입 버그 + 오늘 실거래 14% 승률"
     }
   }
 }
