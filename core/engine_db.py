@@ -36,7 +36,7 @@ class EngineDBMixin:
                        AND s.side   = 'SELL'
                        AND s.timestamp > b.timestamp
                     WHERE b.side = 'BUY'
-                      AND b.mode = 'paper'
+                      AND b.mode IN ('paper', 'live')
                       AND s.id IS NULL
                     ORDER BY b.timestamp ASC
                 """)
