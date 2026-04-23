@@ -214,17 +214,18 @@ class TradingEngine(
             logger.info(" OrderBlockDetector  ")
         except Exception as _obd_err:
             self.ob_detector = None
-            # V2 앙상블 레이어 초기화
-            if _V2_AVAILABLE:
-                try:
-                    self._v2_layer = _V2Layer()
-                    logger.info("[Engine] V2EnsembleLayer 초기화 완료")
-                except Exception as _e:
-                    self._v2_layer = None
-                    logger.warning(f"[Engine] V2Layer 초기화 실패: {_e}")
-            else:
-                self._v2_layer = None
             logger.warning(f" OrderBlockDetector  : {_obd_err}")
+
+        # V2 앙상블 레이어 초기화 (ob_detector 성공/실패 무관하게 항상 실행)
+        if _V2_AVAILABLE:
+            try:
+                self._v2_layer = _V2Layer()
+                logger.info("[Engine] V2EnsembleLayer 초기화 완료")
+            except Exception as _e:
+                self._v2_layer = None
+                logger.warning(f"[Engine] V2Layer 초기화 실패: {_e}")
+        else:
+            self._v2_layer = None
 
         try:
             from core.rate_limit_manager import RateLimitManager
