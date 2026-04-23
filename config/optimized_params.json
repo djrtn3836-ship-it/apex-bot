@@ -122,7 +122,7 @@
         "ob_lookback": 28,
         "fvg_min_size": 0.0019687178883442433
       },
-      "weight_boost": 1.5,
+      "weight_boost": 1.0,
       "oos_sharpe": 9.575,
       "oos_win_rate": 100.0,
       "oos_pnl_pct": 1.436,
@@ -154,13 +154,14 @@
         "ob_lookback": 27,
         "fvg_min_size": 0.007356930142554267
       },
-      "weight_boost": 0.8,
+      "weight_boost": 0.0,
       "oos_sharpe": 0.3,
       "oos_win_rate": 55.0,
       "oos_pnl_pct": -0.001,
-      "is_active": true,
+      "is_active": false,
       "updated_at": "2026-04-22T19:28:51.850794",
-      "source": "live_db_injection"
+      "source": "live_db_injection",
+      "deactivated_reason": "OOS Sharpe=0.300 통계적 무의미 — 레짐 RANGING 시 재활성 예정"
     },
     "VolBreakout": {
       "params": {
