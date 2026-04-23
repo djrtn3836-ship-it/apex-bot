@@ -1,6 +1,7 @@
 """Apex Bot -    (M2)
  →"""
 import os
+import pathlib
 from dataclasses import dataclass, field
 from typing import Tuple, List, Dict
 from datetime import datetime
@@ -119,3 +120,63 @@ class LiveGuard:
                 lines.append(f"  {a}")
         lines.append("="*50)
         return "\n".join(lines)
+
+    # ── 실시간 안전장치 (v2.0 추가) ─────────────────────────
+    # 연속 손실 추적 및 긴급 중단 파일 체크
+    CONSEC_LOSS_LIMIT = 3
+    CONSEC_COOLDOWN_H = 24
+    EMERGENCY_FILE    = pathlib.Path("EMERGENCY_STOP")
+
+    def __post_init_rt(self):
+        """실시간 안전장치 초기화 — __init__ 호출 후 수동 실행 필요"""
+        self._consec_loss     = 0
+        self._rt_blocked      = False
+        self._rt_block_reason = ""
+        self._rt_block_until  = None
+
+    async def on_trade_result(self, profit_rate: float, market: str = ""):
+        """매도 완료 시 호출 — 연속 손실 추적"""
+        if not hasattr(self, '_consec_loss'):
+            self._consec_loss = 0
+            self._rt_blocked  = False
+            self._rt_block_reason = ""
+            self._rt_block_until  = None
+
+        if profit_rate < 0:
+            self._consec_loss += 1
+            logger.info(f"[LiveGuard] 📉 연속 손실 {self._consec_loss}회 ({market} {profit_rate*100:+.2f}%)")
+            if self._consec_loss >= self.CONSEC_LOSS_LIMIT:
+                from datetime import timedelta
+                self._rt_blocked      = True
+                self._rt_block_reason = f"연속 손실 {self._consec_loss}회"
+                self._rt_block_until  = datetime.now() + timedelta(hours=self.CONSEC_COOLDOWN_H)
+                logger.warning(f"[LiveGuard] 🔴 연속 손실 {self._consec_loss}회 — {self.CONSEC_COOLDOWN_H}시간 매수 차단")
+        else:
+            if hasattr(self, '_consec_loss') and self._consec_loss > 0:
+                logger.info(f"[LiveGuard] ✅ 수익 달성 — 연속 손실 초기화")
+            self._consec_loss = 0
+
+    def can_trade(self) -> bool:
+        """매수 가능 여부 — engine_cycle에서 호출"""
+        # 긴급 중단 파일 체크
+        if self.EMERGENCY_FILE.exists():
+            logger.warning("[LiveGuard] 🚨 EMERGENCY_STOP 파일 감지 — 매수 차단")
+            return False
+        # 연속 손실 차단 해제 확인
+        if getattr(self, '_rt_blocked', False):
+            until = getattr(self, '_rt_block_until', None)
+            if until and datetime.now() >= until:
+                logger.info("[LiveGuard] ✅ 차단 해제 시각 경과 — 매수 재개")
+                self._rt_blocked = False
+                self._consec_loss = 0
+            else:
+                remaining = ""
+                if until:
+                    diff = until - datetime.now()
+                    h = int(diff.total_seconds() // 3600)
+                    m = int((diff.total_seconds() % 3600) // 60)
+                    remaining = f" (해제까지 {h}시간 {m}분)"
+                logger.warning(f"[LiveGuard] 🔴 매수 차단: {getattr(self, '_rt_block_reason', '')}{remaining}")
+                return False
+        return True
+

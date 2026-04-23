@@ -241,9 +241,16 @@ class EngineCycleMixin:
         existing_markets = [
             m for m in markets if self.portfolio.is_position_open(m)
         ]
+        # [LiveGuard] 긴급 중단 + 연속 손실 차단 체크
+        _lg_can_trade = (
+            self.live_guard.can_trade()
+            if (hasattr(self, 'live_guard') and self.live_guard is not None)
+            else True
+        )
         can_enter_new = (
             self.portfolio.position_count < self.settings.trading.max_positions
             and krw >= self.settings.trading.min_order_amount
+            and _lg_can_trade
         )
         logger.info(f"[CYCLE_DEBUG] can_enter_new={can_enter_new} | new_entry={len(new_entry_markets)}개 | existing={len(existing_markets)}개")
         entry_tasks = (
