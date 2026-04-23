@@ -4,7 +4,7 @@ from strategies.base_strategy import BaseStrategy, StrategySignal, SignalType
 
 
 class OrderBlockStrategy(BaseStrategy):
-    NAME = "Order_Block"
+    NAME = "OrderBlock_SMC"
     DESCRIPTION = "스마트머니 오더블록 전략"
     WEIGHT = 1.2
     MIN_CANDLES = 30
