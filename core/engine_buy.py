@@ -553,7 +553,19 @@ class EngineBuyMixin:
 
             if combined.signal_type == SignalType.BUY:
                 if market not in self.portfolio.open_positions:
-                    await self._execute_buy(market, combined, df_processed)
+                    # V2 앙상블 레이어 검증
+                    if getattr(self, '_v2_layer', None) is not None:
+                        _v2_ok, _v2_conf, _v2_size = self._v2_layer.check(
+                            df_processed, market, combined.confidence
+                        )
+                        if not _v2_ok:
+                            logger.info(f"[V2Layer] {market} 진입 차단")
+                        else:
+                            combined.confidence    = _v2_conf
+                            combined._v2_size_mult = _v2_size
+                            await self._execute_buy(market, combined, df_processed)
+                    else:
+                        await self._execute_buy(market, combined, df_processed)
                     # [FIX] BUY 시 쿨다운 갱신 제거
                     try:
                         _sig_type_str = str(getattr(signal, 'signal_type', ''))

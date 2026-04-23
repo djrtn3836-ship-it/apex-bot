@@ -25,6 +25,11 @@ from datetime import datetime
 from typing import Dict, List, Optional
 from concurrent.futures import ProcessPoolExecutor
 from loguru import logger
+try:
+    from strategies.v2.v2_layer import V2EnsembleLayer as _V2Layer
+    _V2_AVAILABLE = True
+except Exception as _v2_import_err:
+    _V2_AVAILABLE = False
 from core.smart_wallet import SmartWalletManager
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 
@@ -209,6 +214,16 @@ class TradingEngine(
             logger.info(" OrderBlockDetector  ")
         except Exception as _obd_err:
             self.ob_detector = None
+            # V2 앙상블 레이어 초기화
+            if _V2_AVAILABLE:
+                try:
+                    self._v2_layer = _V2Layer()
+                    logger.info("[Engine] V2EnsembleLayer 초기화 완료")
+                except Exception as _e:
+                    self._v2_layer = None
+                    logger.warning(f"[Engine] V2Layer 초기화 실패: {_e}")
+            else:
+                self._v2_layer = None
             logger.warning(f" OrderBlockDetector  : {_obd_err}")
 
         try:
