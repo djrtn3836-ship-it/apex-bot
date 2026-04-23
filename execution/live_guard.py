@@ -1,5 +1,6 @@
 """Apex Bot -    (M2)
  →"""
+import asyncio
 import os
 import pathlib
 from dataclasses import dataclass, field
@@ -147,9 +148,9 @@ class LiveGuard:
             self._consec_loss += 1
             logger.info(f"[LiveGuard] 📉 연속 손실 {self._consec_loss}회 ({market} {profit_rate*100:+.2f}%)")
             if self._consec_loss == 2:
-                asyncio.create_task(self._send_telegram(
+                await self._send_telegram(
                     f"⚠️ [LiveGuard] 연속 손실 2회 경고\n다음 손실 시 {self.CONSEC_COOLDOWN_H}시간 거래 차단됩니다."
-                ))
+                )
             if self._consec_loss >= self.CONSEC_LOSS_LIMIT:
                 from datetime import timedelta
                 self._rt_blocked      = True
@@ -160,6 +161,21 @@ class LiveGuard:
             if hasattr(self, '_consec_loss') and self._consec_loss > 0:
                 logger.info(f"[LiveGuard] ✅ 수익 달성 — 연속 손실 초기화")
             self._consec_loss = 0
+
+    async def _send_telegram(self, message: str):
+        try:
+            import aiohttp, os
+            from dotenv import load_dotenv
+            load_dotenv()
+            token   = os.getenv("TELEGRAM_TOKEN", "")
+            chat_id = os.getenv("TELEGRAM_CHAT_ID", "")
+            if not token or not chat_id:
+                return
+            url = f"https://api.telegram.org/bot{token}/sendMessage"
+            async with aiohttp.ClientSession() as s:
+                await s.post(url, json={"chat_id": chat_id, "text": message})
+        except Exception as e:
+            logger.warning(f"[LiveGuard] 텔레그램 전송 실패: {e}")
 
     def can_trade(self) -> bool:
         """매수 가능 여부 — engine_cycle에서 호출"""
