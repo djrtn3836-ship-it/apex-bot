@@ -115,6 +115,10 @@ class EngineCycleMixin:
 
 
     async def _cycle(self):
+        # [LiveGuard] 사이클 시작 시 긴급 중단 파일 즉시 확인
+        if pathlib.Path("EMERGENCY_STOP").exists():
+            logger.warning("[LiveGuard] 🚨 EMERGENCY_STOP 감지 — 이번 사이클 전체 스킵")
+            return
         # [MDD-L3] 포트폴리오 서킷브레이커
         try:
             from datetime import datetime as _dt
@@ -242,6 +246,7 @@ class EngineCycleMixin:
             m for m in markets if self.portfolio.is_position_open(m)
         ]
         # [LiveGuard] 긴급 중단 + 연속 손실 차단 체크
+        # [LiveGuard] 매 사이클 EMERGENCY_STOP + 연속손실 차단 체크
         _lg_can_trade = (
             self.live_guard.can_trade()
             if (hasattr(self, 'live_guard') and self.live_guard is not None)
