@@ -74,7 +74,12 @@ class PortfolioManager:
         self._initial_capital: float = 0.0
         self._peak_portfolio_value: float = 0.0
         self._daily_start_value: float = 0.0
-        self._daily_start_time: float = time.time()
+        # [FIX] KST 자정 기준 일일 초기화
+        import datetime as _dt
+        _kst_tz = _dt.timezone(_dt.timedelta(hours=9))
+        _kst_midnight = _dt.datetime.now(_kst_tz).replace(
+            hour=0, minute=0, second=0, microsecond=0)
+        self._daily_start_time: float = _kst_midnight.timestamp()
 
     def set_initial_capital(self, capital: float):
         self._initial_capital = capital
@@ -176,11 +181,17 @@ class PortfolioManager:
         )
 
     def get_daily_pnl(self, current_value: float) -> float:
-        now = time.time()
-        # 자정 기준 일일 초기화
-        if now - self._daily_start_time > 86400:
+        # [FIX] KST 날짜 변경 감지 기준 일일 초기화
+        import datetime as _dt
+        _kst_tz   = _dt.timezone(_dt.timedelta(hours=9))
+        _today    = _dt.datetime.now(_kst_tz).strftime("%Y-%m-%d")
+        _start_dt = _dt.datetime.fromtimestamp(
+            self._daily_start_time, tz=_kst_tz).strftime("%Y-%m-%d")
+        if _today != _start_dt:
             self._daily_start_value = current_value
-            self._daily_start_time = now
+            _midnight = _dt.datetime.now(_kst_tz).replace(
+                hour=0, minute=0, second=0, microsecond=0)
+            self._daily_start_time = _midnight.timestamp()
         if self._daily_start_value <= 0:
             return 0.0
         return (
