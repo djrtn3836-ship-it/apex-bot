@@ -38,6 +38,7 @@ class LiveGuard:
         logger.info(" LiveGuard ")
 
     # ── 실전 전환 적합성 검증 ────────────────────────────
+        self.__post_init_rt()
     def check_readiness(self, stats: Dict) -> LiveGuardReport:
         """stats :
           { "win_rate": 0.55, "sharpe": 0.8, "mdd": -0.07,
@@ -179,4 +180,3 @@ class LiveGuard:
                 logger.warning(f"[LiveGuard] 🔴 매수 차단: {getattr(self, '_rt_block_reason', '')}{remaining}")
                 return False
         return True
-

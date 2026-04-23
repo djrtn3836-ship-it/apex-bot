@@ -89,11 +89,11 @@ async def send_daily_report():
 🤖 *ApexBot 일일 리포트*
 📅 {today}
 
-{pnl_emoji} *일일 PnL:* {daily_pnl:+.4f} ({daily_pnl*100:+.2f}%)
+{pnl_emoji} *일일 PnL:* {daily_pnl:+.4f}%
 {wr_emoji} *승률:* {win_rate:.1f}% ({wins}/{sells}건)
 📊 *Sharpe:* {sharpe:.3f}
-📉 *최고 수익:* {(row['best_pnl'] or 0)*100:+.2f}% ({row['best_market'] or '-'})
-📉 *최대 손실:* {(row['worst_pnl'] or 0)*100:+.2f}% ({row['worst_market'] or '-'})
+📉 *최고 수익:* {(row['best_pnl'] or 0):+.2f}% ({row['best_market'] or '-'})
+📉 *최대 손실:* {(row['worst_pnl'] or 0):+.2f}% ({row['worst_market'] or '-'})
 🛡 *LiveGuard:* {lg_status}
 🔄 *다음 재학습:* {next_retrain}
 """.strip()
