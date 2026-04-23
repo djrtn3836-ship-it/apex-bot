@@ -296,8 +296,6 @@ class EngineScheduleMixin:
                     "win_count":      int(_pm.get("win_trades", 0)),
                     "max_drawdown":   _pm.get("max_drawdown", 0),
                     "sharpe_ratio":   _pm.get("sharpe_ratio", 0),
-                    "max_drawdown":   _pm.get("max_drawdown", 0),
-                    "sharpe_ratio":   _pm.get("sharpe_ratio", 0),
                 })
                 logger.debug(
                     f"✅ hourly performance DB 저장 완료 "
@@ -343,6 +341,13 @@ class EngineScheduleMixin:
             "total_assets":   total,
             "open_positions": self.portfolio.position_count,
         }
+        # [FIX] win_count / max_drawdown 명시적 보강 (get_statistics 키 보장)
+        if "win_count" not in report:
+            total = report.get("total_trades", 0)
+            wr    = report.get("win_rate", 0) / 100
+            report["win_count"] = int(total * wr)
+        if "max_drawdown" not in report:
+            report["max_drawdown"] = 0.0
         await self.telegram.notify_daily_report(report)
         try:
             await self.db_manager.save_daily_performance({

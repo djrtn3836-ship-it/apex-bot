@@ -54,7 +54,7 @@ class PPOOnlineTrainer:
             profit_rate = profit_rate * 100
         # 보상 계산: 수익률(%) - 수수료(0.05%) - 장기보유 페널티
         fee_penalty   = 0.05   # [FIX] 0.0005% → 0.05% (% 단위 기준)
-        time_penalty  = max(0, hold_hours - 24) * 0.01  # [FIX] % 단위 기준
+        time_penalty  = max(0, hold_hours - 4) * 0.005  # [OPT] 4시간 초과부터 봉당 -0.005% 패널티
         reward = profit_rate - fee_penalty - time_penalty
 
         experience = {

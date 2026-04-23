@@ -295,13 +295,27 @@ class PortfolioManager:
                 cl += 1; cw = 0
                 max_cl = max(max_cl, cl)
 
+        # MDD 계산 (누적 equity curve 기반)
+        cumulative = 0.0
+        peak = 0.0
+        max_dd = 0.0
+        for r in returns:
+            cumulative += r / 100
+            if cumulative > peak:
+                peak = cumulative
+            dd = (peak - cumulative) / (1 + peak) if peak > 0 else 0.0
+            if dd > max_dd:
+                max_dd = dd
+
         return {
             "total_trades":      len(returns),
+            "win_count":         len(wins),
             "win_rate":          win_rate,
             "avg_win_pct":       avg_win,
             "avg_loss_pct":      avg_loss,
             "profit_factor":     profit_factor,
             "sharpe_ratio":      sharpe,
+            "max_drawdown":      max_dd,
             "expectancy":        (
                 win_rate / 100 * avg_win
                 - (1 - win_rate / 100) * abs(avg_loss)
