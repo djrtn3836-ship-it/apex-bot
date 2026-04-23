@@ -146,6 +146,10 @@ class LiveGuard:
         if profit_rate < 0:
             self._consec_loss += 1
             logger.info(f"[LiveGuard] 📉 연속 손실 {self._consec_loss}회 ({market} {profit_rate*100:+.2f}%)")
+            if self._consec_loss == 2:
+                asyncio.create_task(self._send_telegram(
+                    f"⚠️ [LiveGuard] 연속 손실 2회 경고\n다음 손실 시 {self.CONSEC_COOLDOWN_H}시간 거래 차단됩니다."
+                ))
             if self._consec_loss >= self.CONSEC_LOSS_LIMIT:
                 from datetime import timedelta
                 self._rt_blocked      = True
