@@ -12,6 +12,7 @@ import asyncio
 import json
 import shutil
 from datetime import datetime
+import pathlib
 from pathlib import Path
 from typing import Optional   # ✅ FIX: Optional 임포트 추가
 
@@ -46,7 +47,14 @@ class AutoTrainer:
             from datetime import datetime as _dt
             _mtime = _dt.fromtimestamp(self.MODEL_PATH.stat().st_mtime)
         self._last_retrain: Optional[datetime] = _mtime
-        self._last_val_acc: float = 0.0
+        # [FIX] _last_val_acc도 train_result.json에서 복원 (롤백 오작동 방지)
+        _last_acc = 0.0
+        if _result_path.exists():
+            try:
+                _last_acc = float(json.loads(_result_path.read_text(encoding="utf-8")).get("best_val_acc", 0.0))
+            except Exception:
+                pass
+        self._last_val_acc: float = _last_acc
         self._retrain_count: int  = 0
         self._is_training: bool   = False  # 중복 실행 방지
 
