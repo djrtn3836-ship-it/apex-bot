@@ -117,7 +117,7 @@ class EngineCycleMixin:
 
     async def _cycle(self):
         # [LiveGuard] 사이클 시작 시 긴급 중단 파일 즉시 확인
-        if pathlib.Path("EMERGENCY_STOP").exists():
+        if pathlib.Path(__file__).parent.parent.joinpath("EMERGENCY_STOP").exists() or pathlib.Path("EMERGENCY_STOP").exists():
             logger.warning("[LiveGuard] 🚨 EMERGENCY_STOP 감지 — 이번 사이클 전체 스킵")
             return
         # [MDD-L3] 포트폴리오 서킷브레이커
