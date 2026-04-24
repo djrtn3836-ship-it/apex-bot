@@ -353,6 +353,48 @@
         "ATR_Channel": 1.2,
         "Supertrend": 0.7
       }
+    },
+    "weights": {
+      "OrderBlock_SMC": {
+        "base": 1.8,
+        "min": 0.6,
+        "max": 2.5
+      },
+      "Bollinger_Squeeze": {
+        "base": 1.6,
+        "min": 0.5,
+        "max": 2.5
+      },
+      "RSI_Divergence": {
+        "base": 1.7,
+        "min": 0.5,
+        "max": 2.5
+      },
+      "MACD_Cross": {
+        "base": 1.2,
+        "min": 0.4,
+        "max": 2.0
+      },
+      "ATR_Channel": {
+        "base": 1.5,
+        "min": 0.5,
+        "max": 2.5
+      },
+      "VWAP_Reversion": {
+        "base": 0.9,
+        "min": 0.3,
+        "max": 1.8
+      },
+      "Supertrend": {
+        "base": 0.8,
+        "min": 0.3,
+        "max": 1.5
+      },
+      "VolBreakout": {
+        "base": 0.5,
+        "min": 0.2,
+        "max": 1.2
+      }
     }
   },
   "risk": {

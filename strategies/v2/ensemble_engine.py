@@ -123,7 +123,6 @@ class EnsembleEngine:
         try:
             import sys as _sys, pathlib as _pl
             _sys.path.insert(0, str(_pl.Path(__file__).parent.parent.parent))
-            from config.strategy_config_loader import get_ensemble_weights
             _cfg_w = get_ensemble_weights()
             _KEY_MAP = {
                 "Order_Block":       "OrderBlock_SMC",
