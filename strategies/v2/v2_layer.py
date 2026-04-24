@@ -20,6 +20,28 @@ class V2EnsembleLayer:
         self._enabled     = True
         logger.info("[V2Layer] 앙상블 브릿지 레이어 초기화 완료")
 
+    def _time_filter_pass(self, strategy_name: str) -> bool:
+        """config 시간 필터 체크"""
+        try:
+            from config.strategy_config_loader import is_strategy_active
+            from datetime import datetime
+            import pytz
+            hour = datetime.now(pytz.timezone("Asia/Seoul")).hour
+            return is_strategy_active(strategy_name, hour)
+        except Exception:
+            return True
+
+    def _get_boost(self, strategy_name: str) -> float:
+        """config boost 값 반환"""
+        try:
+            from config.strategy_config_loader import get_boost
+            from datetime import datetime
+            import pytz
+            hour = datetime.now(pytz.timezone("Asia/Seoul")).hour
+            return get_boost(strategy_name, hour)
+        except Exception:
+            return 1.0
+
     def check(
         self,
         df: pd.DataFrame,

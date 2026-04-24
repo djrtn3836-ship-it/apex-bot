@@ -4,6 +4,7 @@ import pandas as pd
 from dataclasses import dataclass
 from typing import Optional, Tuple
 from loguru import logger
+from datetime import datetime
 from strategies.base_strategy import BaseStrategy, Signal, SignalType
 from strategies.v2.context.market_context import MarketContextEngine, MarketContext
 
@@ -175,9 +176,17 @@ class SupertrendStrategy2(BaseStrategy):
         )
 
         return Signal(
-            signal_type=SignalType.BUY,
+            signal=SignalType.BUY,
             confidence=confidence,
             strategy_name=self.NAME,
+            market         = market,
+            score          = confidence * 2.0 - 1.0,
+            entry_price    = float(df["close"].iloc[-1]),
+            stop_loss      = float(df["close"].iloc[-1]) * 0.978,
+            take_profit    = float(df["close"].iloc[-1]) * 1.025,
+            reason         = f"{self.NAME} v2 신호",
+            timeframe      = "1h",
+            timestamp      = datetime.now(),
             metadata={
                 "consensus": up_count,
                 "flips": flips,

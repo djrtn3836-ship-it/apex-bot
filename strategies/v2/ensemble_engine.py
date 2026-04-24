@@ -48,7 +48,36 @@ class EnsembleEngine:
     시장 레짐별 전략 우선순위 변경
     """
 
-    # 기본 가중치
+    # 기본 가중치 (config/optimized_params.json 우선, 없으면 아래 기본값)
+    @staticmethod
+    def _load_base_weights() -> dict:
+        try:
+            import sys, pathlib as _pl
+            sys.path.insert(0, str(_pl.Path(__file__).parent.parent.parent))
+            from config.strategy_config_loader import get_ensemble_weights
+            w = get_ensemble_weights()
+            # config 키(Order_Block 등) → 내부 키(OrderBlock_SMC 등) 매핑
+            _map = {
+                "Order_Block":       "OrderBlock_SMC",
+                "Bollinger_Squeeze": "Bollinger_Squeeze",
+                "RSI_Divergence":    "RSI_Divergence",
+                "MACD_Cross":        "MACD_Cross",
+                "ATR_Channel":       "ATR_Channel",
+                "VWAP_Reversion":    "VWAP_Reversion",
+                "Supertrend":        "Supertrend",
+                "Vol_Breakout":      "VolBreakout",
+            }
+            mapped = {}
+            for cfg_k, eng_k in _map.items():
+                if cfg_k in w:
+                    mapped[eng_k] = w[cfg_k]
+            if mapped:
+                logger.info(f"[Ensemble] config 가중치 {len(mapped)}개 로드 완료")
+                return mapped
+        except Exception as e:
+            logger.warning(f"[Ensemble] config 가중치 로드 실패(기본값 사용): {e}")
+        return {}
+
     BASE_WEIGHTS = {
         "MACD_Cross":       1.0,
         "RSI_Divergence":   1.5,
@@ -90,6 +119,28 @@ class EnsembleEngine:
     def __init__(self, db_path: str = "database/apex_bot.db"):
         self._db_path        = db_path
         self._context_engine = MarketContextEngine()
+        # config/optimized_params.json 가중치 적용
+        try:
+            import sys as _sys, pathlib as _pl
+            _sys.path.insert(0, str(_pl.Path(__file__).parent.parent.parent))
+            from config.strategy_config_loader import get_ensemble_weights
+            _cfg_w = get_ensemble_weights()
+            _KEY_MAP = {
+                "Order_Block":       "OrderBlock_SMC",
+                "Bollinger_Squeeze": "Bollinger_Squeeze",
+                "RSI_Divergence":    "RSI_Divergence",
+                "MACD_Cross":        "MACD_Cross",
+                "ATR_Channel":       "ATR_Channel",
+                "VWAP_Reversion":    "VWAP_Reversion",
+                "Supertrend":        "Supertrend",
+                "Vol_Breakout":      "VolBreakout",
+            }
+            for cfg_k, eng_k in _KEY_MAP.items():
+                if cfg_k in _cfg_w and eng_k in self.BASE_WEIGHTS:
+                    self.BASE_WEIGHTS[eng_k] = _cfg_w[cfg_k]
+            logger.info(f'[Ensemble] config 가중치 {len(_cfg_w)}개 적용 완료')
+        except Exception as _cw_e:
+            logger.warning(f'[Ensemble] config 가중치 로드 실패(기본값): {_cw_e}')
         self._weights: Dict[str, StrategyWeight] = {}
         self._strategies: Dict[str, BaseStrategy] = {}
         self._init_strategies()
