@@ -31,7 +31,7 @@ class VolBreakoutStrategy2(BaseStrategy):
     VP_LOOKBACK        = 20      # 거래량 프로파일 계산 기간 (일)
     VP_BINS            = 50      # 가격 구간 분할 수
     VALUE_AREA_PCT     = 0.70    # Value Area 범위 (70%)
-    BREAKOUT_MIN_VOL   = 2.5     # 돌파 캔들 최소 거래량 배수
+    BREAKOUT_MIN_VOL = 2.0     # 돌파 캔들 최소 거래량 배수
     BREAKOUT_MIN_PCT   = 0.003   # 최소 돌파 비율 0.3%
     RETEST_TOLERANCE   = 0.005   # 되돌림 허용 오차 0.5%
     MAX_CANDLES_WAIT   = 5       # 되돌림 대기 최대 캔들 수

@@ -60,7 +60,7 @@ def get_min_confidence(name: str) -> float:
 def get_ensemble_weights() -> dict:
     """앙상블 가중치 base 값 반환"""
     cfg = load_config()
-    weights = cfg.get("ensemble", {}).get("strategy_weights", {})
+    weights = cfg.get("ensemble", {}).get("weights", {})
     return {k: v["base"] for k, v in weights.items()}
 
 def get_regime_boost(strategy: str, regime: str) -> float:

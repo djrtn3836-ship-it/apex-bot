@@ -35,6 +35,8 @@ class V2EnsembleLayer:
         """config boost 값 반환"""
         try:
             from config.strategy_config_loader import get_boost
+            from datetime import datetime
+            import pytz
             hour = datetime.now(pytz.timezone("Asia/Seoul")).hour
             return get_boost(strategy_name, hour)
         except Exception as _e:

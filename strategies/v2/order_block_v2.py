@@ -34,7 +34,7 @@ class OrderBlockStrategy2(BaseStrategy):
     VERSION     = "2.0"
 
     # 파라미터
-    IMPULSE_ATR_MULT   = 2.5   # 충격 이동 ATR 배수 기준
+    IMPULSE_ATR_MULT = 1.8   # 충격 이동 ATR 배수 기준
     VOLUME_SPIKE_MULT  = 1.5   # 거래량 급증 배수 기준
     MAX_TOUCH_COUNT    = 2     # 최대 터치 횟수 (3회부터 무효화)
     OB_ZONE_TOLERANCE  = 0.003 # OB 구간 인식 허용 오차 0.3%
@@ -218,5 +218,5 @@ class OrderBlockStrategy2(BaseStrategy):
             c = pd.Series(close)
             tr = pd.concat([h - l, (h - c.shift()).abs(), (l - c.shift()).abs()], axis=1).max(axis=1)
             return float(tr.rolling(period).mean().iloc[-1])
-        except Exception:
+        except Exception as _e:
             return float(np.mean(high - low))
