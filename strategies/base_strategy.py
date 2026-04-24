@@ -200,3 +200,46 @@ def safe_float(value, default: float = 0.0) -> float:
         return v
     except (TypeError, ValueError):
         return default
+
+
+def safe_rolling_mean(series, window: int, default: float = 0.0):
+    """rolling().mean() NaN 방어 — 앞부분 NaN을 default로 채움"""
+    import math
+    try:
+        result = series.rolling(window).mean()
+        return result.fillna(default)
+    except Exception:
+        return series * 0 + default
+
+
+def safe_rolling_std(series, window: int, default: float = 0.0):
+    """rolling().std() NaN 방어"""
+    import math
+    try:
+        result = series.rolling(window).std()
+        return result.fillna(default)
+    except Exception:
+        return series * 0 + default
+
+
+def safe_div(numerator, denominator, default: float = 0.0):
+    """Division by Zero 방어"""
+    import math
+    try:
+        if hasattr(denominator, "__len__"):
+            import pandas as pd
+            denom = denominator.replace(0, float("nan"))
+            result = numerator / denom
+            return result.fillna(default)
+        if denominator == 0 or (isinstance(denominator, float) and math.isnan(denominator)):
+            return default
+        return numerator / denominator
+    except Exception:
+        return default
+
+
+def kst_now():
+    """KST 기준 현재 datetime (timezone-aware)"""
+    from datetime import datetime
+    import pytz
+    return datetime.now(pytz.timezone("Asia/Seoul"))

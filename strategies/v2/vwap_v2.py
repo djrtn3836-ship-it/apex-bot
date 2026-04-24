@@ -4,8 +4,7 @@ import pandas as pd
 from dataclasses import dataclass
 from typing import Optional, List, Tuple
 from loguru import logger
-from datetime import datetime
-from strategies.base_strategy import BaseStrategy, Signal, SignalType, safe_float, safe_last
+from strategies.base_strategy import BaseStrategy, Signal, SignalType, safe_float, safe_last, safe_rolling_mean, safe_rolling_std, safe_div, kst_now
 from strategies.v2.context.market_context import MarketContextEngine, MarketContext
 
 
@@ -236,7 +235,7 @@ class VWAPReversionStrategy2(BaseStrategy):
             take_profit    = safe_last(df["close"]) * 1.03,
             reason         = f"{self.NAME} v2 신호",
             timeframe      = "1h",
-            timestamp      = datetime.now(),
+            timestamp      = kst_now(),
                     metadata={
                         "anchor_type":      avwap.anchor_type,
                         "anchor_price":     avwap.anchor_price,

@@ -1,4 +1,5 @@
 from __future__ import annotations
+import threading
 import time
 import sqlite3
 import numpy as np
@@ -118,6 +119,7 @@ class EnsembleEngine:
 
     def __init__(self, db_path: str = "database/apex_bot.db"):
         self._db_path        = db_path
+        self._lock = threading.Lock()  # 스레드 안전성
         self._context_engine = MarketContextEngine()
         # config/optimized_params.json 가중치 적용
         try:
@@ -239,7 +241,7 @@ class EnsembleEngine:
                 w     = self._weights[name].dynamic_weight
                 boost = regime_boosts.get(name, 0.0)
                 final_w = w + boost
-                score   = sig.confidence * final_w
+                score   = (sig.score * 0.4 + sig.confidence * 0.6) * final_w
                 total_score  += score
                 total_weight += final_w
                 if score > best_score:

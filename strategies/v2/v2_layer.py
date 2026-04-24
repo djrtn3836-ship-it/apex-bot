@@ -1,4 +1,5 @@
 from __future__ import annotations
+import threading
 import asyncio
 from typing import Optional
 import pandas as pd
@@ -16,6 +17,7 @@ class V2EnsembleLayer:
 
     def __init__(self, db_path: str = "database/apex_bot.db"):
         self._ensemble    = EnsembleEngine(db_path)
+        self._lock = threading.Lock()  # 스레드 안전성
         self._ctx_engine  = MarketContextEngine()
         self._enabled     = True
         self._weights  = {}  # 동적 가중치 캐시

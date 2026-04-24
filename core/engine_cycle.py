@@ -1159,7 +1159,7 @@ class EngineCycleMixin:
                         f"{market}: WR={round(result['win_rate']*100,1)}% "
                         f"PF={result['profit_factor']} "
                         f"Ret={round(result['total_return']*100,1)}% "
-                        f"MDD={round(result['mdd']*100,1)}%"
+                        f"MDD={round(result.get('mdd', 0)*100,1)}%"
                     )
         try:
             await self.telegram.send_message(" | ".join(lines))
