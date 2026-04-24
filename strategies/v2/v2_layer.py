@@ -73,9 +73,9 @@ class V2EnsembleLayer:
             if decision is None:
                 return True, v1_confidence, 1.0
 
-            boost = self._get_boost(decision.leading_strategy or "")
+            boost = self._get_boost(decision.dominant_strategy or "")
             combined_conf = v1_confidence * 0.4 + decision.confidence * 0.6
-            size_mult = decision.size_multiplier * boost
+            size_mult = decision.position_size_mult * boost
 
             if decision.should_enter and combined_conf >= 0.45:
                 _logger.info(
@@ -108,3 +108,6 @@ class V2EnsembleLayer:
 
     def get_status(self) -> str:
         return self._ensemble.get_weight_summary()
+
+# 하위 호환 별칭
+V2Layer = V2EnsembleLayer

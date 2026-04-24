@@ -122,7 +122,7 @@ class BollingerSqueezeStrategy2(BaseStrategy):
             seg_vol    = volume.iloc[squeeze_start:]
 
             range_size = (seg_high - seg_low).replace(0, 0.001)
-            delta = safe_div((seg_vol * (seg_close - seg_open), range_size)).sum()
+            delta = safe_div(seg_vol * (seg_close - seg_open), range_size).sum()
 
             # 모멘텀 (폭발 방향)
             momentum = float(close.iloc[-1] - close.iloc[-4]) if n >= 4 else 0.0
