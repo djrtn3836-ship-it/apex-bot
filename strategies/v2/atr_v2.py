@@ -24,6 +24,7 @@ class ATRChannelStrategy2(BaseStrategy):
     호가창 오더 임밸런스 필터 (매수세 > 매도세일 때만 진입)
     """
     NAME        = "ATR_Channel"
+    BASE_CONF   = 0.55   # 기본 신뢰도 — config min_confidence(ATR_Channel)
     DESCRIPTION = "ATR 채널 2.0 — 레짐 적응형 + 오더 임밸런스 필터"
     VERSION     = "2.0"
 
@@ -94,7 +95,7 @@ class ATRChannelStrategy2(BaseStrategy):
             atr_val = float(atr.iloc[-1])
 
             return ch_high, ch_low, atr_val
-        except Exception:
+        except Exception as _e:
             return None, None, 0.0
 
     def _calc_order_imbalance(self, df: pd.DataFrame) -> OrderImbalance:
@@ -112,7 +113,7 @@ class ATRChannelStrategy2(BaseStrategy):
             imbalance = bid_vol / total if total > 0 else 0.5
             spread = float(((recent["high"] - recent["low"]) / recent["close"]).mean())
             return OrderImbalance(bid_vol, ask_vol, imbalance, spread)
-        except Exception:
+        except Exception as _e:
             return OrderImbalance(0, 0, 0.52, 0)  # 데이터 없을 때 기본 통과
 
     def _evaluate(

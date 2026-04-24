@@ -23,6 +23,7 @@ class SupertrendStrategy2(BaseStrategy):
     단순 크로스가 아닌 방향전환 후 첫 되돌림에서 진입
     """
     NAME        = "Supertrend"
+    BASE_CONF   = 0.6   # 기본 신뢰도 — config min_confidence(Supertrend)
     DESCRIPTION = "다중 Supertrend 합의 2.0 — 3중 필터 + 되돌림 진입"
     VERSION     = "2.0"
 

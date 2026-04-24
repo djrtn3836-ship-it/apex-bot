@@ -57,6 +57,27 @@ class V2EnsembleLayer:
             return True, v1_confidence, 1.0
 
         try:
+            # ── 시간필터: config 기반 전략별 허용 시간대 체크 ──
+            from strategies.base_strategy import StrategySignal
+            import pytz
+            from datetime import datetime as _dt
+            _hour = _dt.now(pytz.timezone("Asia/Seoul")).hour
+            from config.strategy_config_loader import load_config as _lc
+            _cfg = _lc()
+            _strats = _cfg.get("strategies", {})
+            _blocked = []
+            for _sname, _scfg in _strats.items():
+                _tf = _scfg.get("time_filter", {})
+                if not _tf.get("enabled", False):
+                    continue
+                _hours = _tf.get("allowed_hours", list(range(24)))
+                if _hour not in _hours:
+                    _blocked.append(_sname)
+            if _blocked:
+                logger.debug(
+                    f"[V2Layer] {market} 시간필터 차단 전략: {_blocked} | 현재={_hour}시"
+                )
+
             ctx      = self._ctx_engine.analyze(df, market)
             decision = self._ensemble.decide(df, market, ctx)
 

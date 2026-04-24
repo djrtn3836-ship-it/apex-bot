@@ -24,6 +24,7 @@ class VolBreakoutStrategy2(BaseStrategy):
     가짜 돌파 필터 + 되돌림 확인 후 진입
     """
     NAME        = "VolBreakout"
+    BASE_CONF   = 0.72   # 기본 신뢰도 — config min_confidence(Vol_Breakout)
     DESCRIPTION = "거래량 클러스터 돌파 2.0 — POC/VAH/VAL 기반"
     VERSION     = "2.0"
 

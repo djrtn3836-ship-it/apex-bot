@@ -26,6 +26,7 @@ class BollingerSqueezeStrategy2(BaseStrategy):
     폭발 후 첫 3캔들 내 진입만 허용
     """
     NAME        = "Bollinger_Squeeze"
+    BASE_CONF   = 0.55   # 기본 신뢰도 — config min_confidence(Bollinger_Squeeze)
     DESCRIPTION = "TTM Squeeze 2.0 — 델타 오더플로우 방향 필터"
     VERSION     = "2.0"
 

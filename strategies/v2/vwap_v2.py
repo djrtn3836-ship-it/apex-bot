@@ -30,6 +30,7 @@ class VWAPReversionStrategy2(BaseStrategy):
     RANGING + TRENDING 레짐 모두 대응
     """
     NAME        = "VWAP_Reversion"
+    BASE_CONF   = 0.6   # 기본 신뢰도 — config min_confidence(VWAP_Reversion)
     DESCRIPTION = "앵커드 VWAP 2.0 — 이벤트 기반 다중 밴드 지지/저항"
     VERSION     = "2.0"
 
@@ -173,7 +174,7 @@ class VWAPReversionStrategy2(BaseStrategy):
             rs     = gain / loss.replace(0, np.nan)
             rsi    = 100 - (100 / (1 + rs))
             return float(rsi.iloc[-1])
-        except Exception:
+        except Exception as _e:
             return 50.0
 
     def _check_entry(

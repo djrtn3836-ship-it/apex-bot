@@ -30,6 +30,7 @@ class OrderBlockStrategy2(BaseStrategy):
     거래량 프로파일 + 캔들 패턴 + 시간대 분석 결합
     """
     NAME        = "OrderBlock_SMC"
+    BASE_CONF   = 0.48   # 기본 신뢰도 — config min_confidence(Order_Block)
     DESCRIPTION = "기관 오더블록 2.0 — 거래량+시간대+다중터치 필터"
     VERSION     = "2.0"
 

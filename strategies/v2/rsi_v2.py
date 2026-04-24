@@ -26,6 +26,7 @@ class RSIDivergenceStrategy2(BaseStrategy):
     RSI 50 레벨 지지/저항 필터 추가
     """
     NAME        = "RSI_Divergence"
+    BASE_CONF   = 0.5   # 기본 신뢰도 — config min_confidence(RSI_Divergence)
     DESCRIPTION = "다중TF 히든 다이버전스 2.0 — 3중 시간프레임 합의"
     VERSION     = "2.0"
 
@@ -130,7 +131,7 @@ class RSIDivergenceStrategy2(BaseStrategy):
             rs    = gain / loss.replace(0, np.nan)
             rsi   = 100 - (100 / (1 + rs))
             return float(rsi.iloc[-1])
-        except Exception:
+        except Exception as _e:
             return 50.0
 
     def _check_divergence(
@@ -179,7 +180,7 @@ class RSIDivergenceStrategy2(BaseStrategy):
                                         float(rsi.iloc[-1]), "up")
             return None
 
-        except Exception:
+        except Exception as _e:
             return None
 
     def _check_divergence_resample(
@@ -201,5 +202,5 @@ class RSIDivergenceStrategy2(BaseStrategy):
                 return None
 
             return self._check_divergence(agg, tf)
-        except Exception:
+        except Exception as _e:
             return None

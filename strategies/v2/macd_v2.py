@@ -30,6 +30,7 @@ class MACDCrossStrategy2(BaseStrategy):
     히스토그램 가속도 필터 (가속 중인 크로스만 진입)
     """
     NAME        = "MACD_Cross"
+    BASE_CONF   = 0.5   # 기본 신뢰도 — config min_confidence(MACD_Cross)
     DESCRIPTION = "동적 MACD 2.0 — 변동성 적응형 파라미터 + 가속도 필터"
     VERSION     = "2.0"
 
@@ -105,7 +106,7 @@ class MACDCrossStrategy2(BaseStrategy):
                 slow=slow,
                 sig=sig,
             )
-        except Exception:
+        except Exception as _e:
             return None
 
     def _evaluate(
