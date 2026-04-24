@@ -190,6 +190,24 @@ class BaseStrategy(ABC):
         return self.generate_signal(df, market, timeframe)
 
 
+
+def safe_last(series) -> float:
+    """Series/array 마지막 값을 안전하게 float 반환. NaN/inf/빈값 -> 0.0"""
+    try:
+        import numpy as np, pandas as pd
+        if isinstance(series, pd.Series):
+            val = series.dropna()
+            if len(val) == 0:
+                return 0.0
+            v = float(val.iloc[-1])
+        else:
+            v = float(series[-1])
+        if np.isnan(v) or np.isinf(v):
+            return 0.0
+        return v
+    except Exception:
+        return 0.0
+
 def safe_float(value, default: float = 0.0) -> float:
     """NaN/inf 방어 float 변환 — v2 전략 전용"""
     import math

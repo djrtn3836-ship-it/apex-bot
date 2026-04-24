@@ -45,74 +45,53 @@ class V2EnsembleLayer:
 
     def check(
         self,
-        df: pd.DataFrame,
+        df: "pd.DataFrame",
         market: str,
         v1_confidence: float,
-    ) -> tuple[bool, float, float]:
+    ) -> "tuple[bool, float, float]":
         """
         v1 신호와 v2 앙상블 신호를 결합해 최종 진입 여부 반환
         Returns:
             (should_enter, final_confidence, size_multiplier)
         """
+        import logging as _log
+        _logger = _log.getLogger("v2_layer")
+
+        # ── 시간필터: config 기반 전략별 허용 시간대 체크 ──
+        try:
+            blocked = [n for n in self._strategies if not self._time_filter_pass(n)]
+            if blocked:
+                _logger.debug(f"[V2Layer] 시간필터 차단 전략: {blocked}")
+        except Exception:
+            blocked = []
+
         if not self._enabled:
             return True, v1_confidence, 1.0
 
         try:
-            # ── 시간필터: config 기반 전략별 허용 시간대 체크 ──
-            from strategies.base_strategy import StrategySignal
-            from datetime import datetime as _dt
-            _hour = _dt.now(pytz.timezone("Asia/Seoul")).hour
-            from config.strategy_config_loader import load_config as _lc
-            _cfg = _lc()
-            _strats = _cfg.get("strategies", {})
-            _blocked = []
-            for _sname, _scfg in _strats.items():
-                _tf = _scfg.get("time_filter", {})
-                if not _tf.get("enabled", False):
-                    continue
-                _hours = _tf.get("allowed_hours", list(range(24)))
-                if _hour not in _hours:
-                    _blocked.append(_sname)
-            if _blocked:
-                logger.debug(
-                    f"[V2Layer] {market} 시간필터 차단 전략: {_blocked} | 현재={_hour}시"
-                )
-
-            ctx      = self._ctx_engine.analyze(df, market)
-            decision = self._ensemble.decide(df, market, ctx)
-
-            # v2 신호 없으면 v1만으로 진입 (보수적 허용)
-            if not decision.signals_fired:
-                logger.debug(
-                    f"[V2Layer] {market} v2 신호 없음 → v1 단독 진입 허용"
-                )
+            decision = self._ensemble.decide(df, market)
+            if decision is None:
                 return True, v1_confidence, 1.0
 
-            # v2 진입 거부 시 차단
-            if not decision.should_enter:
-                logger.info(
-                    f"[V2Layer] ❌ {market} v2 앙상블 거부 | "
-                    f"점수={decision.final_score:.3f} | "
-                    f"이유={decision.reasoning}"
+            boost = self._get_boost(decision.leading_strategy or "")
+            combined_conf = v1_confidence * 0.4 + decision.confidence * 0.6
+            size_mult = decision.size_multiplier * boost
+
+            if decision.should_enter and combined_conf >= 0.45:
+                _logger.info(
+                    f"[V2Layer] {market} v1+v2 합의 "
+                    f"v1={v1_confidence:.2f} v2={decision.confidence:.2f} "
+                    f"combined={combined_conf:.2f} size={size_mult:.2f} boost={boost:.2f}"
                 )
-                return False, 0.0, 0.0
+                return True, combined_conf, size_mult
+            elif not decision.should_enter and decision.confidence >= 0.65:
+                _logger.info(f"[V2Layer] {market} v2 거부 conf={decision.confidence:.2f}")
+                return False, combined_conf, 1.0
+            else:
+                return True, v1_confidence, 1.0
 
-            # v1 + v2 모두 허용 → 신뢰도 합산
-            combined_conf = (v1_confidence * 0.4 + decision.confidence * 0.6)
-            size_mult     = decision.position_size_mult
-
-            logger.info(
-                f"[V2Layer] ✅ {market} v1+v2 합의 | "
-                f"v1={v1_confidence:.2f} v2={decision.confidence:.2f} "
-                f"→ 합산={combined_conf:.2f} | "
-                f"사이즈={size_mult:.1f}x | "
-                f"발화={decision.signals_fired}"
-            )
-
-            return True, combined_conf, size_mult
-
-        except Exception as e:
-            logger.warning(f"[V2Layer] {market} 오류 → v1 단독 허용: {e}")
+        except Exception as _e:
+            _logger.warning(f"[V2Layer] check() 오류 — v1 폴백: {_e}")
             return True, v1_confidence, 1.0
 
     def update_result(self, strategy_name: str, profit_rate: float):
