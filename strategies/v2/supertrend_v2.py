@@ -86,7 +86,7 @@ class SupertrendStrategy2(BaseStrategy):
                 abs(high[i] - close[i-1]),
                 abs(low[i]  - close[i-1]),
             )
-        atr = pd.Series(tr).rolling(period).mean().values
+        atr = safe_rolling_mean(pd.Series(tr), period).values
 
         # Supertrend 계산
         upper = (high + low) / 2 + multiplier * atr
@@ -136,7 +136,7 @@ class SupertrendStrategy2(BaseStrategy):
             return None
 
         current_price = safe_last(df["close"])
-        avg_vol       = float(df["volume"].rolling(20).mean().iloc[-1])
+        avg_vol       = safe_last(safe_rolling_mean(df["volume"], 20))
         curr_vol      = safe_last(df["volume"])
 
         if ctx.volume_rank < self.MIN_VOLUME_RANK:

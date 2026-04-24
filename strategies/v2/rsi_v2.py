@@ -125,9 +125,9 @@ class RSIDivergenceStrategy2(BaseStrategy):
     def _calc_rsi(self, close: pd.Series, period: int = 14) -> float:
         try:
             delta = close.diff()
-            gain  = delta.where(delta > 0, 0.0).rolling(period).mean()
-            loss  = (-delta.where(delta < 0, 0.0)).rolling(period).mean()
-            rs    = gain / loss.replace(0, np.nan)
+            gain  = safe_rolling_mean(delta.where(delta > 0, 0.0), period)
+            loss  = safe_rolling_mean((-delta.where(delta < 0, 0.0)), period)
+            rs    = safe_div(gain, loss)
             rsi   = 100 - (100 / (1 + rs))
             return float(rsi.iloc[-1])
         except Exception as _e:
@@ -139,8 +139,10 @@ class RSIDivergenceStrategy2(BaseStrategy):
         try:
             close = df["close"]
             rsi   = 100 - (100 / (1 + (
-                close.diff().clip(lower=0).rolling(self.RSI_PERIOD).mean() /
-                (-close.diff().clip(upper=0)).rolling(self.RSI_PERIOD).mean().replace(0, np.nan)
+                safe_div(
+                safe_rolling_mean(close.diff().clip(lower=0), self.RSI_PERIOD),
+                safe_rolling_mean((-close.diff().clip(upper=0)), self.RSI_PERIOD)
+            )
             )))
 
             # 피벗 로우 탐색 (최근 20개 캔들)

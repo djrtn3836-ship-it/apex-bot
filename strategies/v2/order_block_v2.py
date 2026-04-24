@@ -122,7 +122,7 @@ class OrderBlockStrategy2(BaseStrategy):
                     mid=(high[i] + low[i]) / 2,
                     candle_idx=i,
                     strength=min(strength, 1.0),
-                    impulse_atr=next_move / atr,
+                    impulse_atr=safe_div(next_move, atr),
                     volume_spike=vol_spike,
                     time_weight=time_w,
                 ))
@@ -135,7 +135,7 @@ class OrderBlockStrategy2(BaseStrategy):
                     mid=(high[i] + low[i]) / 2,
                     candle_idx=i,
                     strength=min(strength, 1.0),
-                    impulse_atr=next_move / atr,
+                    impulse_atr=safe_div(next_move, atr),
                     volume_spike=vol_spike,
                     time_weight=time_w,
                 ))
@@ -152,7 +152,7 @@ class OrderBlockStrategy2(BaseStrategy):
     ) -> Optional[Signal]:
         current_price = safe_last(df["close"])
         current_vol   = safe_last(df["volume"])
-        avg_vol       = float(df["volume"].rolling(20).mean().iloc[-1])
+        avg_vol       = safe_last(safe_rolling_mean(df["volume"], 20))
 
         for ob in obs:
             if ob.ob_type != "bullish":
@@ -217,6 +217,6 @@ class OrderBlockStrategy2(BaseStrategy):
             l = pd.Series(low)
             c = pd.Series(close)
             tr = pd.concat([h - l, (h - c.shift()).abs(), (l - c.shift()).abs()], axis=1).max(axis=1)
-            return float(tr.rolling(period).mean().iloc[-1])
+            return float(safe_last(safe_rolling_mean(tr, period)))
         except Exception as _e:
             return float(np.mean(high - low))

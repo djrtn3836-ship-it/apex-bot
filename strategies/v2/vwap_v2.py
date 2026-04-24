@@ -132,11 +132,11 @@ class VWAPReversionStrategy2(BaseStrategy):
             vol     = segment["volume"]
             cum_tpv = (typical * vol).cumsum()
             cum_vol = vol.cumsum()
-            vwap_series = cum_tpv / cum_vol.replace(0, np.nan)
+            vwap_series = safe_div(cum_tpv, cum_vol)
 
             # 표준편차 밴드
             dev = typical - vwap_series
-            std = float((dev ** 2 * vol).cumsum().iloc[-1] / cum_vol.iloc[-1]) ** 0.5
+            std = float(safe_div((dev ** 2 * vol).cumsum().iloc[-1], safe_last(cum_vol))) ** 0.5
 
             vwap_now = float(vwap_series.iloc[-1])
             anchor_price = float(df["close"].iloc[anchor_idx])
@@ -168,8 +168,8 @@ class VWAPReversionStrategy2(BaseStrategy):
     def _calc_rsi(self, close: pd.Series, period: int = 14) -> float:
         try:
             delta  = close.diff()
-            gain   = delta.where(delta > 0, 0.0).rolling(period).mean()
-            loss   = (-delta.where(delta < 0, 0.0)).rolling(period).mean()
+            gain   = safe_rolling_mean(delta.where(delta > 0, 0.0), period)
+            loss   = safe_rolling_mean((-delta.where(delta < 0, 0.0)), period)
             rs     = gain / loss.replace(0, np.nan)
             rsi    = 100 - (100 / (1 + rs))
             return float(rsi.iloc[-1])
@@ -201,7 +201,7 @@ class VWAPReversionStrategy2(BaseStrategy):
 
             # 거래량 감소 확인 (매도 소진)
             recent_vol  = float(df["volume"].iloc[-3:].mean())
-            avg_vol     = float(df["volume"].rolling(20).mean().iloc[-1])
+            avg_vol     = safe_last(safe_rolling_mean(df["volume"], 20))
             vol_declining = recent_vol < avg_vol * 0.8
 
             # VWAP까지 거리 (목표 수익률)

@@ -86,8 +86,8 @@ class ATRChannelStrategy2(BaseStrategy):
                 (high - close.shift()).abs(),
                 (low  - close.shift()).abs(),
             ], axis=1).max(axis=1)
-            atr = tr.rolling(self.ATR_PERIOD).mean()
-            ma  = close.rolling(self.CHANNEL_PERIOD).mean()
+            atr = safe_rolling_mean(tr, self.ATR_PERIOD)
+            ma  = safe_rolling_mean(close, self.CHANNEL_PERIOD)
 
             ch_high = float((ma + mult * atr).iloc[-1])
             ch_low  = float((ma - mult * atr).iloc[-1])
@@ -163,7 +163,7 @@ class ATRChannelStrategy2(BaseStrategy):
         if confidence < self.MIN_CONFIDENCE:
             return None
 
-        target = float(df["close"].rolling(self.CHANNEL_PERIOD).mean().iloc[-1])
+        target = safe_last(safe_rolling_mean(df["close"], self.CHANNEL_PERIOD))
         rr     = (target - close) / atr if atr > 0 else 0
 
         logger.info(

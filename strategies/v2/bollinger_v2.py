@@ -76,19 +76,19 @@ class BollingerSqueezeStrategy2(BaseStrategy):
             n      = len(df)
 
             # 볼린저 밴드
-            bb_ma  = close.rolling(self.BB_PERIOD).mean()
-            bb_std = close.rolling(self.BB_PERIOD).std()
+            bb_ma  = safe_rolling_mean(close, self.BB_PERIOD)
+            bb_std = safe_rolling_std(close, self.BB_PERIOD)
             bb_upper = bb_ma + self.BB_STD * bb_std
             bb_lower = bb_ma - self.BB_STD * bb_std
 
             # 켈트너 채널
-            kc_ma  = close.rolling(self.KC_PERIOD).mean()
+            kc_ma  = safe_rolling_mean(close, self.KC_PERIOD)
             tr     = pd.concat([
                 high - low,
                 (high - close.shift()).abs(),
                 (low  - close.shift()).abs(),
             ], axis=1).max(axis=1)
-            kc_atr   = tr.rolling(self.KC_PERIOD).mean()
+            kc_atr   = safe_rolling_mean(tr, self.KC_PERIOD)
             kc_upper = kc_ma + self.KC_ATR_MULT * kc_atr
             kc_lower = kc_ma - self.KC_ATR_MULT * kc_atr
 
@@ -122,7 +122,7 @@ class BollingerSqueezeStrategy2(BaseStrategy):
             seg_vol    = volume.iloc[squeeze_start:]
 
             range_size = (seg_high - seg_low).replace(0, 0.001)
-            delta = (seg_vol * (seg_close - seg_open) / range_size).sum()
+            delta = safe_div((seg_vol * (seg_close - seg_open), range_size)).sum()
 
             # 모멘텀 (폭발 방향)
             momentum = float(close.iloc[-1] - close.iloc[-4]) if n >= 4 else 0.0

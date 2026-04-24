@@ -120,7 +120,7 @@ class VolBreakoutStrategy2(BaseStrategy):
     ) -> Optional[Signal]:
         close  = safe_last(df["close"])
         volume = safe_last(df["volume"])
-        avg_vol = float(df["volume"].rolling(20).mean().iloc[-1])
+        avg_vol = safe_last(safe_rolling_mean(df["volume"], 20))
         vol_ratio = volume / avg_vol if avg_vol > 0 else 0
 
         # VAH 상향 돌파 확인
