@@ -34,12 +34,12 @@ class ATRChannelStrategy2(BaseStrategy):
 
     ATR_PERIOD           = 14
     CHANNEL_PERIOD       = 20
-    MIN_IMBALANCE        = 0.55   # 최소 매수 임밸런스 (55% 이상)
+    MIN_IMBALANCE        = 0.48   # 최소 매수 임밸런스 (55% 이상)
     BREAKOUT_CONFIRM_BARS = 2     # 돌파 확인 캔들 수
     MIN_CONFIDENCE       = 0.45
 
     def _default_params(self) -> dict:
-        return {"atr_period": 14, "channel_period": 20, "min_imbalance": 0.55, "min_confidence": 0.45}
+        return {"atr_period": 14, "channel_period": 20, "min_imbalance": 0.48, "min_confidence": 0.45}
 
     def __init__(self):
         super().__init__()
@@ -113,7 +113,7 @@ class ATRChannelStrategy2(BaseStrategy):
             spread = float(((recent["high"] - recent["low"]) / recent["close"]).mean())
             return OrderImbalance(bid_vol, ask_vol, imbalance, spread)
         except Exception:
-            return OrderImbalance(0, 0, 0.5, 0)
+            return OrderImbalance(0, 0, 0.52, 0)  # 데이터 없을 때 기본 통과
 
     def _evaluate(
         self,

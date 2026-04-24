@@ -20,6 +20,7 @@ class MACDState:
     fast: int
     slow: int
     sig: int
+    hist_list: list = None   # 최근 8봉 히스토그램 (골든크로스 탐색용)
 
 
 class MACDCrossStrategy2(BaseStrategy):
@@ -98,6 +99,7 @@ class MACDCrossStrategy2(BaseStrategy):
                 hist=h0,
                 hist_prev=h1,
                 hist_prev2=h2,
+                hist_list=[float(hist.iloc[-(k+1)]) for k in range(min(8, len(hist)))],
                 acceleration=accel,
                 fast=fast,
                 slow=slow,

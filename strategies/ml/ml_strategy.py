@@ -60,7 +60,7 @@ class MLEnsembleStrategy(BaseStrategy):
         if signal_type_str == "BUY":
             return Signal(
                 market=market,
-                signal_type=SignalType.BUY,
+                signal=SignalType.BUY,
                 strength=buy_prob,
                 confidence=confidence,
                 strategy_name=self.name,
@@ -77,7 +77,7 @@ class MLEnsembleStrategy(BaseStrategy):
         elif signal_type_str == "SELL":
             return Signal(
                 market=market,
-                signal_type=SignalType.SELL,
+                signal=SignalType.SELL,
                 strength=sell_prob,
                 confidence=confidence,
                 strategy_name=self.name,

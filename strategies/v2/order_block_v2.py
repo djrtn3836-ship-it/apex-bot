@@ -35,7 +35,7 @@ class OrderBlockStrategy2(BaseStrategy):
 
     # 파라미터
     IMPULSE_ATR_MULT   = 2.5   # 충격 이동 ATR 배수 기준
-    VOLUME_SPIKE_MULT  = 2.0   # 거래량 급증 배수 기준
+    VOLUME_SPIKE_MULT  = 1.5   # 거래량 급증 배수 기준
     MAX_TOUCH_COUNT    = 2     # 최대 터치 횟수 (3회부터 무효화)
     OB_ZONE_TOLERANCE  = 0.003 # OB 구간 인식 허용 오차 0.3%
     ENTRY_SPLIT        = True  # 분할 진입 여부
@@ -85,7 +85,10 @@ class OrderBlockStrategy2(BaseStrategy):
 
         for i in range(3, len(df) - 1):
             # 충격 이동 감지 (다음 캔들이 ATR * 배수 이상 이동)
-            next_move = abs(close[i+1] - close[i]) if i+1 < len(df) else 0
+            # 현재 봉 자체 이동폭 (고가-저가) + 전봉 대비 변화폭 중 큰 값
+            body_move = abs(close[i] - open_[i]) if 'open_' in dir() else abs(high[i] - low[i])
+            gap_move  = abs(close[i] - close[i-1]) if i > 0 else 0
+            next_move = max(body_move, gap_move)
             if next_move < atr * self.IMPULSE_ATR_MULT:
                 continue
 
@@ -97,9 +100,21 @@ class OrderBlockStrategy2(BaseStrategy):
             # 시간대 가중치
             time_w = 2.0 if (ctx.is_korean_session or ctx.is_us_session) else 1.0
 
-            # 강세 OB: 하락 캔들 후 급등
-            if close[i] < df["open"].values[i] and close[i+1] > high[i]:
-                strength = min(vol_spike / 3.0, 1.0) * time_w * 0.5
+            # 강세 OB: 임펄스 봉 후 상승 이탈 (음봉/양봉 무관)
+            # 조건: 다음 봉이 현재 봉 고가의 99% 이상 또는 전체 이동이 상승
+            next_close = close[i+1] if i+1 < len(close) else close[i]
+            next_high  = high[i+1]  if i+1 < len(high)  else high[i]
+            is_bullish_impulse = (
+                next_close > close[i] * 1.005  # 다음봉 0.5% 이상 상승
+                or next_high > high[i]           # 또는 다음봉 고가 초과
+            )
+            is_bearish_impulse = (
+                next_close < close[i] * 0.995   # 다음봉 0.5% 이상 하락
+                or (close[i+1] if i+1 < len(close) else close[i]) < low[i]
+            )
+
+            if is_bullish_impulse:
+                strength = min(vol_spike / 2.5, 1.0) * time_w * 0.5
                 obs.append(OrderBlock(
                     ob_type="bullish",
                     high=high[i],
@@ -111,10 +126,8 @@ class OrderBlockStrategy2(BaseStrategy):
                     volume_spike=vol_spike,
                     time_weight=time_w,
                 ))
-
-            # 약세 OB: 상승 캔들 후 급락
-            elif close[i] > df["open"].values[i] and close[i+1] < low[i]:
-                strength = min(vol_spike / 3.0, 1.0) * time_w * 0.5
+            elif is_bearish_impulse:
+                strength = min(vol_spike / 2.5, 1.0) * time_w * 0.5
                 obs.append(OrderBlock(
                     ob_type="bearish",
                     high=high[i],

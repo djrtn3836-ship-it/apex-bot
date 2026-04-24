@@ -31,7 +31,7 @@ class RSIDivergenceStrategy2(BaseStrategy):
 
     RSI_PERIOD       = 14
     LOOKBACK_PIVOTS  = 20    # 피벗 탐색 기간
-    MIN_SCORE        = 2     # 최소 TF 합의 수
+    MIN_SCORE        = 1     # 최소 TF 합의 수
     MIN_CONFIDENCE   = 0.45
 
     def _default_params(self) -> dict:

@@ -37,7 +37,7 @@ class BollingerSqueezeStrategy2(BaseStrategy):
     KC_ATR_MULT   = 1.5
     # 진입 조건
     MAX_BARS_AFTER_BREAK = 3      # 폭발 후 최대 진입 가능 캔들
-    MIN_SQUEEZE_BARS     = 5      # 최소 압축 지속 캔들
+    MIN_SQUEEZE_BARS     = 3      # 최소 압축 지속 캔들
     MIN_DELTA_FLOW       = 0.0    # 최소 델타 오더플로우
     MIN_CONFIDENCE       = 0.45
 
