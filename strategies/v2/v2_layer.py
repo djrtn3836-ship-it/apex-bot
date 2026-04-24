@@ -28,7 +28,7 @@ class V2EnsembleLayer:
             import pytz
             hour = datetime.now(pytz.timezone("Asia/Seoul")).hour
             return is_strategy_active(strategy_name, hour)
-        except Exception:
+        except Exception as _e:
             return True
 
     def _get_boost(self, strategy_name: str) -> float:
@@ -37,7 +37,7 @@ class V2EnsembleLayer:
             from config.strategy_config_loader import get_boost
             hour = datetime.now(pytz.timezone("Asia/Seoul")).hour
             return get_boost(strategy_name, hour)
-        except Exception:
+        except Exception as _e:
             return 1.0
 
     def check(
