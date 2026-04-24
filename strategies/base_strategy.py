@@ -188,3 +188,15 @@ class BaseStrategy(ABC):
                 timeframe: str = "60") -> Optional[StrategySignal]:
         """: generate_signal()"""
         return self.generate_signal(df, market, timeframe)
+
+
+def safe_float(value, default: float = 0.0) -> float:
+    """NaN/inf 방어 float 변환 — v2 전략 전용"""
+    import math
+    try:
+        v = float(value)
+        if math.isnan(v) or math.isinf(v):
+            return default
+        return v
+    except (TypeError, ValueError):
+        return default

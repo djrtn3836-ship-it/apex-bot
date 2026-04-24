@@ -5,7 +5,7 @@ from dataclasses import dataclass
 from typing import Optional, Tuple
 from loguru import logger
 from datetime import datetime
-from strategies.base_strategy import BaseStrategy, Signal, SignalType
+from strategies.base_strategy import BaseStrategy, Signal, SignalType, safe_float, safe_last
 from strategies.v2.context.market_context import MarketContextEngine, MarketContext
 
 
@@ -160,9 +160,9 @@ class MACDCrossStrategy2(BaseStrategy):
             strategy_name=self.NAME,
             market         = market,
             score          = confidence * 2.0 - 1.0,
-            entry_price    = float(df["close"].iloc[-1]),
-            stop_loss      = float(df["close"].iloc[-1]) * 0.978,
-            take_profit    = float(df["close"].iloc[-1]) * 1.025,
+            entry_price    = safe_last(df["close"]),
+            stop_loss      = safe_last(df["close"]) * 0.978,
+            take_profit    = safe_last(df["close"]) * 1.044,
             reason         = f"{self.NAME} v2 신호",
             timeframe      = "1h",
             timestamp      = datetime.now(),

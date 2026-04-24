@@ -5,7 +5,7 @@ from dataclasses import dataclass
 from typing import Optional, Tuple
 from loguru import logger
 from datetime import datetime
-from strategies.base_strategy import BaseStrategy, Signal, SignalType
+from strategies.base_strategy import BaseStrategy, Signal, SignalType, safe_float, safe_last
 from strategies.v2.context.market_context import MarketContextEngine, MarketContext
 
 
@@ -127,7 +127,7 @@ class ATRChannelStrategy2(BaseStrategy):
         market: str,
         mult: float,
     ) -> Optional[Signal]:
-        close = float(df["close"].iloc[-1])
+        close = safe_last(df["close"])
 
         # 채널 하단 터치 후 반등 (평균 회귀)
         near_low = abs(close - ch_low) / ch_low < 0.008
@@ -180,9 +180,9 @@ class ATRChannelStrategy2(BaseStrategy):
             strategy_name=self.NAME,
             market         = market,
             score          = confidence * 2.0 - 1.0,
-            entry_price    = float(df["close"].iloc[-1]),
-            stop_loss      = float(df["close"].iloc[-1]) * 0.978,
-            take_profit    = float(df["close"].iloc[-1]) * 1.025,
+            entry_price    = safe_last(df["close"]),
+            stop_loss      = safe_last(df["close"]) * 0.975,
+            take_profit    = safe_last(df["close"]) * 1.05,
             reason         = f"{self.NAME} v2 신호",
             timeframe      = "1h",
             timestamp      = datetime.now(),

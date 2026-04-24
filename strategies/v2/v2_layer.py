@@ -18,6 +18,7 @@ class V2EnsembleLayer:
         self._ensemble    = EnsembleEngine(db_path)
         self._ctx_engine  = MarketContextEngine()
         self._enabled     = True
+        self._weights  = {}  # 동적 가중치 캐시
         logger.info("[V2Layer] 앙상블 브릿지 레이어 초기화 완료")
 
     def _time_filter_pass(self, strategy_name: str) -> bool:

@@ -211,7 +211,7 @@ class EnsembleEngine:
             for name, strategy in self._strategies.items():
                 try:
                     sig = strategy.generate_signal(df, market)
-                    if sig is not None and sig.signal_type == SignalType.BUY:
+                    if sig is not None and sig.signal == SignalType.BUY:
                         signals[name] = sig
                 except Exception as e:
                     logger.warning(f"[Ensemble] {name} 신호 오류: {e}")

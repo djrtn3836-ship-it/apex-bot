@@ -5,7 +5,7 @@ from dataclasses import dataclass
 from typing import Optional, Tuple
 from loguru import logger
 from datetime import datetime
-from strategies.base_strategy import BaseStrategy, Signal, SignalType
+from strategies.base_strategy import BaseStrategy, Signal, SignalType, safe_float, safe_last
 from strategies.v2.context.market_context import MarketContextEngine, MarketContext
 
 
@@ -119,8 +119,8 @@ class VolBreakoutStrategy2(BaseStrategy):
         ctx: MarketContext,
         market: str,
     ) -> Optional[Signal]:
-        close  = float(df["close"].iloc[-1])
-        volume = float(df["volume"].iloc[-1])
+        close  = safe_last(df["close"])
+        volume = safe_last(df["volume"])
         avg_vol = float(df["volume"].rolling(20).mean().iloc[-1])
         vol_ratio = volume / avg_vol if avg_vol > 0 else 0
 
@@ -172,9 +172,9 @@ class VolBreakoutStrategy2(BaseStrategy):
             strategy_name=self.NAME,
             market         = market,
             score          = confidence * 2.0 - 1.0,
-            entry_price    = float(df["close"].iloc[-1]),
-            stop_loss      = float(df["close"].iloc[-1]) * 0.978,
-            take_profit    = float(df["close"].iloc[-1]) * 1.025,
+            entry_price    = safe_last(df["close"]),
+            stop_loss      = safe_last(df["close"]) * 0.97,
+            take_profit    = safe_last(df["close"]) * 1.06,
             reason         = f"{self.NAME} v2 신호",
             timeframe      = "1h",
             timestamp      = datetime.now(),
