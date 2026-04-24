@@ -14,12 +14,18 @@
     "atr_stop_multiplier": 2.2,
     "time_filter_enabled": true,
     "ensemble_min_signals": 1,
-    "ensemble_entry_threshold": 0.52
+    "ensemble_entry_threshold": 0.52,
+    "blocked_hours": [
+      0,
+      1,
+      2,
+      3
+    ]
   },
   "strategies": {
     "Order_Block": {
       "is_active": true,
-      "boost": 1.8,
+      "boost": 2.0,
       "min_confidence": 0.48,
       "params": {
         "impulse_atr_mult": 2.2,
@@ -205,8 +211,8 @@
     },
     "VWAP_Reversion": {
       "is_active": true,
-      "boost": 0.9,
-      "min_confidence": 0.6,
+      "boost": 0.5,
+      "min_confidence": 0.7,
       "params": {
         "anchor_lookback": 30,
         "vol_spike_mult": 2.5,
@@ -259,7 +265,7 @@
     },
     "Vol_Breakout": {
       "is_active": true,
-      "boost": 0.5,
+      "boost": 0.3,
       "min_confidence": 0.72,
       "params": {
         "vp_lookback": 20,
@@ -282,7 +288,8 @@
         ],
         "comment": "06-12시만 허용 / 67pct WR"
       },
-      "rationale": "12회 33.3pct WR / 극고임계값+시간필터"
+      "rationale": "12회 33.3pct WR / 극고임계값+시간필터",
+      "max_position_pct": 0.03
     }
   },
   "ensemble": {
