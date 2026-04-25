@@ -53,7 +53,7 @@ class OrderBlockStrategy2(BaseStrategy):
         try:
             if not self._enabled:
                 return None
-            if len(df) < 50:
+            if df is None or len(df) < 50:
                 return None
 
             ctx = self._context_engine.analyze(df, market)
