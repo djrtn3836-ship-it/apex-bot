@@ -876,12 +876,6 @@ class EngineBuyMixin:
 
     async def _execute_buy(self, market: str, signal: CombinedSignal, df):
         _max_pos = self.settings.trading.max_positions
-        # [중복제거됨]
-        # _cd_last = self._sell_cooldown.get(market)
-        # if (_cd_last is not None and
-        # (datetime.now() - _cd_last).total_seconds() < 1200):
-        # _cd_remain = 1200 - (datetime.now() - _cd_last).total_seconds()
-        # logger.info(f'[COOLDOWN] {market}: 매도 후 {_cd_remain:.0f}초 남음 → BUY 차단')
         _cd_last = self._sell_cooldown.get(market)
         if (_cd_last is not None and
                 (datetime.now() - _cd_last).total_seconds() < 1200):
