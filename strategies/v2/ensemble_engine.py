@@ -50,45 +50,65 @@ class EnsembleEngine:
     """
 
     # 기본 가중치 (config/optimized_params.json 우선, 없으면 아래 기본값)
+    BASE_WEIGHTS: Dict[str, float] = {
+        "MACD_Cross":        1.2,
+        "RSI_Divergence":    1.7,
+        "Bollinger_Squeeze": 1.6,
+        "ATR_Channel":       1.5,
+        "OrderBlock_SMC":    2.0,
+        "VolBreakout":       0.3,
+        "Supertrend":        0.8,
+        "VWAP_Reversion":    0.5,
+    }
+
+    REFERENCE_WR:     float = 0.55
+    MIN_SIGNALS_NEEDED: int  = 2
+    ENTRY_THRESHOLD:  float = 0.55
+
     @staticmethod
     def _load_base_weights() -> dict:
+        """config/optimized_params.json 에서 전략별 boost 반환"""
         try:
-            import sys, pathlib as _pl
-            sys.path.insert(0, str(_pl.Path(__file__).parent.parent.parent))
-            try:
-                _cfg_w2 = __import__('json').loads(
-                    __import__('pathlib').Path('config/optimized_params.json')
-                    .read_text(encoding='utf-8'))
-                _strats = _cfg_w2.get('strategies', {})
-                for _k, _v in _strats.items():
-                    if _k in self.BASE_WEIGHTS:
-                        self.BASE_WEIGHTS[_k] = _v.get('boost', 1.0)
-                __import__('loguru').logger.info(
-                    f'[Ensemble] config boost {len(_strats)}개 적용')
-            except Exception as _cw_e:
-                __import__('loguru').logger.warning(
-                    f'[Ensemble] config 로드 실패(기본값): {_cw_e}')
-     weights = {}
-            _KEY_MAP = {
-                "Order_Block":       "OrderBlock_SMC",
-                "Bollinger_Squeeze": "Bollinger_Squeeze",
-                "RSI_Divergence":    "RSI_Divergence",
-                "MACD_Cross":        "MACD_Cross",
-                "ATR_Channel":       "ATR_Channel",
-                "VWAP_Reversion":    "VWAP_Reversion",
-                "Supertrend":        "Supertrend",
-                "Vol_Breakout":      "VolBreakout",
+            import json as _j, pathlib as _pl
+            _cfg = _j.loads(_pl.Path('config/optimized_params.json')
+                            .read_text(encoding='utf-8'))
+            _strats = _cfg.get('strategies', {})
+            _MAP = {
+                'Order_Block':       'OrderBlock_SMC',
+                'Bollinger_Squeeze': 'Bollinger_Squeeze',
+                'RSI_Divergence':    'RSI_Divergence',
+                'MACD_Cross':        'MACD_Cross',
+                'ATR_Channel':       'ATR_Channel',
+                'VWAP_Reversion':    'VWAP_Reversion',
+                'Supertrend':        'Supertrend',
+                'Vol_Breakout':      'VolBreakout',
             }
-            for cfg_k, eng_k in _KEY_MAP.items():
-                if cfg_k in _cfg_w and eng_k in self.BASE_WEIGHTS:
-                    self.BASE_WEIGHTS[eng_k] = _cfg_w[cfg_k]
-            logger.info(f'[Ensemble] config 가중치 {len(_cfg_w)}개 적용 완료')
-        except Exception as _cw_e:
-            logger.warning(f'[Ensemble] config 가중치 로드 실패(기본값): {_cw_e}')
+            return {eng_k: _strats[cfg_k].get('boost', 1.0)
+                    for cfg_k, eng_k in _MAP.items()
+                    if cfg_k in _strats}
+        except Exception as _e:
+            return {}
+
+    def __init__(self):
+        # config boost 값 반영
+        _cfg_boosts = self._load_base_weights()
+        self.BASE_WEIGHTS = {**self.BASE_WEIGHTS, **_cfg_boosts}
+        if _cfg_boosts:
+            logger.info(f'[Ensemble] config boost {len(_cfg_boosts)}개 적용')
+        else:
+            logger.warning('[Ensemble] config 로드 실패 — 기본 가중치 사용')
+        # 필수 속성 초기화
+        self._db_path = 'database/apex_bot.db'
+        try:
+            from core.market_context import MarketContextEngine
+            self._context_engine = MarketContextEngine()
+        except Exception:
+            self._context_engine = None
         self._weights: Dict[str, StrategyWeight] = {}
         self._strategies: Dict[str, BaseStrategy] = {}
         self._init_strategies()
         self._load_recent_performance()
+
 
     def _init_strategies(self):
         self._strategies = {
