@@ -189,7 +189,6 @@ class EngineCycleMixin:
             _lg.getLogger("engine_cycle").debug(f"[WARN] engine_cycle 오류 무시: {_e}")
             pass
 
-        # [REMOVED] _update_dashboard_state — krw/total_value 미정의 제거
     # ── 시간기반 강제청산 ────────────────────────────────────────
 
     async def _check_time_based_exits(self) -> None:
@@ -480,22 +479,22 @@ class EngineCycleMixin:
                     logger.debug(f"ATR     ({market}): {_atr_e}")
 
 
-            # [FIX] 최소 보유 30분 - 매수 직후 손절 방지
+            # 최소 보유 30분 - 매수 직후 손절 방지
             _pos_et = getattr(pos, "entry_time", None) or getattr(pos, "created_at", None)
             _held_min = 0
-            import datetime as _dt_hold  # [FIX] _dt_hold import
+            import datetime as _dt_hold  # _dt_hold import
             if _pos_et:
                 try:
                     if isinstance(_pos_et, str):
                         _et = _dt_hold.datetime.fromisoformat(_pos_et)
                     elif isinstance(_pos_et, (int, float)):
-                        _et = _dt_hold.datetime.fromtimestamp(_pos_et)  # [FIX] float Unix timestamp 처리
+                        _et = _dt_hold.datetime.fromtimestamp(_pos_et)  # float Unix timestamp 처리
                     else:
                         _et = _pos_et
                     _held_min = (_dt_hold.datetime.now() - _et).total_seconds() / 60
                 except Exception:
                     _held_min = 999
-            if _held_min < 10 and pnl_pct > -2.0:  # [FIX] 30→10분으로 완화
+            if _held_min < 10 and pnl_pct > -2.0:  # 30→10분으로 완화
                 logger.debug(f"  ({market}): 최소보유 미달 {_held_min:.1f}min < 10min, SELL 차단")
             elif (
                 (signal == "SELL" and confidence >= 0.65 and pnl_pct >= 0.5) or   # ML익절 최소 +0.5%
@@ -503,7 +502,7 @@ class EngineCycleMixin:
                 (confidence >= 0.65 and pnl_pct >= 1.5) or                        # 강한 수익 익절
                 (confidence >= 0.65 and pnl_pct <= -1.5) or                       # [FIX-RR] -2.0 → -1.5
                 (pnl_pct >= 3.0) or                                                # 3% 무조건 익절
-                (pnl_pct <= -2.5 and (confidence >= 0.50 or _held_min >= 720)) or # [FIX] 12h+ 보유시 confidence 완화
+                (pnl_pct <= -2.5 and (confidence >= 0.50 or _held_min >= 720)) or # 12h+ 보유시 confidence 완화
                 (pnl_pct >= self._time_based_tp_threshold(market))                 # 시간 기반 익절
             ):
                 logger.info(
@@ -531,7 +530,7 @@ class EngineCycleMixin:
             if not params:
                 logger.info("Walk-Forward 파라미터 없음 → 기본값 유지")
                 return
-            # [FIX] load_optimized_params가 전체 dict를 반환할 경우 strategies 키 파싱
+            # load_optimized_params가 전체 dict를 반환할 경우 strategies 키 파싱
             if "strategies" in params:
                 params = params["strategies"]
             applied = 0
