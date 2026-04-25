@@ -189,7 +189,7 @@ class EngineCycleMixin:
             _lg.getLogger("engine_cycle").debug(f"[WARN] engine_cycle 오류 무시: {_e}")
             pass
 
-        await self._update_dashboard_state(krw, total_value)
+        # [REMOVED] _update_dashboard_state — krw/total_value 미정의 제거
     # ── 시간기반 강제청산 ────────────────────────────────────────
 
     async def _check_time_based_exits(self) -> None:
