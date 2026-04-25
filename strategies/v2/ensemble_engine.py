@@ -190,12 +190,12 @@ class EnsembleEngine:
                     position_size_mult=1.0,
                     signals_fired=[],
                     dominant_strategy="",
-                    regime=ctx.regime,
+                    regime=getattr(ctx, 'regime', 'RANGING'),
                     reasoning=f"신호 부족 ({len(signals)}/{self.MIN_SIGNALS_NEEDED})",
                 )
 
             # 동적 가중치 합산
-            regime_boosts = self.REGIME_BOOSTS.get(ctx.regime, {})
+            regime_boosts = self.REGIME_BOOSTS.get(getattr(ctx, 'regime', 'RANGING'), {})
             total_score   = 0.0
             total_weight  = 0.0
             best_name     = ""
@@ -227,7 +227,7 @@ class EnsembleEngine:
             should_enter = normalized >= self.ENTRY_THRESHOLD
 
             reasoning = (
-                f"레짐={ctx.regime} | "
+                f"레짐={getattr(ctx, 'regime', 'RANGING')} | "
                 f"신호={len(signals)}개 | "
                 f"점수={normalized:.3f} | "
                 f"주도전략={best_name}"
@@ -250,7 +250,7 @@ class EnsembleEngine:
                 position_size_mult=size_mult,
                 signals_fired=list(signals.keys()),
                 dominant_strategy=best_name,
-                regime=ctx.regime,
+                regime=getattr(ctx, 'regime', 'RANGING'),
                 reasoning=reasoning,
             )
 
