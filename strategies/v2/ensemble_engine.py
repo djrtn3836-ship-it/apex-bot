@@ -98,7 +98,7 @@ class EnsembleEngine:
         except Exception as _e:
             return {}
 
-    def __init__(self):
+    def __init__(self, settings=None):
         # config boost 값 반영
         _cfg_boosts = self._load_base_weights()
         self.BASE_WEIGHTS = {**self.BASE_WEIGHTS, **_cfg_boosts}
