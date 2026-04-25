@@ -56,7 +56,8 @@ class MACDCrossStrategy2(BaseStrategy):
             if len(df) < 50:
                 return None
 
-            ctx    = self._context_engine.analyze(df, market)
+            ctx    = (self._context_engine.analyze(df, market)
+                      if self._context_engine is not None else None)
             params = self._select_params(ctx)
             state  = self._calc_macd(df, params["fast"], params["slow"], params["sig"])
 

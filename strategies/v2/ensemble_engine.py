@@ -65,6 +65,15 @@ class EnsembleEngine:
     MIN_SIGNALS_NEEDED: int  = 2
     ENTRY_THRESHOLD:  float = 0.55
 
+    # 레짐별 전략 부스트 (RANGING/TRENDING/VOLATILE)
+    REGIME_BOOSTS: Dict[str, Dict[str, float]] = {
+        "RANGING":   {"VWAP_Reversion": 1.3, "Bollinger_Squeeze": 1.2, "RSI_Divergence": 1.1},
+        "TRENDING":  {"Supertrend": 1.4, "MACD_Cross": 1.3, "ATR_Channel": 1.2},
+        "VOLATILE":  {"VolBreakout": 1.5, "OrderBlock_SMC": 1.3, "ATR_Channel": 1.2},
+        "BEARISH":   {"RSI_Divergence": 1.2, "VWAP_Reversion": 1.1},
+        "BULLISH":   {"MACD_Cross": 1.3, "Supertrend": 1.2, "OrderBlock_SMC": 1.1},
+    }
+
     @staticmethod
     def _load_base_weights() -> dict:
         """config/optimized_params.json 에서 전략별 boost 반환"""
