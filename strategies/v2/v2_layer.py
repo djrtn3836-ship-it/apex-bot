@@ -47,7 +47,7 @@ class V2EnsembleLayer:
         self,
         df: "pd.DataFrame",
         market: str,
-        v1_confidence: float,
+        v1_confidence: float = 0.0,
     ) -> "tuple[bool, float, float]":
         """
         v1 신호와 v2 앙상블 신호를 결합해 최종 진입 여부 반환
