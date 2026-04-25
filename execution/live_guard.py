@@ -37,9 +37,9 @@ class LiveGuard:
         self.cfg = config or LiveGuardConfig()
         self._emergency_stop = False
         logger.info(" LiveGuard ")
+        self.__post_init_rt()  # config 연동 실시간 안전장치 초기화
 
     # ── 실전 전환 적합성 검증 ────────────────────────────
-        self.__post_init_rt()
     def check_readiness(self, stats: Dict) -> LiveGuardReport:
         """stats :
           { "win_rate": 0.55, "sharpe": 0.8, "mdd": -0.07,
