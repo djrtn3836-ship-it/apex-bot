@@ -417,5 +417,6 @@
     "consec_loss_limit": 5,
     "consec_loss_cooldown_hours": 4,
     "min_loss_threshold": -0.005
-  }
+  },
+  "max_positions": 5
 }

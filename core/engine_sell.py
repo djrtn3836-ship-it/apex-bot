@@ -349,6 +349,10 @@ class EngineSellMixin:
             try:
                 if hasattr(self, 'live_guard') and self.live_guard is not None:
                     await self.live_guard.on_trade_result(profit_rate, market)
+                    # [LiveGuard] 조건C: 일일 손실 누적 업데이트
+                    if profit_rate < 0:
+                        _prev = getattr(self.live_guard, '_today_loss_pct', 0.0)
+                        self.live_guard._today_loss_pct = _prev + profit_rate
             except Exception as _lg_e:
                 logger.debug(f"[LiveGuard] on_trade_result 호출 실패: {_lg_e}")
             log_trade(
