@@ -412,5 +412,9 @@
     "single_trade_max_pct": 0.12,
     "vol_breakout_max_pct": 0.05,
     "position_size_floor": 0.05
+  },
+  "live_guard": {
+    "consec_loss_limit": 5,
+    "consec_loss_cooldown_hours": 4
   }
 }
