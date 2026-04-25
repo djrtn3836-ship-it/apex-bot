@@ -55,77 +55,20 @@ class EnsembleEngine:
         try:
             import sys, pathlib as _pl
             sys.path.insert(0, str(_pl.Path(__file__).parent.parent.parent))
-            from config.strategy_config_loader import get_ensemble_weights
-            w = get_ensemble_weights()
-            # config 키(Order_Block 등) → 내부 키(OrderBlock_SMC 등) 매핑
-            _map = {
-                "Order_Block":       "OrderBlock_SMC",
-                "Bollinger_Squeeze": "Bollinger_Squeeze",
-                "RSI_Divergence":    "RSI_Divergence",
-                "MACD_Cross":        "MACD_Cross",
-                "ATR_Channel":       "ATR_Channel",
-                "VWAP_Reversion":    "VWAP_Reversion",
-                "Supertrend":        "Supertrend",
-                "Vol_Breakout":      "VolBreakout",
-            }
-            mapped = {}
-            for cfg_k, eng_k in _map.items():
-                if cfg_k in w:
-                    mapped[eng_k] = w[cfg_k]
-            if mapped:
-                logger.info(f"[Ensemble] config 가중치 {len(mapped)}개 로드 완료")
-                return mapped
-        except Exception as e:
-            logger.warning(f"[Ensemble] config 가중치 로드 실패(기본값 사용): {e}")
-        return {}
-
-    BASE_WEIGHTS = {
-        "MACD_Cross":       1.0,
-        "RSI_Divergence":   1.5,
-        "Bollinger_Squeeze":1.0,
-        "ATR_Channel":      1.5,
-        "OrderBlock_SMC":   1.2,
-        "VolBreakout":      1.0,
-        "Supertrend":       0.8,
-        "VWAP_Reversion":   0.9,
-    }
-
-    # 레짐별 전략 우선순위 보정
-    REGIME_BOOSTS = {
-        "TRENDING_UP": {
-            "MACD_Cross": 0.3,
-            "Supertrend": 0.4,
-            "VolBreakout": 0.2,
-        },
-        "TRENDING_DOWN": {
-            "ATR_Channel": 0.2,
-        },
-        "RANGING": {
-            "VWAP_Reversion":   0.4,
-            "Bollinger_Squeeze":0.3,
-            "RSI_Divergence":   0.2,
-        },
-        "VOLATILE": {
-            "ATR_Channel":      0.3,
-            "OrderBlock_SMC":   0.2,
-            "Bollinger_Squeeze":0.2,
-        },
-    }
-
-    # 진입 임계값
-    ENTRY_THRESHOLD     = 0.55   # 이 점수 이상이면 진입
-    MIN_SIGNALS_NEEDED  = 2      # 최소 신호 개수
-    REFERENCE_WR        = 0.60   # 동적 가중치 기준 승률
-
-    def __init__(self, db_path: str = "database/apex_bot.db"):
-        self._db_path        = db_path
-        self._lock = threading.Lock()  # 스레드 안전성
-        self._context_engine = MarketContextEngine()
-        # config/optimized_params.json 가중치 적용
-        try:
-            import sys as _sys, pathlib as _pl
-            _sys.path.insert(0, str(_pl.Path(__file__).parent.parent.parent))
-            _cfg_w = get_ensemble_weights()
+            try:
+                _cfg_w2 = __import__('json').loads(
+                    __import__('pathlib').Path('config/optimized_params.json')
+                    .read_text(encoding='utf-8'))
+                _strats = _cfg_w2.get('strategies', {})
+                for _k, _v in _strats.items():
+                    if _k in self.BASE_WEIGHTS:
+                        self.BASE_WEIGHTS[_k] = _v.get('boost', 1.0)
+                __import__('loguru').logger.info(
+                    f'[Ensemble] config boost {len(_strats)}개 적용')
+            except Exception as _cw_e:
+                __import__('loguru').logger.warning(
+                    f'[Ensemble] config 로드 실패(기본값): {_cw_e}')
+     weights = {}
             _KEY_MAP = {
                 "Order_Block":       "OrderBlock_SMC",
                 "Bollinger_Squeeze": "Bollinger_Squeeze",

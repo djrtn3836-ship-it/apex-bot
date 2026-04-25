@@ -20,3 +20,8 @@ fix4_only.py
 # 모델 파일 (대용량 - git 제외)
 models/saved/*.pt
 models/saved/*.pt.tmp
+# 자동추가 — 바이너리/임시파일
+*.zip
+proc_watch.log
+run_autotrainer.py
+run_retrain_now.py
