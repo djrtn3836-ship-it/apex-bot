@@ -131,36 +131,80 @@ class LiveGuard:
 
     def __post_init_rt(self):
         """실시간 안전장치 초기화 — __init__ 호출 후 수동 실행 필요"""
+        # config/optimized_params.json 값 우선 적용
+        try:
+            import json as _json
+            _cfg = _json.loads(pathlib.Path("config/optimized_params.json").read_text(encoding="utf-8"))
+            _lg = _cfg.get("live_guard", {})
+            self.CONSEC_LOSS_LIMIT = int(_lg.get("consec_loss_limit", 5))
+            self.CONSEC_COOLDOWN_H = int(_lg.get("consec_loss_cooldown_hours", 4))
+            self.MIN_LOSS_THRESHOLD = float(_lg.get("min_loss_threshold", -0.005))
+            logger.info(f"[LiveGuard] config 로드: 차단기준={self.CONSEC_LOSS_LIMIT}회, 쿨다운={self.CONSEC_COOLDOWN_H}h, 최소손실={self.MIN_LOSS_THRESHOLD:.1%}")
+        except Exception as _e:
+            logger.warning(f"[LiveGuard] config 로드 실패, 기본값 사용: {_e}")
+            self.CONSEC_LOSS_LIMIT = 5
+            self.CONSEC_COOLDOWN_H = 4
+            self.MIN_LOSS_THRESHOLD = -0.005
         self._consec_loss     = 0
         self._rt_blocked      = False
         self._rt_block_reason = ""
         self._rt_block_until  = None
+        self._loss_history    = []  # (timestamp, profit_rate, market) 슬라이딩 윈도우용
 
     async def on_trade_result(self, profit_rate: float, market: str = ""):
-        """매도 완료 시 호출 — 연속 손실 추적"""
-        if not hasattr(self, '_consec_loss'):
-            self._consec_loss = 0
-            self._rt_blocked  = False
-            self._rt_block_reason = ""
-            self._rt_block_until  = None
+        """매도 완료 시 호출 — 3중 AND 조건 슬라이딩 윈도우"""
+        from datetime import timedelta
+        if not hasattr(self, "_loss_history"):
+            self.__post_init_rt()
 
-        if profit_rate < 0:
-            self._consec_loss += 1
-            logger.info(f"[LiveGuard] 📉 연속 손실 {self._consec_loss}회 ({market} {profit_rate*100:+.2f}%)")
-            if self._consec_loss == 2:
-                await self._send_telegram(
-                    f"⚠️ [LiveGuard] 연속 손실 2회 경고\n다음 손실 시 {self.CONSEC_COOLDOWN_H}시간 거래 차단됩니다."
-                )
-            if self._consec_loss >= self.CONSEC_LOSS_LIMIT:
-                from datetime import timedelta
-                self._rt_blocked      = True
-                self._rt_block_reason = f"연속 손실 {self._consec_loss}회"
-                self._rt_block_until  = datetime.now() + timedelta(hours=self.CONSEC_COOLDOWN_H)
-                logger.warning(f"[LiveGuard] 🔴 연속 손실 {self._consec_loss}회 — {self.CONSEC_COOLDOWN_H}시간 매수 차단")
-        else:
-            if hasattr(self, '_consec_loss') and self._consec_loss > 0:
-                logger.info(f"[LiveGuard] ✅ 수익 달성 — 연속 손실 초기화")
+        now = datetime.now()
+
+        if profit_rate >= 0:
+            # 수익 시 연속 손실 카운터 즉시 리셋 (청산 경로 무관)
+            if self._consec_loss > 0:
+                logger.info(f"[LiveGuard] ✅ 수익 달성({market} {profit_rate*100:+.2f}%) — 연속 손실 초기화")
             self._consec_loss = 0
+            self._loss_history = []  # 슬라이딩 윈도우도 초기화
+            return
+
+        # ── 조건 B: 최소 손실 임계값 (-0.5% 미만만 카운트) ──
+        min_thresh = getattr(self, "MIN_LOSS_THRESHOLD", -0.005)
+        if profit_rate > min_thresh:
+            logger.info(f"[LiveGuard] ℹ️ 소액 손실 무시 ({market} {profit_rate*100:+.2f}% > {min_thresh:.1%})")
+            return
+
+        # 손실 이력 기록 (최근 6거래만 유지)
+        self._loss_history.append((now, profit_rate, market))
+        self._loss_history = self._loss_history[-6:]
+
+        self._consec_loss += 1
+        logger.info(f"[LiveGuard] 📉 유효 손실 {self._consec_loss}회 ({market} {profit_rate*100:+.2f}%)")
+
+        # ── 경고 알림 ──
+        if self._consec_loss == getattr(self, "CONSEC_LOSS_LIMIT", 5) - 1:
+            await self._send_telegram(
+                f"⚠️ [LiveGuard] 유효 손실 {self._consec_loss}회 경고\n"
+                f"다음 손실 시 {getattr(self, 'CONSEC_COOLDOWN_H', 4)}시간 거래 차단됩니다."
+            )
+
+        # ── 3중 AND 조건 차단 판단 ──
+        loss_limit = getattr(self, "CONSEC_LOSS_LIMIT", 5)
+        cond_a = self._consec_loss >= loss_limit  # 조건A: 유효 손실 N회
+        # 조건C: 오늘 누적 손실 -2% 초과 (daily_loss는 engine에서 추적)
+        cond_c = getattr(self, "_today_loss_pct", 0.0) < -0.02
+        if cond_a and cond_c:
+            self._rt_blocked      = True
+            self._rt_block_reason = f"유효 손실 {self._consec_loss}회 + 일일손실 {getattr(self, '_today_loss_pct', 0)*100:.1f}%"
+            self._rt_block_until  = now + timedelta(hours=getattr(self, "CONSEC_COOLDOWN_H", 4))
+            logger.warning(
+                f"[LiveGuard] 🔴 매수 차단: {self._rt_block_reason} — "
+                f"{getattr(self, 'CONSEC_COOLDOWN_H', 4)}시간 차단"
+            )
+        elif cond_a:
+            logger.warning(
+                f"[LiveGuard] ⚠️ 유효 손실 {self._consec_loss}회 도달, "
+                f"일일손실 미초과({getattr(self, '_today_loss_pct', 0)*100:.1f}%) — 차단 없음"
+            )
 
     async def _send_telegram(self, message: str):
         try:
