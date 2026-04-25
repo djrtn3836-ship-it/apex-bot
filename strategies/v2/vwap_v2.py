@@ -51,6 +51,8 @@ class VWAPReversionStrategy2(BaseStrategy):
         self._context_engine = MarketContextEngine()
 
     def generate_signal(self, df: pd.DataFrame, market: str = "") -> Optional[Signal]:
+        if df is None or len(df) < 60:
+            return None  # 최소 데이터 길이 미달
         try:
             if not self._enabled:
                 return None

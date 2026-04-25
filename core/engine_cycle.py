@@ -142,6 +142,26 @@ class EngineCycleMixin:
                 self._circuit_breaker_active = True
             else:
                 self._circuit_breaker_active = False
+            # [LiveGuard] 조건C: 오늘 손실률 동기화
+            if hasattr(self, 'live_guard') and self.live_guard is not None:
+                try:
+                    _krw_now = getattr(self, '_krw_balance', 1) or 1
+                    self.live_guard._today_loss_pct = _daily_loss / _krw_now
+                except Exception:
+                    pass
+            # [LiveGuard] 조건C: 오늘 손실률 동기화
+            if hasattr(self, 'live_guard') and self.live_guard is not None:
+                try:
+                    _krw_now = getattr(self, '_krw_balance', 1) or 1
+                    self.live_guard._today_loss_pct = _daily_loss / _krw_now
+                except Exception:
+                    pass
+        # live_guard 조건C용 오늘 손실률 동기화
+        try:
+            if hasattr(self, 'live_guard') and self.live_guard is not None:
+                _krw_now = getattr(self, '_krw_balance', 1)
+                _loss_pct = (_daily_loss / _krw_now) if _krw_now > 0 else 0.0
+                self.live_guard._today_loss_pct = _loss_pct
         except Exception:
             self._circuit_breaker_active = False
         """FIX v2.0.1: ML       

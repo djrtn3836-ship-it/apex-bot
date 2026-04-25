@@ -348,10 +348,7 @@ class EngineSellMixin:
             # [LiveGuard] 매도 결과 콜백 — 연속 손실 추적
             try:
                 if hasattr(self, 'live_guard') and self.live_guard is not None:
-                    import asyncio as _lg_asyncio
-                    _lg_asyncio.ensure_future(
-                        self.live_guard.on_trade_result(profit_rate, market)
-                    )
+                    await self.live_guard.on_trade_result(profit_rate, market)
             except Exception as _lg_e:
                 logger.debug(f"[LiveGuard] on_trade_result 호출 실패: {_lg_e}")
             log_trade(

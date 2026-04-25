@@ -45,6 +45,8 @@ class VolBreakoutStrategy2(BaseStrategy):
         self._breakout_cache: dict = {}  # market -> breakout state
 
     def generate_signal(self, df: pd.DataFrame, market: str = "") -> Optional[Signal]:
+        if df is None or len(df) < 50:
+            return None  # 최소 데이터 길이 미달
         try:
             if not self._enabled:
                 return None
