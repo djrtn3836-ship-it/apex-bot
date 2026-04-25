@@ -168,7 +168,8 @@ class EnsembleEngine:
         """메인 진입 결정 함수"""
         try:
             if ctx is None:
-                ctx = self._context_engine.analyze(df, market)
+                ctx = (self._context_engine.analyze(df, market)
+                   if self._context_engine is not None else None)
 
             signals: Dict[str, Signal] = {}
 
