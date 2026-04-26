@@ -347,6 +347,25 @@ class EngineSellMixin:
 
             self.risk_manager.record_trade_result(profit_rate > 0)
 
+            # V2 앙상블 동적 가중치 업데이트
+            try:
+                if hasattr(self, 'ensemble_engine') and self.ensemble_engine is not None:
+                    _v2_strat_map = {
+                        'Order_Block': 'OrderBlock_SMC',
+                        'Vol_Breakout': 'VolBreakout',
+                        'MACD_Cross': 'MACD_Cross',
+                        'RSI_Divergence': 'RSI_Divergence',
+                        'Bollinger_Squeeze': 'Bollinger_Squeeze',
+                        'ATR_Channel': 'ATR_Channel',
+                        'VWAP_Reversion': 'VWAP_Reversion',
+                        'Supertrend': 'Supertrend',
+                    }
+                    _v2_name = _v2_strat_map.get(_strat_name, _strat_name)
+                    self.ensemble_engine.update_result(_v2_name, profit_rate)
+                    logger.debug(f'[Ensemble] update_result {_v2_name} {profit_rate:+.2f}%')
+            except Exception as _ue:
+                logger.debug(f'[Ensemble] update_result 오류(무시): {_ue}')
+
         # ── 전략별 개별 쿨다운 (Per-Strategy Cooldown) ──────────────
         try:
             _strat_cd_rules = {
