@@ -370,6 +370,13 @@ class TradingEngine(
                         _atp24h = data.get("atp24h", data.get("acc_trade_price_24h",  None))
                         if _scr is not None:
                             self._market_change_rates[market] = float(_scr)    # [SURGE] 실시간 등락율
+                            # [SCR-FASTTRACK-V2] scr >= 10% → 즉시 감시 추가 (false positive 방지)
+                            if float(_scr) >= 0.10:
+                                _fm2 = getattr(self, 'markets', [])
+                                _dm2 = getattr(self, '_dynamic_markets', [])
+                                if market not in _fm2 and market not in _dm2 and len(_dm2) < 20:
+                                    _dm2.append(market)
+                                    logger.info(f'[SCR-FASTTRACK] {market} scr={float(_scr)*100:.1f}% → 즉시 감시')
                             # [SCR-FASTTRACK] scr >= 5% 즉시 감시 추가 (84초 대기 없이)
                             if float(_scr) >= 0.05:
                                 _fm = getattr(self, 'markets', [])
@@ -401,11 +408,28 @@ class TradingEngine(
                         }
                         self.cache_manager.set_orderbook(market, normalized)
 
+            # [FIX-B1] WS 구독 대상: 10개 고정 → 전체 KRW 마켓
+            _ws_markets = list(
+                getattr(self, '_all_krw_markets', None)
+                or self.settings.trading.target_markets
+            )
             self.ws_collector = WebSocketCollector(
-                markets=self.settings.trading.target_markets,
+                markets=_ws_markets,
                 on_message=_on_ws_message,
             )
             self.ws_collector.subscribe_ticker()
+            # [FIX-B2] 재연결 후 전체 마켓 재구독 콜백 등록
+            def _on_ws_reconnect():
+                try:
+                    _recon_markets = list(getattr(self, '_all_krw_markets', None) or
+                                          self.settings.trading.target_markets)
+                    if hasattr(self.ws_collector, 'set_markets'):
+                        self.ws_collector.set_markets(_recon_markets)
+                    logger.debug(f'[WS-RECONNECT] {len(_recon_markets)}개 마켓 재구독')
+                except Exception as _re: 
+                    logger.debug(f'[WS-RECONNECT] 재구독 실패: {_re}')
+            if hasattr(self.ws_collector, 'set_on_reconnect'):
+                self.ws_collector.set_on_reconnect(_on_ws_reconnect)
             # [FIX-4] dynamic markets도 WS 구독에 포함
             _dyn = list(getattr(self, '_dynamic_markets', set()))
             if _dyn:

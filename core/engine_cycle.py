@@ -212,7 +212,8 @@ class EngineCycleMixin:
         # ── [PENDING-QUEUE] 대기열 처리 + 교체매매 ────────────────
         try:
             import time as _pq_t
-            _TTL_SEC   = 1800  # 대기열 유효시간 30분 [FIX-T2: 장기상승 대응]
+            _TTL_SEC   = 1800  # 기본 30분
+                    # [FIX-B4] scr 기반 동적 TTL은 대기열 추가 시 적용
             _REPLACE_SCORE = 0.80   # 교체매매 최소 surge score
             _REPLACE_PNL   = -1.5   # 교체매매 대상 최소 손실 (%)
             _REPLACE_HOLD  = 30     # 교체매매 최소 보유시간 (분)
@@ -814,7 +815,19 @@ class EngineCycleMixin:
                 _already = any(x[0] == _sm for x in self._pending_surge_queue)
                 _in_open  = _sm in self.portfolio.open_positions
                 if _open_cnt >= _max_pos and not _already and not _in_open and _sm:
-                    self._pending_surge_queue.appendleft((_sm, _ss, _pq_time.time()))
+                    # [FIX-B4] scr 크기 비례 동적 TTL 계산
+                    _scr_val  = getattr(self, '_market_change_rates', {}).get(_sm, 0.0)
+                    _dyn_ttl  = (3600 if _scr_val >= 0.30
+                                  else 1800 if _scr_val >= 0.10
+                                  else 600)
+                    _ttl_offset = max(0, 1800 - _dyn_ttl)
+                    self._pending_surge_queue.appendleft(
+                        (_sm, _ss, _pq_time.time() - _ttl_offset)
+                    )
+                    logger.info(
+                        f'[PENDING-QUEUE] {_sm} 대기열 추가 '
+                        f'(score={_ss:.3f}, scr={_scr_val*100:.1f}%, TTL={_dyn_ttl//60}분)'
+                    )
                     logger.info(f'[PENDING-QUEUE] {_sm} 대기열 추가 (score={_ss:.3f}, 슬롯대기)')
             if self._pending_surge_queue:
                 logger.debug(f'[PENDING-QUEUE] 현재 대기: {[x[0] for x in self._pending_surge_queue]}')
