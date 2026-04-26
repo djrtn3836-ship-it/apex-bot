@@ -236,7 +236,7 @@ def create_dashboard_app(engine_ref=None) -> "FastAPI":
 
         description="Upbit AI Quant Trading Bot",
 
-        version="1.0.0",
+        version="3.0.0",
 
         lifespan=lifespan,
 

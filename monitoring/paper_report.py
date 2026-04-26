@@ -54,7 +54,7 @@ class PaperReport:
         report.generate()          # reports/  HTML + JSON 
         report.print_summary()     #"""
 
-    VERSION = "1.0.0"
+    VERSION = "3.0.0"
 
     def __init__(self, db_path: Optional[str] = None,
                  output_dir: Optional[str] = None,
