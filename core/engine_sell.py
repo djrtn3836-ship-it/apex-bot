@@ -305,7 +305,12 @@ class EngineSellMixin:
                         market=market, action=2,
                         profit_rate=_pnl, hold_hours=_hold_h,
                     )
-                    _buf = self.ppo_online_trainer.get_buffer_stats()
+                    # [FIX-3] get_buffer_stats 존재 여부 확인 후 호출
+                    _buf = (
+                        self.ppo_online_trainer.get_buffer_stats()
+                        if hasattr(self.ppo_online_trainer, 'get_buffer_stats')
+                        else {'size': 0, 'max': 1000}
+                    )
                     logger.info(
                         f" PPO   ({market}): "
                         f"PnL={_pnl*100:.2f}% | 보유={_hold_h:.1f}h | "

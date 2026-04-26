@@ -396,6 +396,14 @@ class TradingEngine(
                 on_message=_on_ws_message,
             )
             self.ws_collector.subscribe_ticker()
+            # [FIX-4] dynamic markets도 WS 구독에 포함
+            _dyn = list(getattr(self, '_dynamic_markets', set()))
+            if _dyn:
+                try:
+                    self.ws_collector.add_markets(_dyn)  # dynamic surge 종목 추가
+                    logger.debug(f'[WS-DYN] 동적 종목 {len(_dyn)}개 구독 추가')
+                except Exception as _ws_e:
+                    logger.debug(f'[WS-DYN] 동적 구독 실패(무시): {_ws_e}')
             self.ws_collector.subscribe_orderbook()
             logger.info(
                 f" WebSocket    | "

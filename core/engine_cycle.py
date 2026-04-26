@@ -333,6 +333,9 @@ class EngineCycleMixin:
         for market in markets:
             try:
                 current_price = self._market_prices.get(market)
+                if not current_price or current_price <= 0:
+                    logger.debug(f'[ANALYZE-SKIP] {market} current_price=0 (WS 미수신) → PnL 계산 스킵')
+                    continue  # [FIX-1] current_price=0 시 PnL=-100% 방지
                 if not current_price:
                     continue
                 pos = self.portfolio.get_position(market)
@@ -503,6 +506,20 @@ class EngineCycleMixin:
                 entry_price = 0
 
             current_price = self._market_prices.get(market, 0)
+            # [FIX-2] REST fallback: WS 미수신 시 REST로 현재가 조회
+            if not current_price or current_price <= 0:
+                try:
+                    import asyncio as _aio_fb
+                    _fb_ticker = await _aio_fb.wait_for(
+                        self.rest_collector.get_ticker(market), timeout=2.0
+                    ) if hasattr(self, 'rest_collector') else None
+                    if _fb_ticker:
+                        current_price = float(_fb_ticker.get('trade_price', 0))
+                        if current_price > 0:
+                            self._market_prices[market] = current_price  # 캐시 업데이트
+                            logger.debug(f'[REST-FALLBACK] {market} 현재가 REST 조회: {current_price}')
+                except Exception as _fb_e:
+                    logger.debug(f'[REST-FALLBACK] {market} 실패: {_fb_e}')
             if not current_price or current_price <= 0:
                 logger.debug(f"[ANALYZE] {market} _market_prices 미수신 → 스킵")
                 return
