@@ -594,6 +594,14 @@ class EngineCycleMixin:
                 (current_price - entry_price) / entry_price * 100
                 if entry_price > 0 else 0.0
             )
+            # [FIX-REASON] 비정상 pnl_pct 방어 — 재시작 직후 가격 미수신 시 스킵
+            if pnl_pct <= -99.0:
+                logger.warning(
+                    f'[PNL-GUARD] {market} pnl_pct={pnl_pct:.1f}%'
+                    ' → entry/current 가격 이상, 재평가 스킵'
+                )
+                return
+
 
             logger.debug(
                 f"   | {market} | "
