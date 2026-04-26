@@ -828,7 +828,7 @@ class EngineCycleMixin:
                         f'[PENDING-QUEUE] {_sm} 대기열 추가 '
                         f'(score={_ss:.3f}, scr={_scr_val*100:.1f}%, TTL={_dyn_ttl//60}분)'
                     )
-                    logger.info(f'[PENDING-QUEUE] {_sm} 대기열 추가 (score={_ss:.3f}, 슬롯대기)')
+
             if self._pending_surge_queue:
                 logger.debug(f'[PENDING-QUEUE] 현재 대기: {[x[0] for x in self._pending_surge_queue]}')
 
