@@ -249,6 +249,23 @@ class MultiStreamCollector:
         for task in self._tasks:
             task.cancel()
 
+    # ── 호환 인터페이스 (UpbitWebSocketCollector와 동일한 API) ──────────
+    @property
+    def _running(self) -> bool:
+        """하위 스트림 중 하나라도 실행 중이면 True"""
+        return any(c._running for c in self._collectors)
+
+    async def run(self):
+        """engine_schedule.py 호환용 run() → start() 래퍼
+        기존 ws_collector.run() 호출부 수정 없이 동작"""
+        if not self._collectors:
+            await self.start()
+        else:
+            # 이미 start() 됐으면 모든 스트림 태스크가 끝날 때까지 대기
+            if self._tasks:
+                await asyncio.gather(*self._tasks, return_exceptions=True)
+
+
     def get_health_status(self) -> List[dict]:
         return [c.stats for c in self._collectors]
 

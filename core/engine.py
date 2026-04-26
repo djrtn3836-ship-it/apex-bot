@@ -38,7 +38,7 @@ from core.event_bus import EventBus, EventType
 from core.state_machine import BotState, StateMachine
 from core.market_regime import GlobalMarketRegimeDetector, GlobalRegime
 from core.portfolio_manager import PortfolioManager
-from data.collectors.ws_collector import WebSocketCollector
+from data.collectors.ws_collector import WebSocketCollector, MultiStreamCollector
 from data.collectors.rest_collector import RestCollector
 from data.processors.candle_processor import CandleProcessor
 from data.processors.mtf_processor import MTFProcessor
@@ -408,37 +408,34 @@ class TradingEngine(
                         }
                         self.cache_manager.set_orderbook(market, normalized)
 
-            # [FIX-B1] WS 구독 대상: 10개 고정 → 전체 KRW 마켓
+                        # [MULTI-STREAM] 20개씩 분산 구독 (단일 연결 240개 → 12스트림)
             _ws_markets = list(
                 getattr(self, '_all_krw_markets', None)
                 or self.settings.trading.target_markets
             )
-            self.ws_collector = WebSocketCollector(
-                markets=_ws_markets,
-                on_message=_on_ws_message,
+
+            async def _on_ws_candle(data):
+                await _on_ws_message(data)
+
+            async def _on_ws_trade(data):
+                pass  # trade 미사용 (ticker로 통합)
+
+            async def _on_ws_orderbook(data):
+                await _on_ws_message(data)
+
+            self.ws_collector = MultiStreamCollector(
+                all_markets=_ws_markets,
+                on_candle=_on_ws_candle,
+                on_trade=_on_ws_trade,
+                on_orderbook=_on_ws_orderbook,
             )
-            self.ws_collector.subscribe_ticker()
-            # [FIX-B2] 재연결 후 전체 마켓 재구독 콜백 등록
-            def _on_ws_reconnect():
-                try:
-                    _recon_markets = list(getattr(self, '_all_krw_markets', None) or
-                                          self.settings.trading.target_markets)
-                    if hasattr(self.ws_collector, 'set_markets'):
-                        self.ws_collector.set_markets(_recon_markets)
-                    logger.debug(f'[WS-RECONNECT] {len(_recon_markets)}개 마켓 재구독')
-                except Exception as _re: 
-                    logger.debug(f'[WS-RECONNECT] 재구독 실패: {_re}')
-            if hasattr(self.ws_collector, 'set_on_reconnect'):
-                self.ws_collector.set_on_reconnect(_on_ws_reconnect)
-            # [FIX-4] dynamic markets도 WS 구독에 포함
-            _dyn = list(getattr(self, '_dynamic_markets', set()))
-            if _dyn:
-                try:
-                    self.ws_collector.add_markets(_dyn)  # dynamic surge 종목 추가
-                    logger.debug(f'[WS-DYN] 동적 종목 {len(_dyn)}개 구독 추가')
-                except Exception as _ws_e:
-                    logger.debug(f'[WS-DYN] 동적 구독 실패(무시): {_ws_e}')
-            self.ws_collector.subscribe_orderbook()
+            # MultiStreamCollector는 start()에서 구독 설정하므로 subscribe_* 불필요
+            # subscribe_ticker / subscribe_orderbook 은 각 스트림 내부에서 자동 처리
+            logger.info(
+                f"[MULTI-STREAM] WebSocket 초기화 | "
+                f"총 {len(_ws_markets)}개 종목 → "
+                f"{(len(_ws_markets)+19)//20}개 스트림 (스트림당 최대 20개)"
+            )
             logger.info(
                 f" WebSocket    | "
                 f"{len(self.settings.trading.target_markets)}개 코인"
