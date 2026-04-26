@@ -47,6 +47,26 @@ class VolBreakoutStrategy2(BaseStrategy):
     def generate_signal(self, df: pd.DataFrame, market: str = "") -> Optional[Signal]:
         if df is None or len(df) < 50:
             return None  # 최소 데이터 길이 미달
+        # [OPT] FearGreed 차단 — Fear 구간(FG<45) 신호 무시
+        try:
+            import json as _fgj, pathlib as _fgp
+            _fg_cfg = _fgj.loads(
+                _fgp.Path('config/optimized_params.json')
+                .read_text(encoding='utf-8')
+            ).get('strategies', {}).get('Vol_Breakout', {})
+            _fg_max = _fg_cfg.get('fear_greed_max', 100)
+            _fgi    = getattr(self, '_fear_greed_index', None)
+            if _fgi is None:
+                import pathlib as _pp
+                # context_engine 통해 FG 가져오기
+                _ce = getattr(self, '_context_engine', None)
+                _fgi = getattr(_ce, 'fear_greed_index', 50) if _ce else 50
+            if _fgi < _fg_max:
+                logger.debug(f'[FG-BLOCK] Vol_Breakout FG={_fgi}<{_fg_max} → 신호 무시')
+                return None
+        except Exception:
+            pass  # FG 차단 실패 시 계속 진행
+
         try:
             if not self._enabled:
                 return None
