@@ -150,7 +150,7 @@ class EngineSellMixin:
             )
             await self.telegram.notify_sell(
                 market, result.executed_price, volume,
-                profit_rate * 100, reason  # [FIX] 소수->% 변환
+                profit_rate, reason  # [FIX] 소수->% 변환
             )
 
     # ── 전량 매도 (래퍼) ────────────────────────────────────────
@@ -394,7 +394,7 @@ class EngineSellMixin:
             )
             await self.telegram.notify_sell(
             market, result.executed_price, result.executed_volume,
-            profit_rate * 100, reason  # [FIX] 소수->% 변환
+            profit_rate, reason  # [FIX] 소수->% 변환
             )
 
         try:
