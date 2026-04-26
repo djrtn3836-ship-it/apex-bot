@@ -375,16 +375,13 @@ class TradingEngine(
                             self._market_change_rates[market] = float(_scr)    # [SURGE] 실시간 등락율
                             # [SCR-FASTTRACK] scr 임계 즉시 감시 추가 (V2=10%, V1=5%)
                             _scr_val = float(_scr)
-                            _fm_ref  = getattr(self, 'markets', [])
+                            _fm_ref  = list(getattr(self, 'markets', []))
                             _dm_ref  = getattr(self, '_dynamic_markets', [])
-                            _dm_max  = getattr(
-                                getattr(self, 'settings', None),
-                                'trading', type('T', (), {'max_dynamic_coins': 20})()
-                            ).max_dynamic_coins if hasattr(self, 'settings') else 20
+                            _dm_max  = 20  # [FIX] TradingConfig.max_dynamic_coins 대체
                             if (_scr_val >= 0.05
-                                and market not in _fm_ref
-                                and market not in _dm_ref
-                                and len(_dm_ref) < _dm_max):
+                                    and market not in _fm_ref
+                                    and market not in _dm_ref
+                                    and len(_dm_ref) < _dm_max):
                                 _dm_ref.append(market)
                                 _grade = 'V2(10%+)' if _scr_val >= 0.10 else 'V1(5%+)'
                                 logger.info(

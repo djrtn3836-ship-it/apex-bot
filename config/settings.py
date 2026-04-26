@@ -41,6 +41,7 @@ class TradingConfig:
     fee_rate: float = 0.0005
     slippage_rate: float = 0.001
     max_positions: int = 10
+    max_dynamic_coins: int = 20  # [FIX] SCR-FASTTRACK 동적 감시 종목 한도
     max_position_ratio: float = 0.20
 
 
