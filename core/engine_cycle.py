@@ -189,6 +189,52 @@ class EngineCycleMixin:
             _lg.getLogger("engine_cycle").debug(f"[WARN] engine_cycle 오류 무시: {_e}")
             pass
 
+        # ── APEX 핵심 사이클 (자동 삽입 fix_cycle_core) ─────────────
+        # 1) 기존 포지션 청산 체크 (SL/TP/트레일링/M4)
+        try:
+            await self._check_position_exits()
+        except Exception as _ce:
+            logger.debug(f"[cycle] _check_position_exits 오류: {_ce}")
+
+        # 2) 시간 기반 강제청산 (72h / 48h / 24h)
+        try:
+            await self._check_time_based_exits()
+        except Exception as _ce:
+            logger.debug(f"[cycle] _check_time_based_exits 오류: {_ce}")
+
+        # 3) 기존 포지션 재평가 (ML 신호 기반 익절/손절)
+        try:
+            for _om in list(self.portfolio.open_positions.keys()):
+                await self._analyze_existing_position(_om)
+        except Exception as _ce:
+            logger.debug(f"[cycle] _analyze_existing_position 오류: {_ce}")
+
+        # 4) 신규 매수 스캔 (서킷브레이커 비활성 시만, 5개씩 배치)
+        if not getattr(self, "_circuit_breaker_active", False):
+            try:
+                import asyncio as _aio
+                _active = await self._get_active_markets()
+                _open_now = set(self.portfolio.open_positions.keys())
+                _buying_now = getattr(self, "_buying_markets", set())
+                _targets = [m for m in _active
+                            if m not in _open_now and m not in _buying_now]
+                _batch_size = 5
+                for _bi in range(0, len(_targets), _batch_size):
+                    _batch = _targets[_bi:_bi + _batch_size]
+                    await _aio.gather(
+                        *[self._analyze_market(m) for m in _batch],
+                        return_exceptions=True
+                    )
+            except Exception as _ce:
+                logger.debug(f"[cycle] buy_scan 오류: {_ce}")
+
+        # 5) 동적 마켓 스캐너 (급등 코인 감지)
+        try:
+            await self._market_scanner()
+        except Exception as _ce:
+            logger.debug(f"[cycle] _market_scanner 오류: {_ce}")
+        # ── 핵심 사이클 끝 ──────────────────────────────────────────
+
     # ── 시간기반 강제청산 ────────────────────────────────────────
 
     async def _check_time_based_exits(self) -> None:
