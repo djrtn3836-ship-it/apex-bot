@@ -936,8 +936,6 @@ class EngineCycleMixin:
         """
         try:
             from core.surge_detector import SurgeDetector
-            if not hasattr(self, "_surge_detector"):
-                self._surge_detector = SurgeDetector()
 
             # 1분봉 (거래량 폭발, 전고점 돌파) - 80개
             df_1m = await self.rest_collector.get_ohlcv(market, "minute1", 80)

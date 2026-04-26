@@ -251,14 +251,19 @@ class EngineSellMixin:
                     "reason":      reason,
                     "mode":        getattr(self.settings, "mode", "paper"),
                 }
-                if _asyncio.get_event_loop().is_running():
-                    _asyncio.ensure_future(
-                        self.executor.db_manager.insert_trade(_trade)
-                    )
-                else:
-                    _asyncio.get_event_loop().run_until_complete(
-                        self.executor.db_manager.insert_trade(_trade)
-                    )
+                def _on_db_done(_t):
+                    if _t.exception():
+                        import logging as _log_s2
+                        _log_s2.getLogger(__name__).error(
+                            f'[DB-SELL] insert_trade 실패: {_t.exception()}'
+                        )
+                _db_task = _asyncio.get_running_loop().create_task(
+                    self.executor.db_manager.insert_trade(_trade)
+                )
+                if hasattr(self, '_ws_bg_tasks'):
+                    self._ws_bg_tasks.add(_db_task)
+                    _db_task.add_done_callback(self._ws_bg_tasks.discard)
+                _db_task.add_done_callback(_on_db_done)
                 logger.info(
                     f"[DB-SELL] {market} "
                     f"profit={profit_rate:.2f}%  "

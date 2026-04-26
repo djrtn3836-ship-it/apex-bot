@@ -38,7 +38,7 @@ from core.event_bus import EventBus, EventType
 from core.state_machine import BotState, StateMachine
 from core.market_regime import GlobalMarketRegimeDetector, GlobalRegime
 from core.portfolio_manager import PortfolioManager
-from data.collectors.ws_collector import WebSocketCollector, MultiStreamCollector
+from data.collectors.ws_collector import MultiStreamCollector
 from data.collectors.rest_collector import RestCollector
 from data.processors.candle_processor import CandleProcessor
 from data.processors.mtf_processor import MTFProcessor
@@ -122,6 +122,7 @@ from core.engine_sell import EngineSellMixin
 from core.engine_ml import EngineMLMixin
 from core.engine_db import EngineDBMixin
 from core.engine_schedule import EngineScheduleMixin
+from core.surge_detector import SurgeDetector  # [S5]
 
 
 class TradingEngine(
@@ -152,6 +153,8 @@ class TradingEngine(
         self.signal_combiner = SignalCombiner(self.settings)
 
         self.ws_collector      = None
+        self._ws_bg_tasks: set = set()   # [S1] WS Task GC 방지용 강한참조
+        self._surge_detector  = SurgeDetector()      # [S5] 사전 초기화
         self.rest_collector    = RestCollector()
         self.candle_processor  = CandleProcessor()
         self.db_manager        = DatabaseManager()
@@ -320,7 +323,7 @@ class TradingEngine(
             # [FIX] walk_forward 파라미터 적용 — 전략 로드 직후 실행
             self._apply_walk_forward_params()
 
-            self._device = await asyncio.get_event_loop().run_in_executor(
+            self._device = await asyncio.get_running_loop().run_in_executor(
                 None,
                 lambda: setup_gpu(
                     use_gpu=self.settings.ml.use_gpu,
@@ -370,20 +373,23 @@ class TradingEngine(
                         _atp24h = data.get("atp24h", data.get("acc_trade_price_24h",  None))
                         if _scr is not None:
                             self._market_change_rates[market] = float(_scr)    # [SURGE] 실시간 등락율
-                            # [SCR-FASTTRACK-V2] scr >= 10% → 즉시 감시 추가 (false positive 방지)
-                            if float(_scr) >= 0.10:
-                                _fm2 = getattr(self, 'markets', [])
-                                _dm2 = getattr(self, '_dynamic_markets', [])
-                                if market not in _fm2 and market not in _dm2 and len(_dm2) < 20:
-                                    _dm2.append(market)
-                                    logger.info(f'[SCR-FASTTRACK] {market} scr={float(_scr)*100:.1f}% → 즉시 감시')
-                            # [SCR-FASTTRACK] scr >= 5% 즉시 감시 추가 (84초 대기 없이)
-                            if float(_scr) >= 0.05:
-                                _fm = getattr(self, 'markets', [])
-                                _dm = getattr(self, '_dynamic_markets', [])
-                                if market not in _fm and market not in _dm:
-                                    _dm.append(market)
-                                    logger.info(f'[SCR-FASTTRACK] {market} scr={float(_scr)*100:.1f}% → 즉시 감시 추가')
+                            # [SCR-FASTTRACK] scr 임계 즉시 감시 추가 (V2=10%, V1=5%)
+                            _scr_val = float(_scr)
+                            _fm_ref  = getattr(self, 'markets', [])
+                            _dm_ref  = getattr(self, '_dynamic_markets', [])
+                            _dm_max  = getattr(
+                                getattr(self, 'settings', None),
+                                'trading', type('T', (), {'max_dynamic_coins': 20})()
+                            ).max_dynamic_coins if hasattr(self, 'settings') else 20
+                            if (_scr_val >= 0.05
+                                and market not in _fm_ref
+                                and market not in _dm_ref
+                                and len(_dm_ref) < _dm_max):
+                                _dm_ref.append(market)
+                                _grade = 'V2(10%+)' if _scr_val >= 0.10 else 'V1(5%+)'
+                                logger.info(
+                                    f'[SCR-FASTTRACK-{_grade}] {market} scr={_scr_val*100:.1f}% -> 즉시 감시'
+                                )
                         if _atp24h is not None:
                             self._market_volumes_24h[market]  = float(_atp24h) # [SURGE] 24h 거래대금
                         self.correlation_filter.update_price(market, price)

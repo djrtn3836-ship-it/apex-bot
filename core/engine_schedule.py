@@ -118,9 +118,13 @@ class EngineScheduleMixin:
         # WebSocket 재연결 루프 태스크 등록
         import asyncio as _asyncio_ws
         try:
-            loop = _asyncio_ws.get_event_loop()
+            loop = asyncio.get_running_loop()
             if loop.is_running():
-                _asyncio_ws.ensure_future(self._ws_reconnect_loop())
+                _ws_loop_task = asyncio.get_running_loop().create_task(
+                    self._ws_reconnect_loop()
+                )
+                self._ws_bg_tasks.add(_ws_loop_task)
+                _ws_loop_task.add_done_callback(self._ws_bg_tasks.discard)
                 logger.info("[WS-TASK] _ws_reconnect_loop 태스크 등록 완료")
         except Exception as _ws_e:
             logger.warning(f"[WS-TASK] 등록 실패: {_ws_e}")
@@ -385,7 +389,7 @@ class EngineScheduleMixin:
         # 2. train_retrain.py v3.0 별도 프로세스로 실행
         try:
             import subprocess, sys, json
-            result = await asyncio.get_event_loop().run_in_executor(
+            result = await asyncio.get_running_loop().run_in_executor(
                 None,
                 lambda: subprocess.run(
                     [sys.executable, "train_retrain.py"],
@@ -410,7 +414,7 @@ class EngineScheduleMixin:
                         )
                         # 4. 성공 시 모델 핫리로드
                         if val_acc >= 0.42 and self._ml_predictor:
-                            await asyncio.get_event_loop().run_in_executor(
+                            await asyncio.get_running_loop().run_in_executor(
                                 None, self._ml_predictor.reload_model
                             )
                             logger.info("[Retrain] 모델 핫리로드 완료")
@@ -468,7 +472,7 @@ class EngineScheduleMixin:
     async def _scheduled_paper_report(self, hours: int = 24):
         logger.info(f" {hours}     ...")
         try:
-            data = await asyncio.get_event_loop().run_in_executor(
+            data = await asyncio.get_running_loop().run_in_executor(
                 None,
                 lambda: generate_paper_report(
                     hours=hours, output_dir="reports/paper",
@@ -599,7 +603,9 @@ class EngineScheduleMixin:
             try:
                 if self.ws_collector and not self.ws_collector._running:
                     logger.warning("[WS-WATCH] ws_collector 완전 종료 감지 → 재시작")
-                    asyncio.ensure_future(self.ws_collector.run())
+                    _ws_run_task = asyncio.create_task(self.ws_collector.run())
+                    self._ws_bg_tasks.add(_ws_run_task)
+                    _ws_run_task.add_done_callback(self._ws_bg_tasks.discard)
                     await asyncio.sleep(10)
                     logger.info("[WS-WATCH] ws_collector 재시작 완료")
             except Exception as e:
