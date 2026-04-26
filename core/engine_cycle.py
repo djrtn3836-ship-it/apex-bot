@@ -212,7 +212,7 @@ class EngineCycleMixin:
         # ── [PENDING-QUEUE] 대기열 처리 + 교체매매 ────────────────
         try:
             import time as _pq_t
-            _TTL_SEC   = 600   # 대기열 유효시간 10분
+            _TTL_SEC   = 1800  # 대기열 유효시간 30분 [FIX-T2: 장기상승 대응]
             _REPLACE_SCORE = 0.80   # 교체매매 최소 surge score
             _REPLACE_PNL   = -1.5   # 교체매매 대상 최소 손실 (%)
             _REPLACE_HOLD  = 30     # 교체매매 최소 보유시간 (분)

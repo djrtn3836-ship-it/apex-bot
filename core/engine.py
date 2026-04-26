@@ -370,6 +370,13 @@ class TradingEngine(
                         _atp24h = data.get("atp24h", data.get("acc_trade_price_24h",  None))
                         if _scr is not None:
                             self._market_change_rates[market] = float(_scr)    # [SURGE] 실시간 등락율
+                            # [SCR-FASTTRACK] scr >= 5% 즉시 감시 추가 (84초 대기 없이)
+                            if float(_scr) >= 0.05:
+                                _fm = getattr(self, 'markets', [])
+                                _dm = getattr(self, '_dynamic_markets', [])
+                                if market not in _fm and market not in _dm:
+                                    _dm.append(market)
+                                    logger.info(f'[SCR-FASTTRACK] {market} scr={float(_scr)*100:.1f}% → 즉시 감시 추가')
                         if _atp24h is not None:
                             self._market_volumes_24h[market]  = float(_atp24h) # [SURGE] 24h 거래대금
                         self.correlation_filter.update_price(market, price)
