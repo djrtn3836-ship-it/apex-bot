@@ -254,6 +254,17 @@ class EngineCycleMixin:
                     or getattr(pos, "created_at", None)
                 )
                 if entry_time is None:
+                    # [FIX] entry_time 없는 포지션 → 생성일 알 수 없으므로
+                    # held_hours를 999로 설정해 72h 강제청산 대상으로 처리
+                    held_hours = 999.0
+                    profit_rate = (
+                        (current_price - pos.entry_price) / pos.entry_price
+                        if getattr(pos, 'entry_price', 0) > 0 else 0.0
+                    )
+                    logger.info(
+                        f'[TIME-EXIT] {market}: entry_time=None → 72h 강제청산 대상'
+                    )
+                    await self._execute_sell(market, 'entry_time_없음_강제청산', current_price)
                     continue
                 if isinstance(entry_time, str):
                     try:

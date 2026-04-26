@@ -72,7 +72,7 @@ class EngineSellMixin:
         if result.executed_price > 0:
             profit_rate = (
                 (result.executed_price - pos.entry_price) / pos.entry_price * 100
-            )
+            )  # [UNIT-A] paper경로: 직접계산 % 단위
 
             try:
                 if self.ppo_online_trainer is not None:
@@ -112,7 +112,7 @@ class EngineSellMixin:
                     f"    | {market} | "
                     f"={result.executed_price:,.0f} | "
                     f"={volume:.6f} | "
-                    f"={profit_rate:.2%} | "
+                    f"={profit_rate:.2f}% | "  # [UNIT] profit_rate는 % 단위
                     f"={pos.volume:.6f}"
                 )
 
@@ -246,7 +246,7 @@ class EngineSellMixin:
                     "amount_krw":  proceeds,
                     "fee":         result.fee if hasattr(result, "fee") else 0.0,
                     # [FIX2] close_position 반환값은 이미 % 단위 → * 100 제거
-                    "profit_rate": float(profit_rate or 0) * 100,  # [FIX-FINAL] 소수→% 변환
+                    "profit_rate": float(profit_rate or 0),  # [UNIT] close_position이 이미 % 반환 (* 100 제거)
                     "strategy":    getattr(pos, "strategy", "unknown"),
                     "reason":      reason,
                     "mode":        getattr(self.settings, "mode", "paper"),
@@ -300,7 +300,7 @@ class EngineSellMixin:
                         _hold_h = (
                             _ppo_dt.datetime.now() - _etime
                         ).total_seconds() / 3600
-                    _pnl = profit_rate / 100
+                    _pnl = profit_rate / 100  # [UNIT] profit_rate(%) → 소수 변환 (PPO용)
                     self.ppo_online_trainer.add_experience(
                         market=market, action=2,
                         profit_rate=_pnl, hold_hours=_hold_h,
@@ -320,7 +320,7 @@ class EngineSellMixin:
             # ✅ FIX: reason 문자열 의존 → profit_rate 수치 기반으로 변경
             # 손실(-0.5% 이상) 또는 reason에 손절 키워드 포함 시 쿨다운 적용
             _is_sl = (
-                profit_rate < -0.005
+                profit_rate < -0.5  # [UNIT] profit_rate(%) 기준: -0.5% 이하 손실
                 or "손절" in reason
                 or "stop" in reason.lower()
                 or "트레일링" in reason
