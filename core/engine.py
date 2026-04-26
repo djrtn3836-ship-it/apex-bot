@@ -282,6 +282,9 @@ class TradingEngine(
             "exclude_markets":   [],
         }
         self._dynamic_markets: list  = []
+        # [PENDING-QUEUE] 포지션 만석 시 surge 대기열 (maxlen=5, TTL=10min)
+        from collections import deque as _deque
+        self._pending_surge_queue: _deque = _deque(maxlen=5)  # (market, score, detected_at)
         self._last_scan_time:  float = 0.0
         self.markets:          list  = []
         self.markets = self.settings.trading.target_markets

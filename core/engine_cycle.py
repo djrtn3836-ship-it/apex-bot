@@ -209,6 +209,72 @@ class EngineCycleMixin:
         except Exception as _ce:
             logger.debug(f"[cycle] _analyze_existing_position 오류: {_ce}")
 
+        # ── [PENDING-QUEUE] 대기열 처리 + 교체매매 ────────────────
+        try:
+            import time as _pq_t
+            _TTL_SEC   = 600   # 대기열 유효시간 10분
+            _REPLACE_SCORE = 0.80   # 교체매매 최소 surge score
+            _REPLACE_PNL   = -1.5   # 교체매매 대상 최소 손실 (%)
+            _REPLACE_HOLD  = 30     # 교체매매 최소 보유시간 (분)
+            if hasattr(self, '_pending_surge_queue') and self._pending_surge_queue:
+                _now_t = _pq_t.time()
+                # TTL 만료 항목 제거
+                _valid = [(m, s, t) for m, s, t in self._pending_surge_queue
+                          if _now_t - t < _TTL_SEC]
+                from collections import deque as _dq2
+                self._pending_surge_queue = _dq2(_valid, maxlen=5)
+                _open_pos  = self.portfolio.open_positions
+                _max_pos   = getattr(self.settings.trading, 'max_positions', 10)
+                _slot_free = len(_open_pos) < _max_pos
+                if self._pending_surge_queue:
+                    _pq_market, _pq_score, _pq_t2 = self._pending_surge_queue[0]
+                    _age_min = (_now_t - _pq_t2) / 60
+                    if _slot_free:
+                        # 슬롯 생겼으면 즉시 매수
+                        self._pending_surge_queue.popleft()
+                        logger.info(f'[PENDING-QUEUE] {_pq_market} 슬롯 확보 → 즉시 매수 시도 (대기{_age_min:.1f}분)')
+                        try:
+                            import asyncio as _pq_aio
+                            await _pq_aio.wait_for(self._analyze_market(_pq_market), timeout=8.0)
+                        except Exception as _pq_e:
+                            logger.debug(f'[PENDING-QUEUE] {_pq_market} 매수 실패: {_pq_e}')
+                    elif _pq_score >= _REPLACE_SCORE:
+                        # 슬롯 없음 + 고score → 교체매매 검토
+                        _worst_m   = None
+                        _worst_pnl = 0.0
+                        _worst_hold = 0.0
+                        for _pm, _pp in _open_pos.items():
+                            _ep = getattr(_pp, 'entry_price', 0)
+                            _cp = self._market_prices.get(_pm, 0)
+                            if _ep > 0 and _cp > 0:
+                                _ppnl = (_cp - _ep) / _ep * 100
+                                _et   = getattr(_pp, 'entry_time', _pq_t.time())
+                                if isinstance(_et, (int, float)):
+                                    _phold = (_now_t - _et) / 60
+                                else:
+                                    _phold = 0.0
+                                if (_ppnl <= _REPLACE_PNL
+                                        and _phold >= _REPLACE_HOLD
+                                        and _ppnl < _worst_pnl):
+                                    _worst_m   = _pm
+                                    _worst_pnl = _ppnl
+                                    _worst_hold = _phold
+                        if _worst_m:
+                            logger.info(
+                                f'[REPLACE] {_worst_m}(pnl={_worst_pnl:.2f}%, {_worst_hold:.0f}분) → '
+                                f'{_pq_market}(score={_pq_score:.3f}) 교체매매 시작'
+                            )
+                            try:
+                                await self._execute_sell(_worst_m, '교체매매_surge진입')
+                                self._pending_surge_queue.popleft()
+                                import asyncio as _rp_aio
+                                await _rp_aio.wait_for(self._analyze_market(_pq_market), timeout=8.0)
+                            except Exception as _rp_e:
+                                logger.debug(f'[REPLACE] 교체매매 실패: {_rp_e}')
+        except Exception as _pq_err:
+            logger.debug(f'[PENDING-QUEUE] 처리 오류: {_pq_err}')
+        # ── 대기열 처리 끝 ──────────────────────────────────────────
+
         # 4) 신규 매수 스캔 (서킷브레이커 비활성 시만, 5개씩 배치)
         if not getattr(self, "_circuit_breaker_active", False):
             try:
@@ -734,6 +800,24 @@ class EngineCycleMixin:
                 if _m:
                     self._surge_cache[_m] = {**_c, "_ts": _now}
             logger.debug(f"[SurgeCache] {len(self._surge_cache)}개 코인 캐시")
+
+            # [PENDING-QUEUE] 포지션 만석 시 surge 종목 대기열에 추가
+            import time as _pq_time
+            _open_cnt = len(self.portfolio.open_positions)
+            _max_pos  = getattr(self.settings.trading, 'max_positions', 10)
+            if not hasattr(self, '_pending_surge_queue'):
+                from collections import deque as _dq
+                self._pending_surge_queue = _dq(maxlen=5)
+            for _sc in surge_candidates:
+                _sm = _sc.get('market', '')
+                _ss = _sc.get('score', 0.0)
+                _already = any(x[0] == _sm for x in self._pending_surge_queue)
+                _in_open  = _sm in self.portfolio.open_positions
+                if _open_cnt >= _max_pos and not _already and not _in_open and _sm:
+                    self._pending_surge_queue.appendleft((_sm, _ss, _pq_time.time()))
+                    logger.info(f'[PENDING-QUEUE] {_sm} 대기열 추가 (score={_ss:.3f}, 슬롯대기)')
+            if self._pending_surge_queue:
+                logger.debug(f'[PENDING-QUEUE] 현재 대기: {[x[0] for x in self._pending_surge_queue]}')
 
             new_markets     = []
             current_dynamic = set(self._dynamic_markets)
