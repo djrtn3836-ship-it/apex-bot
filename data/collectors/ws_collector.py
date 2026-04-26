@@ -205,6 +205,7 @@ class MultiStreamCollector:
         self.on_orderbook = on_orderbook
         self._collectors: List[UpbitWebSocketCollector] = []
         self._tasks: List[asyncio.Task] = []
+        self._started: bool = False  # start() 호출 여부 플래그
 
     def _chunk_markets(self) -> List[List[str]]:
         """_chunk_markets 실행"""
@@ -226,6 +227,7 @@ class MultiStreamCollector:
 
     async def start(self):
         """start 실행"""
+        self._started = True  # 즉시 플래그 (WS-WATCH 재진입 방지)
         chunks = self._chunk_markets()
         logger.info(f" {len(chunks)}개 스트림으로 {len(self.all_markets)}개 마켓 수집 시작")
 
@@ -244,6 +246,7 @@ class MultiStreamCollector:
 
     async def stop(self):
         """stop 실행"""
+        self._started = False
         for collector in self._collectors:
             await collector.stop()
         for task in self._tasks:
@@ -253,7 +256,7 @@ class MultiStreamCollector:
     @property
     def _running(self) -> bool:
         """하위 스트림 중 하나라도 실행 중이면 True"""
-        return any(c._running for c in self._collectors)
+        return self._started or any(c._running for c in self._collectors)
 
     async def run(self):
         """engine_schedule.py 호환용 run() → start() 래퍼

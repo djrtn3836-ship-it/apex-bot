@@ -409,10 +409,16 @@ class TradingEngine(
                         self.cache_manager.set_orderbook(market, normalized)
 
                         # [MULTI-STREAM] 20개씩 분산 구독 (단일 연결 240개 → 12스트림)
-            _ws_markets = list(
-                getattr(self, '_all_krw_markets', None)
-                or self.settings.trading.target_markets
-            )
+            # [FIX-W2] ws_collector 초기화 시 전체 KRW 마켓 직접 조회
+            #          _all_krw_markets는 첫 _cycle() 후에 채워지므로 직접 REST 조회
+            try:
+                _ws_markets = await self.adapter.get_all_krw_markets()
+                if not _ws_markets:
+                    raise ValueError("빈 마켓 리스트")
+                logger.info(f"[WS-INIT] REST 전체 KRW 마켓 조회: {len(_ws_markets)}개")
+            except Exception as _wm_e:
+                logger.warning(f"[WS-INIT] 전체 마켓 조회 실패({_wm_e}) → target_markets 사용")
+                _ws_markets = list(self.settings.trading.target_markets)
 
             async def _on_ws_candle(data):
                 await _on_ws_message(data)
