@@ -912,365 +912,378 @@ class EngineBuyMixin:
 
 
     async def _execute_buy(self, market: str, signal: CombinedSignal, df):
-        _max_pos = self.settings.trading.max_positions
-        if not hasattr(self, "_sell_cooldown"):
-            self._sell_cooldown = {}
-        _cd_last = self._sell_cooldown.get(market)
-        if (_cd_last is not None and
-                (datetime.now() - _cd_last).total_seconds() < 1200):
-            _cd_remain = 1200 - (datetime.now() - _cd_last).total_seconds()
-            logger.info(f'[COOLDOWN] {market}: 매도 후 {_cd_remain:.0f}초 남음 → BUY 차단')
-            return
-
-        # [FIX] DB 기반 손절 후 재매수 금지 체크 (재시작 후에도 유지)
-        try:
-            import datetime as _dt_slcd
-            _slcd_key = f"sl_cooldown_{market}"
-            _slcd_state = await self.db_manager.get_state(_slcd_key)
-            if _slcd_state:
-                _ban_until = _dt_slcd.datetime.fromisoformat(str(_slcd_state))
-                if _dt_slcd.datetime.now() < _ban_until:
-                    _remain_min = int((_ban_until - _dt_slcd.datetime.now()).total_seconds() // 60)
-                    logger.info(
-                        f"[SL-BAN] {market}: 손절 후 재매수 금지 "
-                        f"({_remain_min}분 남음 / 해제={_ban_until.strftime('%H:%M')})"
-                    )
-                    return
-                else:
-                    # 쿨다운 만료 → DB 삭제
-                    await self.db_manager.delete_state(_slcd_key)
-        except Exception as _slcd_e:
-            logger.debug(f"[SL-BAN] {market} 체크 오류: {_slcd_e}")
-
-        if self.portfolio.position_count >= _max_pos:
-            logger.info(
-                f"   ({market}): "
-                f"{self.portfolio.position_count}/{_max_pos} → 매수 취소"
-            )
-            return
-        if self.portfolio.is_position_open(market):
-            logger.debug(f"    ({market}): 이미 포지션 존재")
-            return
+        # [FIX-DUP] 중복 매수 방지 — Race Condition 완전 차단
+        if not hasattr(self, '_buying_markets'):
+            self._buying_markets = set()
         if market in self._buying_markets:
-            logger.debug(f"    ({market}): 매수 진행 중")
+            logger.debug(f'[DUP-GUARD] {market}: 매수 진행 중 → 스킵')
             return
-        self._buying_markets.add(market)
-        # [FIX B] ML=SELL 신호이면 매수 차단
-        _ml_pred_b = self._ml_predictions.get(market, {})
-        if isinstance(_ml_pred_b, dict):
-            _ml_sig_b  = _ml_pred_b.get("signal", "HOLD")
-            _ml_conf_b = float(_ml_pred_b.get("confidence", 0))
-            _is_bear_rev_b = market in getattr(self, "_bear_reversal_markets", set())
-            if _ml_sig_b == "SELL" and _ml_conf_b >= 0.65 and not _is_bear_rev_b:
-                # [FIX] BEAR_REVERSAL 마켓 면제 + 신뢰도 기준 0.42→0.65 상향
+        if self.portfolio.has_position(market):
+            logger.debug(f'[DUP-GUARD] {market}: 포지션 이미 존재 → 스킵')
+            return
+        self._buying_markets.add(market)  # [DUP-GUARD] 선점 등록
+        try:
+            _max_pos = self.settings.trading.max_positions
+            if not hasattr(self, "_sell_cooldown"):
+                self._sell_cooldown = {}
+            _cd_last = self._sell_cooldown.get(market)
+            if (_cd_last is not None and
+                    (datetime.now() - _cd_last).total_seconds() < 1200):
+                _cd_remain = 1200 - (datetime.now() - _cd_last).total_seconds()
+                logger.info(f'[COOLDOWN] {market}: 매도 후 {_cd_remain:.0f}초 남음 → BUY 차단')
+                return
+
+            # [FIX] DB 기반 손절 후 재매수 금지 체크 (재시작 후에도 유지)
+            try:
+                import datetime as _dt_slcd
+                _slcd_key = f"sl_cooldown_{market}"
+                _slcd_state = await self.db_manager.get_state(_slcd_key)
+                if _slcd_state:
+                    _ban_until = _dt_slcd.datetime.fromisoformat(str(_slcd_state))
+                    if _dt_slcd.datetime.now() < _ban_until:
+                        _remain_min = int((_ban_until - _dt_slcd.datetime.now()).total_seconds() // 60)
+                        logger.info(
+                            f"[SL-BAN] {market}: 손절 후 재매수 금지 "
+                            f"({_remain_min}분 남음 / 해제={_ban_until.strftime('%H:%M')})"
+                        )
+                        return
+                    else:
+                        # 쿨다운 만료 → DB 삭제
+                        await self.db_manager.delete_state(_slcd_key)
+            except Exception as _slcd_e:
+                logger.debug(f"[SL-BAN] {market} 체크 오류: {_slcd_e}")
+
+            if self.portfolio.position_count >= _max_pos:
+                logger.info(
+                    f"   ({market}): "
+                    f"{self.portfolio.position_count}/{_max_pos} → 매수 취소"
+                )
+                return
+            if self.portfolio.is_position_open(market):
+                logger.debug(f"    ({market}): 이미 포지션 존재")
+                return
+            if market in self._buying_markets:
+                logger.debug(f"    ({market}): 매수 진행 중")
+                return
+            self._buying_markets.add(market)
+            # [FIX B] ML=SELL 신호이면 매수 차단
+            _ml_pred_b = self._ml_predictions.get(market, {})
+            if isinstance(_ml_pred_b, dict):
+                _ml_sig_b  = _ml_pred_b.get("signal", "HOLD")
+                _ml_conf_b = float(_ml_pred_b.get("confidence", 0))
+                _is_bear_rev_b = market in getattr(self, "_bear_reversal_markets", set())
+                if _ml_sig_b == "SELL" and _ml_conf_b >= 0.65 and not _is_bear_rev_b:
+                    # [FIX] BEAR_REVERSAL 마켓 면제 + 신뢰도 기준 0.42→0.65 상향
+                    logger.warning(
+                        f"[ML-BLOCK] {market}: ML=SELL({_ml_conf_b:.2f}) → BUY 차단"
+                    )
+                    self._buying_markets.discard(market)
+                    return
+            # [FIX A-2] Sell Cooldown 체크 (10분 재매수 방지)
+            if not hasattr(self, "_sell_cooldown"):
+                self._sell_cooldown = {}
+            _cd_val = self._sell_cooldown.get(market)
+            if _cd_val is not None:
+                if isinstance(_cd_val, (int, float)):
+                    _cd_val = datetime.fromtimestamp(_cd_val)
+                    self._sell_cooldown[market] = _cd_val
+                _cd_elapsed = (datetime.now() - _cd_val).total_seconds()
+                if _cd_elapsed < 1200:  # [FIX] 1200초 통일
+                    logger.info(
+                        f'[COOLDOWN] {market}: 매도 후 {int(_cd_elapsed)}초 경과 → '
+                        f'재매수 대기 ({int(1200 - _cd_elapsed)}초 남음)'
+                    )
+                    self._buying_markets.discard(market)
+                    return
+
+            _symbol    = market.replace("KRW-", "")
+            _can_buy, _buy_note = self._wallet.can_buy(_symbol)
+            if not _can_buy:
+                logger.warning(f" SmartWallet  : {_buy_note}")
+                self._buying_markets.discard(market)
+                return
+            logger.info(f" SmartWallet: {_buy_note}")
+
+            krw = await self.adapter.get_balance("KRW")
+            can_buy, reason = await self.risk_manager.can_open_position(
+                market, krw, self.portfolio.position_count,
+                global_regime=getattr(self, "_global_regime", None),
+            )
+            if not can_buy:
+                logger.info(f"  ({market}): {reason}")
+                self._buying_markets.discard(market)
+                return
+
+            _is_bear_rev_signal = "BEAR_REVERSAL" in getattr(
+                signal, "contributing_strategies", []
+            )
+            if not _is_bear_rev_signal:
+                if getattr(signal, 'confidence', 0) < self.settings.risk.buy_signal_threshold:
+                    logger.debug(
+                        f"    ({market}): "
+                        f"점수={getattr(signal, 'confidence', 0):.2f} < "
+                        f"임계={self.settings.risk.buy_signal_threshold:.2f} (FGI조정 비활성화)"
+                    )
+                    self._buying_markets.discard(market)
+                    return
+
+            last = df.iloc[-1]
+            try:
+                _sl_levels_buy = self.atr_stop.calculate(df, float(last["close"]), market=market,
+                            global_regime=getattr(self, "_global_regime", None))
+                atr         = _sl_levels_buy.atr
+                stop_loss   = _sl_levels_buy.stop_loss
+                stop_loss = max(stop_loss, float(last["close"]) * 0.97)  # [FIX-SL] ATR SL cap -3%
+                take_profit = _sl_levels_buy.take_profit
+                logger.info(
+                    f" ATR-SL ({market}): "
+                    f"SL={stop_loss:,.0f} ({_sl_levels_buy.sl_pct*100:.2f}%) | "
+                    f"TP={take_profit:,.0f} ({_sl_levels_buy.tp_pct*100:.2f}%) | "
+                    f"RR={_sl_levels_buy.rr_ratio:.2f} | ATR={atr:,.0f}"
+                )
+            except Exception as _atr_e:
                 logger.warning(
-                    f"[ML-BLOCK] {market}: ML=SELL({_ml_conf_b:.2f}) → BUY 차단"
+                    f" ATR   ({market}): {_atr_e} → 고정비율 사용"
                 )
-                self._buying_markets.discard(market)
-                return
-        # [FIX A-2] Sell Cooldown 체크 (10분 재매수 방지)
-        if not hasattr(self, "_sell_cooldown"):
-            self._sell_cooldown = {}
-        _cd_val = self._sell_cooldown.get(market)
-        if _cd_val is not None:
-            if isinstance(_cd_val, (int, float)):
-                _cd_val = datetime.fromtimestamp(_cd_val)
-                self._sell_cooldown[market] = _cd_val
-            _cd_elapsed = (datetime.now() - _cd_val).total_seconds()
-            if _cd_elapsed < 1200:  # [FIX] 1200초 통일
+                atr         = float(last["close"]) * 0.02
+                stop_loss   = float(last["close"]) * (
+                    1 - self.settings.risk.atr_stop_multiplier * 0.01
+                )
+                take_profit = float(last["close"]) * (
+                    1 + self.settings.risk.atr_target_multiplier * 0.01
+                )
+
+            _strategy_name = getattr(signal, "contributing_strategies", ["default"])
+            _strategy_name = _strategy_name[0] if _strategy_name else "default"
+            _ml_conf       = getattr(signal, "ml_confidence", 0.5)
+            position_size  = self.position_sizer.calculate(
+                total_capital=krw,
+                strategy=_strategy_name,
+                market=market,
+                confidence=_ml_conf,
+            )
+
+            # [MDD-L2] 연속손실 / ATR 변동성 기반 동적 포지션 축소
+            _consec_loss = getattr(self, "_consecutive_loss_count", 0)
+            if _consec_loss >= 3:
+                _before = position_size
+                position_size *= 0.5
                 logger.info(
-                    f'[COOLDOWN] {market}: 매도 후 {int(_cd_elapsed)}초 경과 → '
-                    f'재매수 대기 ({int(1200 - _cd_elapsed)}초 남음)'
+                    f"[MDD-L2] 연속손실 {_consec_loss}건 → 포지션 50% 축소 "
+                    f"({market}): ₩{_before:,.0f} → ₩{position_size:,.0f}"
                 )
-                self._buying_markets.discard(market)
-                return
+            # ATR 고변동성 시 포지션 추가 축소 (ATR > 기준값 1.5배)
+            try:
+                _atr_now = float(df["atr"].iloc[-1]) if "atr" in df.columns else 0
+                _atr_base = float(df["close"].iloc[-1]) * 0.02
+                if _atr_now > 0 and _atr_now > _atr_base * 1.5:
+                    _before2 = position_size
+                    position_size *= 0.7
+                    logger.debug(
+                        f"[MDD-L2] ATR 고변동성 ({market}) "
+                        f"ATR={_atr_now:.1f} > 기준={_atr_base:.1f}×1.5 "
+                        f"→ 30% 축소: ₩{_before2:,.0f} → ₩{position_size:,.0f}"
+                    )
+            except Exception as _e:
+                import logging as _lg
+                _lg.getLogger("engine_buy").debug(f"[WARN] engine_buy 오류 무시: {_e}")
+                pass
 
-        _symbol    = market.replace("KRW-", "")
-        _can_buy, _buy_note = self._wallet.can_buy(_symbol)
-        if not _can_buy:
-            logger.warning(f" SmartWallet  : {_buy_note}")
-            self._buying_markets.discard(market)
-            return
-        logger.info(f" SmartWallet: {_buy_note}")
-
-        krw = await self.adapter.get_balance("KRW")
-        can_buy, reason = await self.risk_manager.can_open_position(
-            market, krw, self.portfolio.position_count,
-            global_regime=getattr(self, "_global_regime", None),
-        )
-        if not can_buy:
-            logger.info(f"  ({market}): {reason}")
-            self._buying_markets.discard(market)
-            return
-
-        _is_bear_rev_signal = "BEAR_REVERSAL" in getattr(
-            signal, "contributing_strategies", []
-        )
-        if not _is_bear_rev_signal:
-            if getattr(signal, 'confidence', 0) < self.settings.risk.buy_signal_threshold:
-                logger.debug(
-                    f"    ({market}): "
-                    f"점수={getattr(signal, 'confidence', 0):.2f} < "
-                    f"임계={self.settings.risk.buy_signal_threshold:.2f} (FGI조정 비활성화)"
-                )
-                self._buying_markets.discard(market)
-                return
-
-        last = df.iloc[-1]
-        try:
-            _sl_levels_buy = self.atr_stop.calculate(df, float(last["close"]), market=market,
-                        global_regime=getattr(self, "_global_regime", None))
-            atr         = _sl_levels_buy.atr
-            stop_loss   = _sl_levels_buy.stop_loss
-            stop_loss = max(stop_loss, float(last["close"]) * 0.97)  # [FIX-SL] ATR SL cap -3%
-            take_profit = _sl_levels_buy.take_profit
-            logger.info(
-                f" ATR-SL ({market}): "
-                f"SL={stop_loss:,.0f} ({_sl_levels_buy.sl_pct*100:.2f}%) | "
-                f"TP={take_profit:,.0f} ({_sl_levels_buy.tp_pct*100:.2f}%) | "
-                f"RR={_sl_levels_buy.rr_ratio:.2f} | ATR={atr:,.0f}"
-            )
-        except Exception as _atr_e:
-            logger.warning(
-                f" ATR   ({market}): {_atr_e} → 고정비율 사용"
-            )
-            atr         = float(last["close"]) * 0.02
-            stop_loss   = float(last["close"]) * (
-                1 - self.settings.risk.atr_stop_multiplier * 0.01
-            )
-            take_profit = float(last["close"]) * (
-                1 + self.settings.risk.atr_target_multiplier * 0.01
-            )
-
-        _strategy_name = getattr(signal, "contributing_strategies", ["default"])
-        _strategy_name = _strategy_name[0] if _strategy_name else "default"
-        _ml_conf       = getattr(signal, "ml_confidence", 0.5)
-        position_size  = self.position_sizer.calculate(
-            total_capital=krw,
-            strategy=_strategy_name,
-            market=market,
-            confidence=_ml_conf,
-        )
-
-        # [MDD-L2] 연속손실 / ATR 변동성 기반 동적 포지션 축소
-        _consec_loss = getattr(self, "_consecutive_loss_count", 0)
-        if _consec_loss >= 3:
-            _before = position_size
-            position_size *= 0.5
-            logger.info(
-                f"[MDD-L2] 연속손실 {_consec_loss}건 → 포지션 50% 축소 "
-                f"({market}): ₩{_before:,.0f} → ₩{position_size:,.0f}"
-            )
-        # ATR 고변동성 시 포지션 추가 축소 (ATR > 기준값 1.5배)
-        try:
-            _atr_now = float(df["atr"].iloc[-1]) if "atr" in df.columns else 0
-            _atr_base = float(df["close"].iloc[-1]) * 0.02
-            if _atr_now > 0 and _atr_now > _atr_base * 1.5:
-                _before2 = position_size
-                position_size *= 0.7
-                logger.debug(
-                    f"[MDD-L2] ATR 고변동성 ({market}) "
-                    f"ATR={_atr_now:.1f} > 기준={_atr_base:.1f}×1.5 "
-                    f"→ 30% 축소: ₩{_before2:,.0f} → ₩{position_size:,.0f}"
-                )
-        except Exception as _e:
-            import logging as _lg
-            _lg.getLogger("engine_buy").debug(f"[WARN] engine_buy 오류 무시: {_e}")
-            pass
-
-        if getattr(signal, "bear_reversal", False):
-            position_size *= 0.5
-            logger.info(
-                f" BEAR_REVERSAL  50%  ({market}): "
-                f"₩{position_size*2:,.0f} → ₩{position_size:,.0f}"
-            )
-
-        _ml_conf_score  = getattr(signal, "ml_confidence", 0.5)
-        _ensemble_score = getattr(signal, "score",         0.5)
-        _combined_score = (_ml_conf_score + _ensemble_score) / 2
-
-        if _combined_score >= 0.80:
-            _buy_ratio  = 1.0
-            _buy_reason = f"강한신호({_combined_score:.2f}) 전량매수"
-        elif _combined_score >= 0.60:
-            _buy_ratio  = 0.70
-            _buy_reason = f"중간신호({_combined_score:.2f}) 70%매수"
-        else:
-            _buy_ratio  = 0.50
-            _buy_reason = f"약한신호({_combined_score:.2f}) 50%매수"
-
-        # [OPT] 시간대 배율 적용
-        if '_time_size_mult' in dir():
-            position_size = position_size * _time_size_mult
-            if _time_size_mult != 1.0:
-                logger.debug(f'[TIME-SIZE] {market} {_now_hour}시 배율={_time_size_mult}× → ₩{position_size:,.0f}')
-        _original_size = position_size
-        position_size  = max(position_size * _buy_ratio, 20_000)
-        logger.info(
-            f"   ({market}): {_buy_reason} | "
-            f"₩{_original_size:,.0f} → ₩{position_size:,.0f}"
-        )
-
-        _MIN_POSITION_KRW = 20_000
-        _MAX_POSITION_KRW = krw * 0.20
-
-        if position_size < _MIN_POSITION_KRW:
-            if krw >= _MIN_POSITION_KRW * 2:
-                position_size = _MIN_POSITION_KRW
+            if getattr(signal, "bear_reversal", False):
+                position_size *= 0.5
                 logger.info(
-                    f"    ({market}): "
-                    f"₩{position_size:,.0f} (자본 ₩{krw:,.0f})"
+                    f" BEAR_REVERSAL  50%  ({market}): "
+                    f"₩{position_size*2:,.0f} → ₩{position_size:,.0f}"
                 )
+
+            _ml_conf_score  = getattr(signal, "ml_confidence", 0.5)
+            _ensemble_score = getattr(signal, "score",         0.5)
+            _combined_score = (_ml_conf_score + _ensemble_score) / 2
+
+            if _combined_score >= 0.80:
+                _buy_ratio  = 1.0
+                _buy_reason = f"강한신호({_combined_score:.2f}) 전량매수"
+            elif _combined_score >= 0.60:
+                _buy_ratio  = 0.70
+                _buy_reason = f"중간신호({_combined_score:.2f}) 70%매수"
             else:
+                _buy_ratio  = 0.50
+                _buy_reason = f"약한신호({_combined_score:.2f}) 50%매수"
+
+            # [OPT] 시간대 배율 적용
+            if '_time_size_mult' in dir():
+                position_size = position_size * _time_size_mult
+                if _time_size_mult != 1.0:
+                    logger.debug(f'[TIME-SIZE] {market} {_now_hour}시 배율={_time_size_mult}× → ₩{position_size:,.0f}')
+            _original_size = position_size
+            position_size  = max(position_size * _buy_ratio, 20_000)
+            logger.info(
+                f"   ({market}): {_buy_reason} | "
+                f"₩{_original_size:,.0f} → ₩{position_size:,.0f}"
+            )
+
+            _MIN_POSITION_KRW = 20_000
+            _MAX_POSITION_KRW = krw * 0.20
+
+            if position_size < _MIN_POSITION_KRW:
+                if krw >= _MIN_POSITION_KRW * 2:
+                    position_size = _MIN_POSITION_KRW
+                    logger.info(
+                        f"    ({market}): "
+                        f"₩{position_size:,.0f} (자본 ₩{krw:,.0f})"
+                    )
+                else:
+                    logger.debug(
+                        f"   ({market}): "
+                        f"₩{position_size:,.0f} < 최소 ₩{_MIN_POSITION_KRW:,.0f}"
+                    )
+                    self._buying_markets.discard(market)
+                    return
+
+            if position_size > _MAX_POSITION_KRW:
+                position_size = _MAX_POSITION_KRW
+                logger.info(
+                    f"    ({market}): "
+                    f"₩{position_size:,.0f} (자본의 20%)"
+                )
+
+            if position_size < self.settings.trading.min_order_amount:
                 logger.debug(
                     f"   ({market}): "
-                    f"₩{position_size:,.0f} < 최소 ₩{_MIN_POSITION_KRW:,.0f}"
+                    f"₩{position_size:,.0f} < "
+                    f"최소 ₩{self.settings.trading.min_order_amount:,.0f}"
                 )
                 self._buying_markets.discard(market)
                 return
 
-        if position_size > _MAX_POSITION_KRW:
-            position_size = _MAX_POSITION_KRW
-            logger.info(
-                f"    ({market}): "
-                f"₩{position_size:,.0f} (자본의 20%)"
-            )
+            if self.portfolio.position_count >= self.settings.trading.max_positions:
+                logger.info(
+                    f"    ({market}): "
+                    f"{self.portfolio.position_count}/"
+                    f"{self.settings.trading.max_positions} → 매수 취소"
+                )
+                self._buying_markets.discard(market)
+                return
 
-        if position_size < self.settings.trading.min_order_amount:
-            logger.debug(
-                f"   ({market}): "
-                f"₩{position_size:,.0f} < "
-                f"최소 ₩{self.settings.trading.min_order_amount:,.0f}"
-            )
-            self._buying_markets.discard(market)
-            return
+            current_price    = self._market_prices.get(market, float(last["close"]))
+            _buy_raw_volume  = position_size / current_price if current_price > 0 else 0
+            _buy_volume      = _floor_vol(market, _buy_raw_volume)
+            _adjusted_krw    = _buy_volume * current_price if _buy_volume > 0 else position_size
 
-        if self.portfolio.position_count >= self.settings.trading.max_positions:
-            logger.info(
-                f"    ({market}): "
-                f"{self.portfolio.position_count}/"
-                f"{self.settings.trading.max_positions} → 매수 취소"
-            )
-            self._buying_markets.discard(market)
-            return
-
-        current_price    = self._market_prices.get(market, float(last["close"]))
-        _buy_raw_volume  = position_size / current_price if current_price > 0 else 0
-        _buy_volume      = _floor_vol(market, _buy_raw_volume)
-        _adjusted_krw    = _buy_volume * current_price if _buy_volume > 0 else position_size
-
-        req = ExecutionRequest(
-            market=market,
-            side=OrderSide.BUY,
-            amount_krw=_adjusted_krw,
-            reason=signal.reasons[0] if getattr(signal, 'reasons', []) else "BUY signal",
-            strategy_name=", ".join(getattr(signal, 'contributing_strategies', [])),
-            stop_loss=stop_loss,
-            take_profit=take_profit,
-        )
-
-        try:
-            result = await self.executor.execute(req)
-        finally:
-            self._buying_markets.discard(market)
-
-        if result.executed_price > 0:
-            self.portfolio.open_position(
+            req = ExecutionRequest(
                 market=market,
-                entry_price=result.executed_price,
-                volume=result.executed_volume,
-                amount_krw=position_size,
-                strategy=req.strategy_name,
+                side=OrderSide.BUY,
+                amount_krw=_adjusted_krw,
+                reason=signal.reasons[0] if getattr(signal, 'reasons', []) else "BUY signal",
+                strategy_name=", ".join(getattr(signal, 'contributing_strategies', [])),
                 stop_loss=stop_loss,
                 take_profit=take_profit,
             )
-            self._last_signal_time[market] = time.time()  # [FIX] 체결 후 갱신
-            self.trailing_stop.add_position(
-                market, result.executed_price, stop_loss, atr
-            )
 
             try:
-                if self.ppo_online_trainer is not None:
-                    self.ppo_online_trainer.add_experience(
-                        market=market, action=1,
-                        profit_rate=0.0, hold_hours=0.0,
-                    )
-            except Exception as _ppo_buy_e:
-                logger.debug(f"PPO BUY   : {_ppo_buy_e}")
+                result = await self.executor.execute(req)
+            finally:
+                self._buying_markets.discard(market)
 
-            if self.position_mgr_v2 is not None:
+            if result.executed_price > 0:
+                self.portfolio.open_position(
+                    market=market,
+                    entry_price=result.executed_price,
+                    volume=result.executed_volume,
+                    amount_krw=position_size,
+                    strategy=req.strategy_name,
+                    stop_loss=stop_loss,
+                    take_profit=take_profit,
+                )
+                self._last_signal_time[market] = time.time()  # [FIX] 체결 후 갱신
+                self.trailing_stop.add_position(
+                    market, result.executed_price, stop_loss, atr
+                )
+
                 try:
-                    from risk.position_manager_v2 import PositionV2
-                    _pos_v2 = PositionV2(
-                        market=market,
-                        entry_price=result.executed_price,
-                        volume=result.executed_volume,
-                        amount_krw=position_size,
-                        stop_loss=stop_loss,
-                        take_profit=take_profit,
-                        strategy=req.strategy_name,
-                    )
-                    self.position_mgr_v2.add_position(_pos_v2)
-                except Exception as _pv2_e:
-                    logger.debug(f"PositionManagerV2  : {_pv2_e}")
+                    if self.ppo_online_trainer is not None:
+                        self.ppo_online_trainer.add_experience(
+                            market=market, action=1,
+                            profit_rate=0.0, hold_hours=0.0,
+                        )
+                except Exception as _ppo_buy_e:
+                    logger.debug(f"PPO BUY   : {_ppo_buy_e}")
 
-            self.partial_exit.add_position(
-                market=market,
-                entry_price=result.executed_price,
-                volume=result.executed_volume,
-                take_profit=take_profit,
-            )
+                if self.position_mgr_v2 is not None:
+                    try:
+                        from risk.position_manager_v2 import PositionV2
+                        _pos_v2 = PositionV2(
+                            market=market,
+                            entry_price=result.executed_price,
+                            volume=result.executed_volume,
+                            amount_krw=position_size,
+                            stop_loss=stop_loss,
+                            take_profit=take_profit,
+                            strategy=req.strategy_name,
+                        )
+                        self.position_mgr_v2.add_position(_pos_v2)
+                    except Exception as _pv2_e:
+                        logger.debug(f"PositionManagerV2  : {_pv2_e}")
 
-            _fee_rate = getattr(self.settings.trading, "fee_rate", 0.0005)
-            _buy_fee  = position_size * _fee_rate
+                self.partial_exit.add_position(
+                    market=market,
+                    entry_price=result.executed_price,
+                    volume=result.executed_volume,
+                    take_profit=take_profit,
+                )
 
-            log_trade(
-                "BUY", market, result.executed_price,
-                position_size, req.reason
-            )
-            await self.telegram.notify_buy(
-                market, result.executed_price, position_size,
-                req.reason, req.strategy_name
-            )
+                _fee_rate = getattr(self.settings.trading, "fee_rate", 0.0005)
+                _buy_fee  = position_size * _fee_rate
+
+                log_trade(
+                    "BUY", market, result.executed_price,
+                    position_size, req.reason
+                )
+                await self.telegram.notify_buy(
+                    market, result.executed_price, position_size,
+                    req.reason, req.strategy_name
+                )
+
+                try:
+                    await self.db_manager.insert_trade({
+                        "timestamp":   datetime.now().isoformat(),
+                        "market":      market,
+                        "side":        "BUY",
+                        "price":       result.executed_price,
+                        "volume":      result.executed_volume,
+                        "amount_krw":  position_size,
+                        "fee":         _buy_fee,
+                        "profit_rate": 0.0,
+                        "strategy":    req.strategy_name,
+                        "reason":      req.reason,
+                    })
+                except Exception as _db_e:
+                    logger.debug(f"BUY DB  : {_db_e}")
+
+                try:
+                    await self.db_manager.log_signal({
+                        "market":      market,
+                        "signal_type": "BUY",
+                        "score":       getattr(signal, "score",      0),
+                        "confidence":  getattr(signal, "confidence", 0),
+                        "strategies":  list(getattr(signal, "contributing_strategies", [])),
+                        "regime":      getattr(signal, "regime",     ""),
+                        "executed":    True,
+                    })
+                except Exception as _sl_e:
+                    logger.debug(f"signal_log executed  : {_sl_e}")
 
             try:
-                await self.db_manager.insert_trade({
-                    "timestamp":   datetime.now().isoformat(),
-                    "market":      market,
-                    "side":        "BUY",
-                    "price":       result.executed_price,
-                    "volume":      result.executed_volume,
-                    "amount_krw":  position_size,
-                    "fee":         _buy_fee,
-                    "profit_rate": 0.0,
-                    "strategy":    req.strategy_name,
-                    "reason":      req.reason,
-                })
-            except Exception as _db_e:
-                logger.debug(f"BUY DB  : {_db_e}")
+                _exec_price = float(getattr(result, "executed_price",
+                              getattr(result, "price", 0)))
+                _exec_qty   = float(getattr(result, "executed_volume",
+                              getattr(result, "quantity",
+                              getattr(result, "qty", 0))))
+                if _exec_qty > 0 and _exec_price > 0:
+                    self._wallet.record_buy(_symbol, _exec_qty, _exec_price)
+            except Exception as _we:
+                logger.debug(f"SmartWallet record_buy : {_we}")
 
-            try:
-                await self.db_manager.log_signal({
-                    "market":      market,
-                    "signal_type": "BUY",
-                    "score":       getattr(signal, "score",      0),
-                    "confidence":  getattr(signal, "confidence", 0),
-                    "strategies":  list(getattr(signal, "contributing_strategies", [])),
-                    "regime":      getattr(signal, "regime",     ""),
-                    "executed":    True,
-                })
-            except Exception as _sl_e:
-                logger.debug(f"signal_log executed  : {_sl_e}")
-
-        try:
-            _exec_price = float(getattr(result, "executed_price",
-                          getattr(result, "price", 0)))
-            _exec_qty   = float(getattr(result, "executed_volume",
-                          getattr(result, "quantity",
-                          getattr(result, "qty", 0))))
-            if _exec_qty > 0 and _exec_price > 0:
-                self._wallet.record_buy(_symbol, _exec_qty, _exec_price)
-        except Exception as _we:
-            logger.debug(f"SmartWallet record_buy : {_we}")
-
-    # ── 부분 청산 실행 ───────────────────────────────────────────
+        # ── 부분 청산 실행 ───────────────────────────────────────────
+        finally:
+            self._buying_markets.discard(market)  # [DUP-GUARD] 선점 해제 (모든 경로)
