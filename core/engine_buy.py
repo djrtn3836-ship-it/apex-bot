@@ -634,6 +634,16 @@ class EngineBuyMixin:
         from datetime import datetime as _dt_tf, timezone, timedelta
         _KST = timezone(timedelta(hours=9))
         _now_hour = _dt_tf.now(_KST).hour
+
+        # [OPT] 시간대별 포지션 크기 배율
+        _time_cfg = getattr(self.settings, 'time_size_boost', {})
+        if 12 <= _now_hour < 18:
+            _time_size_mult = 1.20   # 오후 최적 시간대
+        elif 0 <= _now_hour < 6:
+            _time_size_mult = 0.70   # 새벽 축소
+        else:
+            _time_size_mult = 1.00   # 기본
+
         if 0 <= _now_hour < 6:
             _ob_names = {"Order_Block", "VolBreakout", "Vol_Breakout"}
             selected  = {n: s for n, s in selected.items() if n not in _ob_names}
@@ -1060,6 +1070,11 @@ class EngineBuyMixin:
             _buy_ratio  = 0.50
             _buy_reason = f"약한신호({_combined_score:.2f}) 50%매수"
 
+        # [OPT] 시간대 배율 적용
+        if '_time_size_mult' in dir():
+            position_size = position_size * _time_size_mult
+            if _time_size_mult != 1.0:
+                logger.debug(f'[TIME-SIZE] {market} {_now_hour}시 배율={_time_size_mult}× → ₩{position_size:,.0f}')
         _original_size = position_size
         position_size  = max(position_size * _buy_ratio, 20_000)
         logger.info(

@@ -20,7 +20,13 @@
       1,
       2,
       3
-    ]
+    ],
+    "time_size_boost": {
+      "12_18": 1.2,
+      "06_12": 1.0,
+      "18_24": 1.0,
+      "00_06": 0.7
+    }
   },
   "strategies": {
     "Order_Block": {
@@ -103,7 +109,8 @@
         ],
         "comment": "06-12시 회피 / 00-06 18-24 100pct WR"
       },
-      "rationale": "7회 100pct WR"
+      "rationale": "7회 100pct WR",
+      "sample_guard_trades": 20
     },
     "RSI_Divergence": {
       "is_active": true,
@@ -135,7 +142,8 @@
         ],
         "comment": "12-24시만 허용 / 00-12시 승률 0pct"
       },
-      "rationale": "6회 83.3pct WR"
+      "rationale": "6회 83.3pct WR",
+      "sample_guard_trades": 20
     },
     "MACD_Cross": {
       "is_active": true,
@@ -207,12 +215,13 @@
         ],
         "comment": "06-18시 집중 / 3회 100pct WR"
       },
-      "rationale": "3회 100pct WR"
+      "rationale": "3회 100pct WR",
+      "sample_guard_trades": 20
     },
     "VWAP_Reversion": {
       "is_active": true,
-      "boost": 0.5,
-      "min_confidence": 0.7,
+      "boost": 0.4,
+      "min_confidence": 0.82,
       "params": {
         "anchor_lookback": 30,
         "vol_spike_mult": 2.5,
@@ -233,7 +242,8 @@
         ],
         "comment": "12-18시만 허용 / 71pct WR 구간"
       },
-      "rationale": "21회 47.6pct WR / 시간필터 후 71pct"
+      "rationale": "21회 47.6pct WR / 시간필터 후 71pct",
+      "fear_greed_max": 45
     },
     "Supertrend": {
       "is_active": true,
@@ -265,8 +275,8 @@
     },
     "Vol_Breakout": {
       "is_active": true,
-      "boost": 0.3,
-      "min_confidence": 0.72,
+      "boost": 0.2,
+      "min_confidence": 0.85,
       "params": {
         "vp_lookback": 20,
         "vp_bins": 50,
@@ -289,7 +299,8 @@
         "comment": "06-12시만 허용 / 67pct WR"
       },
       "rationale": "12회 33.3pct WR / 극고임계값+시간필터",
-      "max_position_pct": 0.03
+      "max_position_pct": 0.03,
+      "fear_greed_max": 45
     }
   },
   "ensemble": {
