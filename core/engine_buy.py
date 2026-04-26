@@ -122,6 +122,53 @@ class EngineBuyMixin:
                 logger.info(f"[ANALYZE] {market} df_1h 없음 (캐시+API 모두 실패)")
                 return
 
+            # ══════════════════════════════════════════════════════
+            # [SURGE-FASTENTRY] SURGE A급 이상 → ML/TrendFilter 생략
+            # SurgeDetector score >= 0.65 + is_surge=True 이면
+            # TrendFilter/VolumeProfile/ML 파이프라인 우회하고
+            # _evaluate_entry_signals() 로 직행
+            # ══════════════════════════════════════════════════════
+            _surge_cache  = getattr(self, "_surge_cache", {})
+            _surge_info   = _surge_cache.get(market, {})
+            _is_surge_fast = (
+                _surge_info.get("is_surge", False)
+                and _surge_info.get("score", 0.0) >= 0.65
+                and not _surge_info.get("pump_dump", False)
+            )
+            if _is_surge_fast:
+                _sg = _surge_info.get("grade", "")
+                _ss = _surge_info.get("score", 0.0)
+                _sr = _surge_info.get("reason", "")
+                logger.info(
+                    f"[SURGE-FASTENTRY] {market} | {_sg}급 score={_ss:.3f} | "
+                    f"TrendFilter/ML 우회 → 즉시 진입 평가 | {_sr}"
+                )
+                # df_1h 기반으로 간단한 processed df 생성
+                try:
+                    import pandas as _pd
+                    df_surge = df_1h.copy()
+                    if "atr" not in df_surge.columns:
+                        _hl = df_surge["high"] - df_surge["low"]
+                        df_surge["atr"] = _hl.rolling(14).mean()
+                    # SURGE 전용 ml_score: surge score * 1.2 (최대 1.0)
+                    _surge_ml_score = min(_ss * 1.2, 1.0)
+                    _surge_combined = await self._evaluate_entry_signals(
+                        market, df_surge, _surge_ml_score
+                    )
+                    if _surge_combined is not None:
+                        logger.info(
+                            f"[SURGE-FASTENTRY] {market} 진입 신호 확정 | "
+                            f"score={_surge_combined.score:.3f}"
+                        )
+                        await self._execute_buy(market, _surge_combined, df_surge)
+                    else:
+                        logger.info(
+                            f"[SURGE-FASTENTRY] {market} _evaluate_entry_signals 차단 → 스킵"
+                        )
+                except Exception as _sfe:
+                    logger.warning(f"[SURGE-FASTENTRY] {market} 오류: {_sfe}")
+                return
+
             try:
                 df_1d = await self.rest_collector.get_ohlcv(market, "day", 210)
                 if df_1d is None or len(df_1d) < 5:
