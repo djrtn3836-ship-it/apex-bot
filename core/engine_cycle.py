@@ -219,7 +219,14 @@ class EngineCycleMixin:
                 _targets = [m for m in _active
                             if m not in _open_now and m not in _buying_now]
                 # [OPT] 최대 15개 제한 + 종목당 8초 타임아웃
-                _targets = _targets[:15]
+                # [SURGE-OPT] 등락율 높은 종목 우선 → 최대 15개
+                _change_rates = getattr(self, "_market_change_rates", {})
+                _targets = sorted(_targets,
+                                  key=lambda m: _change_rates.get(m, 0.0),
+                                  reverse=True)[:15]
+                if _targets:
+                    _top3 = [(m, round(_change_rates.get(m, 0) * 100, 2)) for m in _targets[:3]]
+                    logger.debug(f"[SURGE-SCAN] 우선순위 상위3: {_top3}")
                 _batch_size = 5
                 for _bi in range(0, len(_targets), _batch_size):
                     _batch = _targets[_bi:_bi + _batch_size]

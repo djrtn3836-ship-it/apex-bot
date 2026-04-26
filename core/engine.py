@@ -260,6 +260,8 @@ class TradingEngine(
 
 
         self._market_prices:     Dict[str, float] = {}
+        self._market_change_rates:  Dict[str, float] = {}  # [SURGE] signed_change_rate
+        self._market_volumes_24h:   Dict[str, float] = {}  # [SURGE] acc_trade_price_24h
         self._last_signal_time:  Dict[str, float] = {}
         self._sell_cooldown:     Dict[str, datetime] = {}  # market -> sell_time, prevent rebuy for 10min
         self._ml_predictions: dict = {}  # ML 예측 캐시
@@ -361,6 +363,12 @@ class TradingEngine(
                     price = data.get("tp", data.get("trade_price", 0))
                     if market and price:
                         self._market_prices[market] = price
+                        _scr    = data.get("scr",    data.get("signed_change_rate",   None))
+                        _atp24h = data.get("atp24h", data.get("acc_trade_price_24h",  None))
+                        if _scr is not None:
+                            self._market_change_rates[market] = float(_scr)    # [SURGE] 실시간 등락율
+                        if _atp24h is not None:
+                            self._market_volumes_24h[market]  = float(_atp24h) # [SURGE] 24h 거래대금
                         self.correlation_filter.update_price(market, price)
                         self.kimchi_monitor.update_upbit_price(market, price)
                 elif msg_type == "orderbook":
