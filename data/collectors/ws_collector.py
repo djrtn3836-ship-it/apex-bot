@@ -104,7 +104,6 @@ class UpbitWebSocketCollector:
             ping_timeout=10,
             close_timeout=10,
             max_size=2**20,          # 1MB 메시지 허용
-            extra_headers={"User-Agent": "ApexBot/1.0"}
         ) as ws:
             self._ws = ws
             self._reconnect_count = 0
