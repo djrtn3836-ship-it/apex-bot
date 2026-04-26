@@ -590,6 +590,7 @@ class EngineBuyMixin:
                         else:
                             combined.confidence    = _v2_conf
                             combined._v2_size_mult = _v2_size
+                            await self._execute_buy(market, combined, df_processed)
                     else:
                         await self._execute_buy(market, combined, df_processed)
                     # [FIX] BUY 시 쿨다운 갱신 제거
@@ -612,24 +613,24 @@ class EngineBuyMixin:
 
     def _get_preferred_strategies(self, market: str) -> list:
         BEAR_PREFERRED = {
-            "KRW-BTC":  ["macd_cross",       "Supertrend"],
-            "KRW-ETH":  ["bollinger_squeeze", "VWAP_Reversion"],
-            "KRW-XRP":  ["bollinger_squeeze", "VWAP_Reversion"],
-            "KRW-SOL":  ["VWAP_Reversion",    "bollinger_squeeze"],
-            "KRW-ADA":  ["bollinger_squeeze", "VWAP_Reversion"],
-            "KRW-DOGE": ["bollinger_squeeze", "macd_cross"],
-            "KRW-DOT":  ["bollinger_squeeze", "VWAP_Reversion"],
-            "KRW-LINK": ["VWAP_Reversion",    "bollinger_squeeze"],
-            "KRW-AVAX": ["VWAP_Reversion",    "bollinger_squeeze"],
-            "KRW-ATOM": ["bollinger_squeeze",  "VWAP_Reversion"],
+            "KRW-BTC":  ["MACD_Cross",       "Supertrend"],
+            "KRW-ETH":  ["Bollinger_Squeeze", "VWAP_Reversion"],
+            "KRW-XRP":  ["Bollinger_Squeeze", "VWAP_Reversion"],
+            "KRW-SOL":  ["VWAP_Reversion",    "Bollinger_Squeeze"],
+            "KRW-ADA":  ["Bollinger_Squeeze", "VWAP_Reversion"],
+            "KRW-DOGE": ["Bollinger_Squeeze", "MACD_Cross"],
+            "KRW-DOT":  ["Bollinger_Squeeze", "VWAP_Reversion"],
+            "KRW-LINK": ["VWAP_Reversion",    "Bollinger_Squeeze"],
+            "KRW-AVAX": ["VWAP_Reversion",    "Bollinger_Squeeze"],
+            "KRW-ATOM": ["Bollinger_Squeeze",  "VWAP_Reversion"],
         }
         BULL_PREFERRED = {
-            "KRW-BTC":  ["macd_cross",       "Supertrend"],
+            "KRW-BTC":  ["MACD_Cross",       "Supertrend"],
             "KRW-ETH":  ["Supertrend",        "VWAP_Reversion"],
-            "KRW-XRP":  ["Supertrend",        "macd_cross"],
-            "KRW-SOL":  ["Supertrend",        "macd_cross"],
-            "KRW-ADA":  ["Supertrend",        "bollinger_squeeze"],
-            "KRW-DOGE": ["bollinger_squeeze", "macd_cross"],
+            "KRW-XRP":  ["Supertrend",        "MACD_Cross"],
+            "KRW-SOL":  ["Supertrend",        "MACD_Cross"],
+            "KRW-ADA":  ["Supertrend",        "Bollinger_Squeeze"],
+            "KRW-DOGE": ["Bollinger_Squeeze", "MACD_Cross"],
             "KRW-DOT":  ["Supertrend",        "VWAP_Reversion"],
             "KRW-LINK": ["Supertrend",        "VWAP_Reversion"],
             "KRW-AVAX": ["Supertrend",        "VWAP_Reversion"],

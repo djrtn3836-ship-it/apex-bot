@@ -225,6 +225,7 @@ class EngineSellMixin:
         result = await self.executor.execute(req)
 
         if result.executed_price > 0:
+            _strat_name = getattr(pos, 'strategy', 'unknown') or 'unknown'  # FIX: 포지션 삭제 전 전략명 저장
             _close_result = self.portfolio.close_position(
                 market, result.executed_price, result.fee, reason
             )
@@ -356,9 +357,7 @@ class EngineSellMixin:
                 self._strat_consec_loss   = {}   # {전략명: 연속손실횟수}
             if not hasattr(self, "_strat_cooldown_until"):
                 self._strat_cooldown_until = {}  # {전략명: 만료datetime}
-            _cur_strat = _strat if "_strat" in dir() else getattr(
-                self.portfolio.get_position(market) if hasattr(self.portfolio,"get_position") else None,
-                "strategy", None) or "unknown"
+            _cur_strat = _strat_name if '_strat_name' in dir() else 'unknown'  # FIX: 스코프 수정
             if _cur_strat in _strat_cd_rules:
                 _rule = _strat_cd_rules[_cur_strat]
                 if profit_rate < 0:
@@ -378,24 +377,24 @@ class EngineSellMixin:
                     self._strat_consec_loss[_cur_strat] = 0  # 수익 시 리셋
         except Exception as _scd_e:
             logger.debug(f"[STRAT-CD] 처리 중 오류(무시): {_scd_e}")
-        # ── 전략별 개별 쿨다운 끝 ────────────────────────────────────
+            # ── 전략별 개별 쿨다운 끝 ────────────────────────────────────
             # [LiveGuard] 매도 결과 콜백 — 연속 손실 추적
             try:
                 if hasattr(self, 'live_guard') and self.live_guard is not None:
-                    await self.live_guard.on_trade_result(profit_rate, market)
+                    await self.live_guard.on_trade_result(profit_rate / 100.0, market)  # FIX: % -> 소수
                     # [LiveGuard] 조건C: 일일 손실 누적 업데이트
                     if profit_rate < 0:
                         _prev = getattr(self.live_guard, '_today_loss_pct', 0.0)
-                        self.live_guard._today_loss_pct = _prev + profit_rate
+                        self.live_guard._today_loss_pct = _prev + (profit_rate / 100.0)
             except Exception as _lg_e:
-                logger.debug(f"[LiveGuard] on_trade_result 호출 실패: {_lg_e}")
+                logger.debug(f'[LiveGuard] on_trade_result 호출 실패: {_lg_e}')
             log_trade(
-                "SELL", market, result.executed_price,
-                proceeds, reason, profit_rate
+            "SELL", market, result.executed_price,
+            proceeds, reason, profit_rate
             )
             await self.telegram.notify_sell(
-                market, result.executed_price, result.executed_volume,
-                profit_rate * 100, reason  # [FIX] 소수->% 변환
+            market, result.executed_price, result.executed_volume,
+            profit_rate * 100, reason  # [FIX] 소수->% 변환
             )
 
         try:
