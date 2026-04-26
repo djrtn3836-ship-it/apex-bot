@@ -317,7 +317,7 @@ class EngineCycleMixin:
         # 5) 동적 마켓 스캐너 (급등 코인 감지) — 최대 20초
         try:
             import asyncio as _aio2
-            await _aio2.wait_for(self._market_scanner(), timeout=20.0)
+            await _aio2.wait_for(self._market_scanner(), timeout=60.0)
         except _aio2.TimeoutError:
             logger.debug("[cycle] _market_scanner 타임아웃(20s) 스킵")
         except Exception as _ce:
@@ -770,17 +770,55 @@ class EngineCycleMixin:
             logger.debug(f"[Scanner]  {len(scan_targets)}개 종목 스캔 시작")
 
             surge_candidates = []
-            batch_size       = 20
-            for i in range(0, len(scan_targets), batch_size):
-                batch   = scan_targets[i:i + batch_size]
+
+            # Stage 1: WS 실시간 캐시로 사전 필터 (REST 호출 없음)
+            _ws_scr  = getattr(self, '_market_change_rates', {})
+            _ws_vol  = getattr(self, '_market_volumes_24h',  {})
+
+            # 거래대금 상위 30% 임계값
+            _vol_vals = [v for v in _ws_vol.values() if v > 0]
+            _vol_p70  = sorted(_vol_vals)[int(len(_vol_vals)*0.70)] if len(_vol_vals) >= 10 else 0
+
+            # Stage 1 후보 선별
+            _stage1_scr  = []  # scr 있는 종목
+            _stage1_miss = []  # WS 미수신 종목
+            for _m in scan_targets:
+                _scr_val = _ws_scr.get(_m, 0.0)
+                _vol_val = _ws_vol.get(_m, 0.0)
+                if _scr_val >= 0.02:
+                    _stage1_scr.append((_m, abs(_scr_val)))
+                elif _scr_val >= 0.01 and _vol_val >= _vol_p70:
+                    _stage1_scr.append((_m, abs(_scr_val)))
+                elif _scr_val == 0.0:
+                    _stage1_miss.append((_m, _vol_val))
+
+            # scr 내림차순 정렬, 최대 scr15개 + 미수신10개
+            _stage1_scr.sort(key=lambda x: x[1], reverse=True)
+            _stage1_miss.sort(key=lambda x: x[1], reverse=True)
+            _final_targets = [x[0] for x in _stage1_scr[:15]] + [x[0] for x in _stage1_miss[:10]]
+
+            logger.debug(
+                f'[Scanner-2Stage] scr종목={len(_stage1_scr)}->'
+                f'{min(len(_stage1_scr),15)}개 | '
+                f'WS미수신={len(_stage1_miss)}->{min(len(_stage1_miss),10)}개 | '
+                f'총 {len(_final_targets)}개 Stage2 진입'
+            )
+            if _stage1_scr:
+                _top3 = [(x[0], round(x[1]*100, 1)) for x in _stage1_scr[:3]]
+                logger.info(f'[SURGE-SCAN] 우선순위 상위3: {_top3}')
+
+            # Stage 2: 후보만 REST 정밀 검증
+            batch_size = 5
+            for i in range(0, len(_final_targets), batch_size):
+                batch   = _final_targets[i:i + batch_size]
                 tasks   = [self._check_surge(m, cfg) for m in batch]
                 results = await asyncio.gather(*tasks, return_exceptions=True)
                 for market, result in zip(batch, results):
                     if isinstance(result, Exception):
                         continue
-                    if result and result.get("is_surge"):
+                    if result and result.get('is_surge'):
                         surge_candidates.append(result)
-                await asyncio.sleep(0.5)
+                await asyncio.sleep(0.2)
 
             surge_candidates.sort(
                 key=lambda x: x.get("score", 0), reverse=True
