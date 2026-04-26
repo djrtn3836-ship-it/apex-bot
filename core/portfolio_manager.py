@@ -348,6 +348,9 @@ class PortfolioManager:
     def is_position_open(self, market: str) -> bool:
         return market in self._positions
 
+    def has_position(self, market: str) -> bool:
+        return self._positions.get(market) is not None
+
     def get_position(self, market: str) -> Optional[Position]:
         return self._positions.get(market)
 
