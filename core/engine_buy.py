@@ -913,6 +913,8 @@ class EngineBuyMixin:
 
     async def _execute_buy(self, market: str, signal: CombinedSignal, df):
         _max_pos = self.settings.trading.max_positions
+        if not hasattr(self, "_sell_cooldown"):
+            self._sell_cooldown = {}
         _cd_last = self._sell_cooldown.get(market)
         if (_cd_last is not None and
                 (datetime.now() - _cd_last).total_seconds() < 1200):

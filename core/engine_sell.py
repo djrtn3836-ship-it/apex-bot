@@ -263,13 +263,16 @@ class EngineSellMixin:
                     f"[DB-SELL] {market} "
                     f"profit={profit_rate:.2f}%  "
                 )
-                # [FIX A-2] sell cooldown 기록
-                import time as _time_a
-                if not hasattr(self, "_sell_cooldown"):
+                # [FIX A-2] sell cooldown 기록 — DB저장 분리
+                try:
+                    self._save_cooldown_to_db()  # DB 저장만 try 안에
+                except Exception as _cd_db_e:
+                    logger.debug(f"[COOLDOWN-DB] DB저장 실패(무시): {_cd_db_e}")
+                # 메모리 쿨다운은 try 밖에서 반드시 기록
+                if not hasattr(self, '_sell_cooldown'):
                     self._sell_cooldown = {}
-                self._sell_cooldown[market] = datetime.now()  # [FIX-CD] datetime으로 통일
-                logger.debug(f"[COOLDOWN-SET] {market}: 매도 시각 기록 완료")
-                self._save_cooldown_to_db()  # [FIX1] DB 저장
+                self._sell_cooldown[market] = datetime.now()
+                logger.debug(f"[COOLDOWN-SET] {market}: 매도 쿨다운 기록 완료")
             except Exception as _e:
                 logger.warning(f"[DB-SELL]  : {_e}")
 
