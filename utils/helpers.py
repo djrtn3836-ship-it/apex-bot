@@ -70,8 +70,8 @@ def round_price(price: float, market: str = "KRW-BTC") -> float:
 
 def calculate_profit_rate(entry: float, current: float, fee_rate: float = 0.001) -> float:
     """( )"""
-    gross = (current - entry) / entry
-    return gross - (fee_rate * 2)  # 매수 + 매도 수수료
+    gross = (current - entry) / entry * 100  # [FIX] % 단위
+    return gross - (fee_rate * 2 * 100)  # [FIX] 수수료도 % 단위
 
 
 # ── 재시도 데코레이터 ──────────────────────────────────────────────
