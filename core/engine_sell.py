@@ -345,6 +345,40 @@ class EngineSellMixin:
                     # DB 실패해도 메모리 쿨다운은 유지됨
 
             self.risk_manager.record_trade_result(profit_rate > 0)
+
+        # ── 전략별 개별 쿨다운 (Per-Strategy Cooldown) ──────────────
+        try:
+            _strat_cd_rules = {
+                "Vol_Breakout":    {"max_loss": 2, "hours": 1},
+                "VWAP_Reversion":  {"max_loss": 3, "hours": 1},
+            }
+            if not hasattr(self, "_strat_consec_loss"):
+                self._strat_consec_loss   = {}   # {전략명: 연속손실횟수}
+            if not hasattr(self, "_strat_cooldown_until"):
+                self._strat_cooldown_until = {}  # {전략명: 만료datetime}
+            _cur_strat = _strat if "_strat" in dir() else getattr(
+                self.portfolio.get_position(market) if hasattr(self.portfolio,"get_position") else None,
+                "strategy", None) or "unknown"
+            if _cur_strat in _strat_cd_rules:
+                _rule = _strat_cd_rules[_cur_strat]
+                if profit_rate < 0:
+                    self._strat_consec_loss[_cur_strat] = (
+                        self._strat_consec_loss.get(_cur_strat, 0) + 1)
+                    _cnt = self._strat_consec_loss[_cur_strat]
+                    if _cnt >= _rule["max_loss"]:
+                        import datetime as _pcd_dt
+                        _until = _pcd_dt.datetime.now() + _pcd_dt.timedelta(hours=_rule["hours"])
+                        self._strat_cooldown_until[_cur_strat] = _until
+                        logger.warning(
+                            f"[STRAT-CD] {_cur_strat} {_cnt}연속손실 "
+                            f"→ {_rule['hours']}h 냉각 (until {_until.strftime('%H:%M')})"
+                        )
+                        self._strat_consec_loss[_cur_strat] = 0  # 카운터 리셋
+                else:
+                    self._strat_consec_loss[_cur_strat] = 0  # 수익 시 리셋
+        except Exception as _scd_e:
+            logger.debug(f"[STRAT-CD] 처리 중 오류(무시): {_scd_e}")
+        # ── 전략별 개별 쿨다운 끝 ────────────────────────────────────
             # [LiveGuard] 매도 결과 콜백 — 연속 손실 추적
             try:
                 if hasattr(self, 'live_guard') and self.live_guard is not None:

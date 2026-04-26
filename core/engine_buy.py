@@ -553,6 +553,33 @@ class EngineBuyMixin:
 
             if combined.signal_type == SignalType.BUY:
                 if market not in self.portfolio.open_positions:
+                    # ── 전략별 쿨다운 체크 ──────────────────────────────────────
+                    try:
+                        import datetime as _ecd_dt
+                        _cd_map = getattr(self, '_strat_cooldown_until', {})
+                        _cd_now = _ecd_dt.datetime.now()
+                        _sig_strat = getattr(combined, 'strategy_name', '') or ''
+                        _is_cd = any(
+                            _cd_now < _exp
+                            for _k, _exp in _cd_map.items()
+                            if _k in _sig_strat or _sig_strat in _k
+                        )
+                        if _is_cd:
+                            _cd_key = next(
+                                (_k for _k, _exp in _cd_map.items()
+                                 if (_cd_now < _exp) and (_k in _sig_strat or _sig_strat in _k)),
+                                'unknown'
+                            )
+                            _cd_remain = max(0, int((_cd_map[_cd_key] - _cd_now).total_seconds() // 60))
+                            logger.info(
+                                f'[STRAT-CD] {market} {_sig_strat} 냉각 중 '
+                                f'({_cd_remain}분 남음) -> 매수 스킵'
+                            )
+                            self._buying_markets.discard(market)
+                            return
+                    except Exception:
+                        pass
+                    # ── 쿨다운 체크 끝 ──────────────────────────────────────────
                     # V2 앙상블 레이어 검증
                     if getattr(self, '_v2_layer', None) is not None:
                         _v2_ok, _v2_conf, _v2_size = self._v2_layer.check(
@@ -563,7 +590,6 @@ class EngineBuyMixin:
                         else:
                             combined.confidence    = _v2_conf
                             combined._v2_size_mult = _v2_size
-                            await self._execute_buy(market, combined, df_processed)
                     else:
                         await self._execute_buy(market, combined, df_processed)
                     # [FIX] BUY 시 쿨다운 갱신 제거
