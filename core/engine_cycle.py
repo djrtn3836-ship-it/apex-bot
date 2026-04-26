@@ -470,6 +470,9 @@ class EngineCycleMixin:
                 entry_price = 0
 
             current_price = self._market_prices.get(market, 0)
+            if not current_price or current_price <= 0:
+                logger.debug(f"[ANALYZE] {market} _market_prices 미수신 → 스킵")
+                return
             pnl_pct = (
                 (current_price - entry_price) / entry_price * 100
                 if entry_price > 0 else 0.0
