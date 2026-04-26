@@ -156,12 +156,21 @@ class EngineBuyMixin:
                     _rr  = _vp_sr.get("risk_reward", 1.0)
                     _sup = _vp_sr.get("support",     0)
                     _res = _vp_sr.get("resistance",  0)
-                    if _rr < -0.3 and _sup > 0 and _res > 0:
+                    # [FIX-SURGE] SURGE 30pt+ 이면 RR 음수 차단 우회
+                    _surge_score = 0.0
+                    if hasattr(self, '_market_change_rates'):
+                        _surge_score = self._market_change_rates.get(market, 0.0) * 100
+                    if _rr < -0.3 and _sup > 0 and _res > 0 and _surge_score < 30.0:
                         logger.info(
-                            f"[VolumeProfile]   ({market}): "
-                            f"RR={_rr:.2f} 저항={_res:,.0f} 지지={_sup:,.0f}"
+                            f'[VolumeProfile] ({market}): '
+                            f'RR={_rr:.2f} 저항={_res:,.0f} 지지={_sup:,.0f} → 차단'
                         )
                         return
+                    elif _rr < -0.3 and _surge_score >= 30.0:
+                        logger.info(
+                            f'[VolumeProfile-SURGE] ({market}): '
+                            f'RR={_rr:.2f} SURGE={_surge_score:.1f}pt → RR차단 우회'
+                        )
                     logger.info(
                         f"[VolumeProfile] {market}: "
                         f"POC={_vp.poc_price:,.0f} "
