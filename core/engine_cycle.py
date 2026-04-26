@@ -218,19 +218,34 @@ class EngineCycleMixin:
                 _buying_now = getattr(self, "_buying_markets", set())
                 _targets = [m for m in _active
                             if m not in _open_now and m not in _buying_now]
+                # [OPT] 최대 15개 제한 + 종목당 8초 타임아웃
+                _targets = _targets[:15]
                 _batch_size = 5
                 for _bi in range(0, len(_targets), _batch_size):
                     _batch = _targets[_bi:_bi + _batch_size]
+                    async def _safe_scan(m):
+                        try:
+                            await _aio.wait_for(
+                                self._analyze_market(m), timeout=8.0
+                            )
+                        except _aio.TimeoutError:
+                            logger.debug(f"[CYCLE] {m} 타임아웃(8s) 스킵")
+                        except Exception as _se:
+                            logger.debug(f"[CYCLE] {m} 스캔오류: {_se}")
                     await _aio.gather(
-                        *[self._analyze_market(m) for m in _batch],
+                        *[_safe_scan(m) for m in _batch],
                         return_exceptions=True
                     )
+                    await _aio.sleep(0.1)  # 배치 간 CPU 양보
             except Exception as _ce:
                 logger.debug(f"[cycle] buy_scan 오류: {_ce}")
 
-        # 5) 동적 마켓 스캐너 (급등 코인 감지)
+        # 5) 동적 마켓 스캐너 (급등 코인 감지) — 최대 20초
         try:
-            await self._market_scanner()
+            import asyncio as _aio2
+            await _aio2.wait_for(self._market_scanner(), timeout=20.0)
+        except _aio2.TimeoutError:
+            logger.debug("[cycle] _market_scanner 타임아웃(20s) 스킵")
         except Exception as _ce:
             logger.debug(f"[cycle] _market_scanner 오류: {_ce}")
         # ── 핵심 사이클 끝 ──────────────────────────────────────────
