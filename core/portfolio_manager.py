@@ -96,7 +96,9 @@ class PortfolioManager:
         strategy: str = "",
         stop_loss: float = 0.0,
         take_profit: float = 0.0,
+        entry_time: float = None,  # [FIX-ENTRY-TIME] 복원 시 실제 매수 시각 전달
     ):
+        import time as _t
         position = Position(
             market=market,
             entry_price=entry_price,
@@ -106,6 +108,7 @@ class PortfolioManager:
             stop_loss=stop_loss,
             take_profit=take_profit,
             current_price=entry_price,
+            entry_time=entry_time if entry_time is not None else _t.time(),  # [FIX-ENTRY-TIME]
         )
         self._positions[market] = position
         logger.info(

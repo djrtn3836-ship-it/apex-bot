@@ -413,7 +413,7 @@ class EngineCycleMixin:
                         )
                         continue
                     # Case B: 4시간 경과 + 손실 중 → 강제청산
-                    if held_hours >= 4.0 and profit_rate < -0.005:  # [FIX-D-v2] -0.5% 유지 (수수료 0.2% 고려)
+                    if held_hours >= 4.0 and profit_rate < 0.005:   # [FIX-SURGE-4H] 수수료 감안 +0.5% 미만 청산
                         logger.info(
                             f"[SURGE-MAXHOLD] {market} | "
                             f"보유={held_hours:.1f}h | "
@@ -484,12 +484,14 @@ class EngineCycleMixin:
                     _df_pos = self.cache_manager.get_ohlcv(market)
                     if _df_pos is not None and len(_df_pos) >= 20:
                         _profit_pct = (current_price - entry_price) / entry_price
-                        _sl_levels  = self.atr_stop.get_dynamic_levels(
-                            _df_pos, entry_price, current_price, _profit_pct
-                        )
                         # [FIX-SURGE-CAP] 전략별 SL cap 분기
                         _pos_strat = getattr(self.portfolio.get_position(market), "strategy", "")
-                        _sl_cap_val = 0.987 if "SURGE" in (_pos_strat or "") else 0.983
+                        _is_surge_a = "SURGE" in (_pos_strat or "")  # [FIX-IS-SURGE]
+                        _sl_cap_val = 0.987 if _is_surge_a else 0.983
+                        _sl_levels  = self.atr_stop.get_dynamic_levels(
+                            _df_pos, entry_price, current_price, _profit_pct,
+                            is_surge=_is_surge_a
+                        )
                         basic_sl = max(_sl_levels.stop_loss, entry_price * _sl_cap_val)
                         basic_tp = _sl_levels.take_profit
                         if _profit_pct >= 0.03:
@@ -676,10 +678,14 @@ class EngineCycleMixin:
             if entry_price > 0 and current_price > 0 and _candle_len >= 20:
                 try:
                     _profit_pct = (current_price - entry_price) / entry_price
+                    _pos_strat_b = getattr(self.portfolio.get_position(market), 'strategy', '')  # [FIX-IS-SURGE]
+                    _is_surge_b = 'SURGE' in (_pos_strat_b or '')
+                    _sl_cap_b = 0.987 if _is_surge_b else 0.983
                     _atr_levels = self.atr_stop.get_dynamic_levels(
-                        candles, entry_price, current_price, _profit_pct
+                        candles, entry_price, current_price, _profit_pct,
+                        is_surge=_is_surge_b
                     )
-                    _basic_sl = _atr_levels.stop_loss
+                    _basic_sl = max(_atr_levels.stop_loss, entry_price * _sl_cap_b)
                     _basic_tp = _atr_levels.take_profit
 
                     if _profit_pct >= 0.03:
@@ -698,7 +704,7 @@ class EngineCycleMixin:
                             f"({_loss_pct:.2f}%)"
                         )
                         await self._execute_sell(
-                            market, f"ATR손절_{_loss_pct:.1f}%", current_price
+                            market, f"기본손절_{_loss_pct:.1f}%", current_price  # [FIX-REASON]
                         )
                         return
 

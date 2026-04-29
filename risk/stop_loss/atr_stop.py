@@ -197,12 +197,13 @@ class ATRStopLoss:
         current_price: float,
         profit_pct: float,
         market: str = "",
+        is_surge: bool = False,  # [FIX-IS-SURGE]
     ) -> StopLevels:
         """SL  
         +3%: (BEP) 
         +5%: +2%  
         +10%: +5%"""
-        levels = self.calculate(df, entry_price, market)
+        levels = self.calculate(df, entry_price, market, is_surge=is_surge)  # [FIX-IS-SURGE]
 
         if profit_pct >= 0.10:
             new_sl = entry_price * 1.05

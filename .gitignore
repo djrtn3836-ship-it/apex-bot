@@ -25,3 +25,10 @@ models/saved/*.pt.tmp
 proc_watch.log
 run_autotrainer.py
 run_retrain_now.py
+
+# 자동 생성 파일
+*.py[cod]
+*.bak*
+diag_*.py
+check_pos.py
+database/apex_bot.db

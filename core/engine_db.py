@@ -51,6 +51,21 @@ class EngineDBMixin:
                     _volume     = float(row["volume"]     or 0)
                     _amount_krw = float(row["amount_krw"] or 0)
                     _strategy   = row["strategy"] or "unknown"
+                    _ts_raw     = row["timestamp"] or ""
+
+                    # [FIX-ENTRY-TIME] DB timestamp → Unix float 변환
+                    try:
+                        from datetime import datetime as _dtt
+                        _entry_time = _dtt.fromisoformat(_ts_raw).timestamp()
+                    except Exception:
+                        import time as _t2
+                        _entry_time = _t2.time()
+
+                    # [FIX-SL-RESTORE] 전략별 SL 캡 분기
+                    _is_surge_r = "SURGE" in (_strategy or "")
+                    _sl_cap_r   = 0.987 if _is_surge_r else 0.983
+                    _sl_price_r = _price * _sl_cap_r
+                    _tp_price_r = _price * 1.03
 
                     if self.portfolio.is_position_open(mkt):
                         continue
@@ -66,13 +81,14 @@ class EngineDBMixin:
                         volume=_volume,
                         amount_krw=_amount_krw,
                         strategy=_strategy,
-                        stop_loss=_price * 0.985,  # [FIX-SL] -3%→-1.5%
-                        take_profit=_price * 1.03,  # [FIX-TP] +5%→+3%
+                        stop_loss=_sl_price_r,   # [FIX-SL-RESTORE] SURGE -1.3% / 일반 -1.7%
+                        take_profit=_tp_price_r, # [FIX-TP] +3% (첫 사이클에서 ATR로 교체됨)
+                        entry_time=_entry_time,  # [FIX-ENTRY-TIME]
                     )
                     self.trailing_stop.add_position(
                         market=mkt,
                         entry_price=_price,
-                        initial_stop=_price * 0.985,  # [FIX-SL] -3%→-1.5%
+                        initial_stop=_sl_price_r,  # [FIX-SL-RESTORE] 전략별 SL cap
                         atr=0.0,
                     )
 
@@ -84,8 +100,8 @@ class EngineDBMixin:
                                 entry_price=_price,
                                 volume=_volume,
                                 amount_krw=_amount_krw,
-                                stop_loss=_price * 0.985,  # [FIX-SL] -3%→-1.5%
-                                take_profit=_price * 1.03,  # [FIX-TP] +5%→+3%
+                                stop_loss=_sl_price_r,   # [FIX-SL-RESTORE] 전략별 SL cap
+                                take_profit=_tp_price_r, # [FIX-TP] +3%
                                 strategy=_strategy,
                             )
                             self.position_mgr_v2.add_position(_pv2)
@@ -96,7 +112,7 @@ class EngineDBMixin:
                         market=mkt,
                         entry_price=_price,
                         volume=_volume,
-                        take_profit=_price * 1.03,  # [FIX-TP] +5%→+3%
+                        take_profit=_tp_price_r,  # [FIX-TP] +3%
                     )
                     self.adapter._paper_balance["KRW"] = max(
                         0.0,

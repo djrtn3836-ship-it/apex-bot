@@ -45,6 +45,8 @@ class TelegramNotifier:
     async def initialize(self, engine_ref=None):
         if not self._enabled or not TELEGRAM_OK:
             return
+        if self._app is not None:  # [FIX-TELEGRAM] 기존 인스턴스 정리
+            await self.stop()
         self._engine_ref = engine_ref
         try:
             self._app = (
@@ -269,5 +271,7 @@ class TelegramNotifier:
                 await self._app.updater.stop()
                 await self._app.stop()
                 await self._app.shutdown()
-            except Exception:
-                pass
+            except Exception as _e:  # [FIX-TELEGRAM]
+                logger.debug(f'Telegram stop 오류 (무시): {_e}')
+            finally:
+                self._app = None  # [FIX-TELEGRAM] 인스턴스 리셋
