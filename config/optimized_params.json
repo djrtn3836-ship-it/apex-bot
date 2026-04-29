@@ -1,433 +1,255 @@
 {
-  "_meta": {
-    "generated": "2026-04-24",
-    "based_on_trades": 421,
-    "analysis_method": "expectancy + sharpe + time_filter optimization"
-  },
-  "global": {
-    "min_confidence": 0.52,
-    "max_positions": 4,
-    "kelly_fraction": 0.12,
-    "min_order_krw": 5000,
-    "max_order_krw": 120000,
-    "trailing_stop_pct": 0.025,
-    "atr_stop_multiplier": 2.2,
-    "time_filter_enabled": true,
-    "ensemble_min_signals": 1,
-    "ensemble_entry_threshold": 0.52,
-    "blocked_hours": [
-      0,
-      1,
-      2,
-      3
-    ],
-    "time_size_boost": {
-      "12_18": 1.2,
-      "06_12": 1.0,
-      "18_24": 1.0,
-      "00_06": 0.7
-    }
-  },
+  "updated_at": "2026-04-27T02:00:14.207518",
+  "in_sample_days": 90,
+  "out_sample_days": 30,
   "strategies": {
-    "Order_Block": {
-      "is_active": true,
-      "boost": 2.0,
-      "min_confidence": 0.48,
+    "MACD_Cross": {
       "params": {
-        "impulse_atr_mult": 2.2,
-        "volume_spike_mult": 1.8,
-        "ob_zone_tolerance": 0.004,
-        "max_touch_count": 2,
-        "min_volume_rank": 0.25,
-        "entry_split": true
+        "fast": 14,
+        "slow": 32,
+        "signal": 12,
+        "rsi_period": 20,
+        "oversold": 32,
+        "overbought": 79,
+        "atr_period": 8,
+        "multiplier": 3.1121588288969857,
+        "min_adx": 33,
+        "bb_period": 23,
+        "bb_std": 2.1405238897657743,
+        "kc_mult": 1.0036046123675546,
+        "vwap_dev_buy": -0.029767661802283032,
+        "vwap_dev_sell": 0.0062163144731918665,
+        "rsi_oversold": 25,
+        "k": 0.5138568657528351,
+        "volume_threshold": 1.1120765761196993,
+        "ema_period": 15,
+        "atr_multiplier": 2.998544142414241,
+        "ob_lookback": 14,
+        "fvg_min_size": 0.009661581752710395
       },
-      "time_filter": {
-        "enabled": false,
-        "allowed_hours": [
-          0,
-          1,
-          2,
-          3,
-          4,
-          5,
-          6,
-          7,
-          8,
-          9,
-          10,
-          11,
-          12,
-          13,
-          14,
-          15,
-          16,
-          17,
-          18,
-          19,
-          20,
-          21,
-          22,
-          23
-        ],
-        "comment": "전시간대 70pct+ WR"
-      },
-      "rationale": "62회 75.8pct WR 핵심전략"
-    },
-    "Bollinger_Squeeze": {
-      "is_active": true,
-      "boost": 1.6,
-      "min_confidence": 0.55,
-      "params": {
-        "bb_period": 20,
-        "bb_std": 2.0,
-        "kc_period": 20,
-        "kc_atr_mult": 1.5,
-        "min_squeeze_bars": 4,
-        "max_bars_after_break": 3
-      },
-      "time_filter": {
-        "enabled": true,
-        "allowed_hours": [
-          0,
-          1,
-          2,
-          3,
-          4,
-          5,
-          6,
-          7,
-          8,
-          9,
-          10,
-          11,
-          18,
-          19,
-          20,
-          21,
-          22,
-          23
-        ],
-        "comment": "06-12시 회피 / 00-06 18-24 100pct WR"
-      },
-      "rationale": "7회 100pct WR",
-      "sample_guard_trades": 20
+      "weight_boost": 0.0,
+      "oos_sharpe": 0.0,
+      "oos_win_rate": 50.0,
+      "oos_pnl_pct": 0.0,
+      "is_active": false,
+      "updated_at": "2026-04-27T02:00:04.407048"
     },
     "RSI_Divergence": {
-      "is_active": true,
-      "boost": 1.7,
-      "min_confidence": 0.5,
-      "params": {
-        "rsi_period": 14,
-        "lookback_pivots": 20,
-        "min_score": 2,
-        "rsi_min": 35,
-        "rsi_max": 58,
-        "divergence_min_gap": 0.03
-      },
-      "time_filter": {
-        "enabled": true,
-        "allowed_hours": [
-          12,
-          13,
-          14,
-          15,
-          16,
-          17,
-          18,
-          19,
-          20,
-          21,
-          22,
-          23
-        ],
-        "comment": "12-24시만 허용 / 00-12시 승률 0pct"
-      },
-      "rationale": "6회 83.3pct WR",
-      "sample_guard_trades": 20
-    },
-    "MACD_Cross": {
-      "is_active": true,
-      "boost": 1.2,
-      "min_confidence": 0.5,
       "params": {
         "fast": 8,
-        "slow": 21,
-        "signal": 5,
-        "hist_acceleration_min": 0.0,
-        "min_volume_rank": 0.3
+        "slow": 20,
+        "signal": 12,
+        "rsi_period": 17,
+        "oversold": 40,
+        "overbought": 79,
+        "atr_period": 12,
+        "multiplier": 3.665055543835078,
+        "min_adx": 26,
+        "bb_period": 15,
+        "bb_std": 1.8222578890864045,
+        "kc_mult": 1.6741099221423144,
+        "vwap_dev_buy": -0.007931603707635217,
+        "vwap_dev_sell": 0.023106304370072873,
+        "rsi_oversold": 41,
+        "k": 0.6022361436995138,
+        "volume_threshold": 1.6828740603337973,
+        "ema_period": 21,
+        "atr_multiplier": 2.1225778039286403,
+        "ob_lookback": 29,
+        "fvg_min_size": 0.009018791856470237
       },
-      "time_filter": {
-        "enabled": true,
-        "allowed_hours": [
-          12,
-          13,
-          14,
-          15,
-          16,
-          17,
-          18,
-          19,
-          20,
-          21,
-          22,
-          23
-        ],
-        "boost_hours": [
-          12,
-          13,
-          14,
-          15,
-          16,
-          17
-        ],
-        "boost_multiplier": 1.3,
-        "comment": "12-18시 75pct WR / 06-12시 40pct WR"
-      },
-      "rationale": "35회 60pct WR"
-    },
-    "ATR_Channel": {
-      "is_active": true,
-      "boost": 1.5,
-      "min_confidence": 0.55,
-      "params": {
-        "atr_period": 14,
-        "channel_period": 20,
-        "mult_trending": 2.0,
-        "mult_ranging": 1.5,
-        "mult_volatile": 3.0,
-        "min_imbalance": 0.55
-      },
-      "time_filter": {
-        "enabled": true,
-        "allowed_hours": [
-          6,
-          7,
-          8,
-          9,
-          10,
-          11,
-          12,
-          13,
-          14,
-          15,
-          16,
-          17
-        ],
-        "comment": "06-18시 집중 / 3회 100pct WR"
-      },
-      "rationale": "3회 100pct WR",
-      "sample_guard_trades": 20
-    },
-    "VWAP_Reversion": {
-      "is_active": true,
-      "boost": 0.4,
-      "min_confidence": 0.82,
-      "params": {
-        "anchor_lookback": 30,
-        "vol_spike_mult": 2.5,
-        "entry_band": 2,
-        "rsi_min": 38,
-        "rsi_max": 48,
-        "min_return_to_vwap": 0.005
-      },
-      "time_filter": {
-        "enabled": true,
-        "allowed_hours": [
-          12,
-          13,
-          14,
-          15,
-          16,
-          17
-        ],
-        "comment": "12-18시만 허용 / 71pct WR 구간"
-      },
-      "rationale": "21회 47.6pct WR / 시간필터 후 71pct",
-      "fear_greed_max": 45
+      "weight_boost": 0.0,
+      "oos_sharpe": 0.0,
+      "oos_win_rate": 50.0,
+      "oos_pnl_pct": 0.0,
+      "is_active": false,
+      "updated_at": "2026-04-27T02:00:04.984167"
     },
     "Supertrend": {
-      "is_active": true,
-      "boost": 0.8,
-      "min_confidence": 0.6,
       "params": {
-        "fast_period": 7,
-        "fast_mult": 1.5,
-        "medium_period": 14,
-        "medium_mult": 2.0,
-        "slow_period": 21,
-        "slow_mult": 3.0,
-        "min_consensus": 2,
-        "pullback_max_pct": 0.015
+        "fast": 13,
+        "slow": 24,
+        "signal": 10,
+        "rsi_period": 19,
+        "oversold": 30,
+        "overbought": 76,
+        "atr_period": 10,
+        "multiplier": 3.1192230783880968,
+        "min_adx": 33,
+        "bb_period": 25,
+        "bb_std": 2.0766788628961117,
+        "kc_mult": 1.6714577863825155,
+        "vwap_dev_buy": -0.026383314280013018,
+        "vwap_dev_sell": 0.01302196798716471,
+        "rsi_oversold": 25,
+        "k": 0.6690742356542455,
+        "volume_threshold": 1.3265979846385574,
+        "ema_period": 21,
+        "atr_multiplier": 1.7347042592409279,
+        "ob_lookback": 21,
+        "fvg_min_size": 0.0058090452762713405
       },
-      "time_filter": {
-        "enabled": true,
-        "allowed_hours": [
-          18,
-          19,
-          20,
-          21,
-          22,
-          23
-        ],
-        "comment": "18-24시 집중 / 데이터 확보 우선"
-      },
-      "rationale": "1회 100pct WR / 샘플 확대 필요"
+      "weight_boost": 0.0,
+      "oos_sharpe": 0.0,
+      "oos_win_rate": 50.0,
+      "oos_pnl_pct": 0.0,
+      "is_active": false,
+      "updated_at": "2026-04-27T02:00:06.981712"
     },
-    "Vol_Breakout": {
-      "is_active": true,
-      "boost": 0.2,
-      "min_confidence": 0.85,
+    "Bollinger_Squeeze": {
       "params": {
-        "vp_lookback": 20,
-        "vp_bins": 50,
-        "value_area_pct": 0.7,
-        "breakout_min_vol": 3.0,
-        "breakout_min_pct": 0.005,
-        "retest_tolerance": 0.004,
-        "max_candles_wait": 3
+        "fast": 13,
+        "slow": 27,
+        "signal": 12,
+        "rsi_period": 18,
+        "oversold": 40,
+        "overbought": 60,
+        "atr_period": 13,
+        "multiplier": 2.7103141821684478,
+        "min_adx": 23,
+        "bb_period": 19,
+        "bb_std": 1.7780646316897992,
+        "kc_mult": 1.4683353589772776,
+        "vwap_dev_buy": -0.02718674913767695,
+        "vwap_dev_sell": 0.027051130773169046,
+        "rsi_oversold": 31,
+        "k": 0.43775311149888246,
+        "volume_threshold": 1.9275981911667435,
+        "ema_period": 23,
+        "atr_multiplier": 1.8998674664166342,
+        "ob_lookback": 11,
+        "fvg_min_size": 0.005548177638324837
       },
-      "time_filter": {
-        "enabled": true,
-        "allowed_hours": [
-          6,
-          7,
-          8,
-          9,
-          10,
-          11
-        ],
-        "comment": "06-12시만 허용 / 67pct WR"
-      },
-      "rationale": "12회 33.3pct WR / 극고임계값+시간필터",
-      "max_position_pct": 0.03,
-      "fear_greed_max": 45
-    }
-  },
-  "ensemble": {
-    "dynamic_weight_enabled": true,
-    "weight_update_interval_trades": 10,
-    "reference_wr": 0.6,
-    "strategy_weights": {
-      "Order_Block": {
-        "base": 1.8,
-        "min": 0.6,
-        "max": 2.5
-      },
-      "Bollinger_Squeeze": {
-        "base": 1.6,
-        "min": 0.5,
-        "max": 2.5
-      },
-      "RSI_Divergence": {
-        "base": 1.7,
-        "min": 0.5,
-        "max": 2.5
-      },
-      "MACD_Cross": {
-        "base": 1.2,
-        "min": 0.4,
-        "max": 2.0
-      },
-      "ATR_Channel": {
-        "base": 1.5,
-        "min": 0.5,
-        "max": 2.5
-      },
-      "VWAP_Reversion": {
-        "base": 0.9,
-        "min": 0.3,
-        "max": 1.5
-      },
-      "Supertrend": {
-        "base": 0.8,
-        "min": 0.3,
-        "max": 1.5
-      },
-      "Vol_Breakout": {
-        "base": 0.5,
-        "min": 0.3,
-        "max": 1.2
-      }
+      "weight_boost": 0.0,
+      "oos_sharpe": 0.0,
+      "oos_win_rate": 50.0,
+      "oos_pnl_pct": 0.0,
+      "is_active": false,
+      "updated_at": "2026-04-27T02:00:07.573375"
     },
-    "regime_boosts": {
-      "TRENDING_UP": {
-        "Order_Block": 1.3,
-        "MACD_Cross": 1.2,
-        "Supertrend": 1.3,
-        "ATR_Channel": 1.2
+    "VWAP_Reversion": {
+      "params": {
+        "fast": 14,
+        "slow": 21,
+        "signal": 12,
+        "rsi_period": 15,
+        "oversold": 33,
+        "overbought": 77,
+        "atr_period": 9,
+        "multiplier": 3.1455954966146433,
+        "min_adx": 23,
+        "bb_period": 23,
+        "bb_std": 2.3301162066147816,
+        "kc_mult": 1.6958454283086202,
+        "vwap_dev_buy": -0.024047318283041363,
+        "vwap_dev_sell": 0.019145669451018494,
+        "rsi_oversold": 43,
+        "k": 0.4821101974151869,
+        "volume_threshold": 1.7785742160706097,
+        "ema_period": 18,
+        "atr_multiplier": 2.2275121984398725,
+        "ob_lookback": 12,
+        "fvg_min_size": 0.0021712972765920036
       },
-      "TRENDING_DOWN": {
-        "Order_Block": 1.2,
-        "Bollinger_Squeeze": 1.1,
-        "VWAP_Reversion": 0.6
-      },
-      "RANGING": {
-        "Bollinger_Squeeze": 1.3,
-        "VWAP_Reversion": 1.2,
-        "RSI_Divergence": 1.1
-      },
-      "VOLATILE": {
-        "Vol_Breakout": 0.5,
-        "ATR_Channel": 1.2,
-        "Supertrend": 0.7
-      }
+      "weight_boost": 0.0,
+      "oos_sharpe": 0.0,
+      "oos_win_rate": 50.0,
+      "oos_pnl_pct": 0.0,
+      "is_active": false,
+      "updated_at": "2026-04-27T02:00:11.184817"
     },
-    "weights": {
-      "OrderBlock_SMC": {
-        "base": 1.8,
-        "min": 0.6,
-        "max": 2.5
+    "VolBreakout": {
+      "params": {
+        "fast": 14,
+        "slow": 31,
+        "signal": 9,
+        "rsi_period": 19,
+        "oversold": 30,
+        "overbought": 71,
+        "atr_period": 7,
+        "multiplier": 3.364975092013699,
+        "min_adx": 33,
+        "bb_period": 16,
+        "bb_std": 1.7693131290135145,
+        "kc_mult": 1.2103090092070234,
+        "vwap_dev_buy": -0.01586824728740044,
+        "vwap_dev_sell": 0.021638369252707273,
+        "rsi_oversold": 38,
+        "k": 0.5988852434475161,
+        "volume_threshold": 1.8317500595994354,
+        "ema_period": 22,
+        "atr_multiplier": 2.860709674566975,
+        "ob_lookback": 24,
+        "fvg_min_size": 0.007523318615271619
       },
-      "Bollinger_Squeeze": {
-        "base": 1.6,
-        "min": 0.5,
-        "max": 2.5
+      "weight_boost": 0.0,
+      "oos_sharpe": 0.0,
+      "oos_win_rate": 50.0,
+      "oos_pnl_pct": 0.0,
+      "is_active": false,
+      "updated_at": "2026-04-27T02:00:11.786636"
+    },
+    "ATR_Channel": {
+      "params": {
+        "fast": 8,
+        "slow": 31,
+        "signal": 9,
+        "rsi_period": 16,
+        "oversold": 36,
+        "overbought": 63,
+        "atr_period": 7,
+        "multiplier": 2.9319277342268597,
+        "min_adx": 35,
+        "bb_period": 24,
+        "bb_std": 2.2054095105463007,
+        "kc_mult": 1.8408681923551162,
+        "vwap_dev_buy": -0.011942264908995671,
+        "vwap_dev_sell": 0.013598017710402945,
+        "rsi_oversold": 37,
+        "k": 0.5075627233113928,
+        "volume_threshold": 1.9571643258752252,
+        "ema_period": 16,
+        "atr_multiplier": 2.989286170617854,
+        "ob_lookback": 23,
+        "fvg_min_size": 0.004296712195304804
       },
-      "RSI_Divergence": {
-        "base": 1.7,
-        "min": 0.5,
-        "max": 2.5
+      "weight_boost": 0.0,
+      "oos_sharpe": 0.0,
+      "oos_win_rate": 50.0,
+      "oos_pnl_pct": 0.0,
+      "is_active": false,
+      "updated_at": "2026-04-27T02:00:13.655452"
+    },
+    "OrderBlock_SMC": {
+      "params": {
+        "fast": 14,
+        "slow": 22,
+        "signal": 7,
+        "rsi_period": 18,
+        "oversold": 38,
+        "overbought": 77,
+        "atr_period": 9,
+        "multiplier": 2.725734756008379,
+        "min_adx": 31,
+        "bb_period": 19,
+        "bb_std": 1.6567536540807573,
+        "kc_mult": 1.4441038711832896,
+        "vwap_dev_buy": -0.005361772776562981,
+        "vwap_dev_sell": 0.016689305468983156,
+        "rsi_oversold": 36,
+        "k": 0.5072006574833425,
+        "volume_threshold": 1.4151650971614633,
+        "ema_period": 21,
+        "atr_multiplier": 1.7070067253276906,
+        "ob_lookback": 27,
+        "fvg_min_size": 0.007488808283638117
       },
-      "MACD_Cross": {
-        "base": 1.2,
-        "min": 0.4,
-        "max": 2.0
-      },
-      "ATR_Channel": {
-        "base": 1.5,
-        "min": 0.5,
-        "max": 2.5
-      },
-      "VWAP_Reversion": {
-        "base": 0.9,
-        "min": 0.3,
-        "max": 1.8
-      },
-      "Supertrend": {
-        "base": 0.8,
-        "min": 0.3,
-        "max": 1.5
-      },
-      "VolBreakout": {
-        "base": 0.5,
-        "min": 0.2,
-        "max": 1.2
-      }
+      "weight_boost": 0.0,
+      "oos_sharpe": 0.0,
+      "oos_win_rate": 50.0,
+      "oos_pnl_pct": 0.0,
+      "is_active": false,
+      "updated_at": "2026-04-27T02:00:14.205520"
     }
-  },
-  "risk": {
-    "max_daily_loss_pct": 0.05,
-    "max_drawdown_pct": 0.08,
-    "consec_loss_limit": 3,
-    "consec_loss_cooldown_hours": 24,
-    "single_trade_max_pct": 0.12,
-    "vol_breakout_max_pct": 0.05,
-    "position_size_floor": 0.05
-  },
-  "live_guard": {
-    "consec_loss_limit": 5,
-    "consec_loss_cooldown_hours": 4,
-    "min_loss_threshold": -0.005
-  },
-  "max_positions": 5
+  }
 }

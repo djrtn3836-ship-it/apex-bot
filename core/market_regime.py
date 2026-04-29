@@ -40,7 +40,7 @@ REGIME_POLICY: Dict[str, Dict] = {
         "allow_surge_buy":   True,
         "position_size_pct": 1.0,    # 기본 포지션 100%
         "surge_size_pct":    1.0,
-        "min_ml_score":      0.35,
+        "min_ml_score": 0.0,
         "description":       "강세장 - 전략 모두 허용",
     },
     "RECOVERY": {
@@ -48,7 +48,7 @@ REGIME_POLICY: Dict[str, Dict] = {
         "allow_surge_buy":   True,
         "position_size_pct": 0.8,    # 포지션 80%로 축소
         "surge_size_pct":    1.0,
-        "min_ml_score":      0.38,
+        "min_ml_score": 0.0,
         "description":       "회복장 - 보수적 진입",
     },
     "BEAR_WATCH": {
@@ -56,7 +56,7 @@ REGIME_POLICY: Dict[str, Dict] = {
         "allow_surge_buy":   True,   # 급등만 허용
         "position_size_pct": 0.0,
         "surge_size_pct":    0.5,    # 급등 진입 50%
-        "min_ml_score":      0.68,
+        "min_ml_score": 0.0,
         "description":       "약세 경계 - 급등 코인만",
     },
     "BEAR": {
@@ -64,7 +64,7 @@ REGIME_POLICY: Dict[str, Dict] = {
         "allow_surge_buy":   True,
         "position_size_pct": 0.0,
         "surge_size_pct":    0.4,    # 급등 진입 40%
-        "min_ml_score":      0.70,
+        "min_ml_score": 0.0,
         "description":       "약세장 - 급등 코인만 (엄격)",
     },
     "UNKNOWN": {
@@ -72,7 +72,7 @@ REGIME_POLICY: Dict[str, Dict] = {
         "allow_surge_buy":   False,
         "position_size_pct": 0.0,
         "surge_size_pct":    0.0,
-        "min_ml_score":      1.0,
+        "min_ml_score": 0.0,
         "description":       "데이터 부족 - 전체 차단",
     },
 }

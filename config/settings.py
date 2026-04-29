@@ -40,7 +40,7 @@ class TradingConfig:
     min_order_amount: int = 5000
     fee_rate: float = 0.0005
     slippage_rate: float = 0.001
-    max_positions: int = 10
+    max_positions: int = 15
     max_dynamic_coins: int = 20  # [FIX] SCR-FASTTRACK 동적 감시 종목 한도
     max_position_ratio: float = 0.20
 
@@ -64,7 +64,7 @@ class RiskConfig:
     # Phase 8 추가
     regime_bear_max_positions: int = 0       # BEAR 레짐 최대 포지션
     regime_bear_watch_max_ratio: float = 0.5 # BEAR_WATCH 포지션 비율
-    surge_min_score: float = 0.60            # Surge 최소 점수
+    surge_min_score: float = 0.35            # [FIX] 0.60->0.35 (score 0~1 scale)            # Surge 최소 점수
     surge_size_ratio: float = 0.70           # Surge 포지션 크기 비율
 
 

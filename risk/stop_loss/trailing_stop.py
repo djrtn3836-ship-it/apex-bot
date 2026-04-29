@@ -19,7 +19,15 @@ class TrailingState:
 
 class TrailingStopManager:
     """?ъ?? ?? ? ? ?"""
-    ACTIVATE_PCT  = 0.02   # +2% ?ъ꽦???몃젅?쇰쭅 ?쒖꽦??
+    ACTIVATE_PCT  = 0.02   # +2% 이상 시 트레일링 활성화
+    TRAIL_PCT     = 0.015  # 고정 트레일링 (하위 호환)
+    # [PHASE1-TRAIL] 수익 구간별 동적 트레일링 비율
+    TRAIL_TIERS = [
+        (0.05, 0.008),
+        (0.03, 0.012),
+        (0.02, 0.015),
+        (0.01, 0.020),
+    ]   # +2% ?ъ꽦???몃젅?쇰쭅 ?쒖꽦??
     TRAIL_PCT     = 0.015  # 怨좎젏 ?鍮?-1.5% ?섎씫??留ㅻ룄
 
     def __init__(self):
@@ -65,9 +73,24 @@ class TrailingStopManager:
             return None
 
         # ?몃젅??媛寃?媛깆떊 (怨좎젏 ?ㅻ? ?뚮쭏??
-        new_trail = state.peak_price * (1 - self.TRAIL_PCT)
+        # [PHASE1-TRAIL] 수익 구간별 동적 트레일링 비율 적용
+        profit_from_peak = (state.peak_price - state.entry_price) / state.entry_price
+        _dynamic_trail_pct = self.TRAIL_PCT  # 기본값
+        for tier_pct, tier_trail in self.TRAIL_TIERS:
+            if profit_from_peak >= tier_pct:
+                _dynamic_trail_pct = tier_trail
+                break
+        new_trail = state.peak_price * (1 - _dynamic_trail_pct)
         if new_trail > state.trail_price:
+            old_tp = state.trail_price
             state.trail_price = new_trail
+            if abs(new_trail - old_tp) > state.entry_price * 0.001:
+                logger.debug(
+                    f"[Trail-DYNAMIC] {market} "
+                    f"수익={profit_from_peak*100:.1f}% "
+                    f"trail_pct={_dynamic_trail_pct*100:.1f}% "
+                    f"trail={new_trail:.2f}"
+                )
 
         # ?몃━嫄??뺤씤
         if current_price <= state.trail_price:

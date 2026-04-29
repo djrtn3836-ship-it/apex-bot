@@ -67,7 +67,7 @@ class EngineDBMixin:
                         amount_krw=_amount_krw,
                         strategy=_strategy,
                         stop_loss=_price * 0.985,  # [FIX-SL] -3%→-1.5%
-                        take_profit=_price * 1.05,
+                        take_profit=_price * 1.03,  # [FIX-TP] +5%→+3%
                     )
                     self.trailing_stop.add_position(
                         market=mkt,
@@ -85,7 +85,7 @@ class EngineDBMixin:
                                 volume=_volume,
                                 amount_krw=_amount_krw,
                                 stop_loss=_price * 0.985,  # [FIX-SL] -3%→-1.5%
-                                take_profit=_price * 1.05,
+                                take_profit=_price * 1.03,  # [FIX-TP] +5%→+3%
                                 strategy=_strategy,
                             )
                             self.position_mgr_v2.add_position(_pv2)
@@ -96,7 +96,7 @@ class EngineDBMixin:
                         market=mkt,
                         entry_price=_price,
                         volume=_volume,
-                        take_profit=_price * 1.05,
+                        take_profit=_price * 1.03,  # [FIX-TP] +5%→+3%
                     )
                     self.adapter._paper_balance["KRW"] = max(
                         0.0,
@@ -298,6 +298,9 @@ class EngineDBMixin:
 
 
     def _save_cooldown_to_db(self):
+        """sell cooldown 데이터를 DB bot_state에 저장."""
+        # [FIX-BUG1] import를 함수 내부로 이동하여 _sq NameError 해결
+        import json as _json_cd, sqlite3 as _sq_cd
 
         # 만료된 sell_cooldown 자동 정리 (20분 초과)
         now_clean = datetime.now()
@@ -305,19 +308,18 @@ class EngineDBMixin:
             k: v for k, v in self._sell_cooldown.items()
             if (now_clean - v).total_seconds() < 1200
         }
-        """sell cooldown 데이터를 DB bot_state에 저장."""
         try:
             db_file = "database/apex_bot.db"
             data = {k: v.isoformat() for k, v in self._sell_cooldown.items()
                     if isinstance(v, datetime)}
-            conn = _sq.connect(db_file)
+            conn = _sq_cd.connect(db_file)
             cur  = conn.cursor()
             cur.execute("""
                 INSERT INTO bot_state(key, value, updated_at)
                 VALUES('sell_cooldown', ?, datetime('now','localtime'))
                 ON CONFLICT(key) DO UPDATE
                 SET value=excluded.value, updated_at=excluded.updated_at
-            """, (json.dumps(data),))
+            """, (_json_cd.dumps(data),))
             conn.commit()
             conn.close()
         except Exception as e:

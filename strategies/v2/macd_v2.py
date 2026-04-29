@@ -123,16 +123,16 @@ class MACDCrossStrategy2(BaseStrategy):
             return None
 
         # 거래량 필터
-        if ctx.volume_rank < self.MIN_VOLUME_RANK:
+        if ctx is None or ctx.volume_rank < self.MIN_VOLUME_RANK:
             return None
 
         # 하락 추세에서는 진입 금지
-        if ctx.regime == "TRENDING_DOWN":
+        if ctx is not None and ctx.regime == "TRENDING_DOWN":
             return None
 
         accel_bonus  = min(state.acceleration * 10, 0.2)
-        regime_bonus = 0.15 if ctx.regime == "TRENDING_UP" else 0.0
-        vol_bonus    = ctx.volume_rank * 0.1
+        regime_bonus = 0.15 if ctx is not None and ctx.regime == "TRENDING_UP" else 0.0
+        vol_bonus    = (ctx.volume_rank * 0.1) if ctx is not None else 0.0
         param_bonus  = 0.1 if state.fast == 5 else 0.0  # 고변동성 파라미터 보너스
 
         confidence = min(

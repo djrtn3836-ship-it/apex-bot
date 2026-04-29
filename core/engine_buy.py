@@ -46,6 +46,12 @@ from core.surge_detector import SurgeDetector, SurgeResult
 class EngineBuyMixin:
     """매수 분석, 신호 평가, 매수 실행 관련 메서드 Mixin"""
 
+    # [FIX-STABLE] 스테이블코인 영구 블랙리스트 (이중 차단)
+    _STABLE_MARKETS: set = {
+        "KRW-USDT", "KRW-USDC", "KRW-USD1", "KRW-BUSD", "KRW-DAI",
+        "KRW-TUSD", "KRW-USDP", "KRW-FDUSD", "KRW-PYUSD", "KRW-USDS",
+    }
+
     async def _analyze_market(self, market: str):
         # [MDD-L3] 서킷브레이커 활성 시 매수 전면 차단
         if getattr(self, "_circuit_breaker_active", False):
@@ -54,6 +60,10 @@ class EngineBuyMixin:
         # Dynamic ML threshold based on Fear & Greed Index (v2.0.4 fixed)
         fgi_idx = getattr(self.fear_greed, 'index', None) or 50
         logger.info("[ANALYZE] %s 진입" % market)
+        # [FIX-STABLE] 스테이블코인 이중 차단
+        if market in self._STABLE_MARKETS:
+            logger.debug(f"[STABLE-BLOCK] {market} 스테이블코인 매수 분석 차단")
+            return None
         _base_buy  = self.settings.risk.buy_signal_threshold   # 0.35
         _base_sell = self.settings.risk.sell_signal_threshold  # 0.35
         if fgi_idx < 20:    # Extreme Fear -> lower threshold (easier to buy)
@@ -124,47 +134,112 @@ class EngineBuyMixin:
 
             # ══════════════════════════════════════════════════════
             # [SURGE-FASTENTRY] SURGE A급 이상 → ML/TrendFilter 생략
-            # SurgeDetector score >= 0.65 + is_surge=True 이면
+            # SurgeDetector score >= 0.35  # [FIX] 0.6->0.35 score scale unified5 + is_surge=True 이면
             # TrendFilter/VolumeProfile/ML 파이프라인 우회하고
             # _evaluate_entry_signals() 로 직행
             # ══════════════════════════════════════════════════════
             _surge_cache  = getattr(self, "_surge_cache", {})
             _surge_info   = _surge_cache.get(market, {})
+            # [PHASE1-REGIME] GlobalRegime 기반 SURGE 임계값 자동 조정
+            _gr_p1      = getattr(self, "_global_regime", None)
+            _gr_val_p1  = str(getattr(_gr_p1, "value", _gr_p1 or "UNKNOWN")).upper()
+            _surge_thr  = {
+                "BULL":       0.40,   # 강세장: 완화
+                "RECOVERY":   0.45,   # 회복장: 기본
+                "BEAR_WATCH": 0.55,   # 약세경계: 강화 ← 현재 시장
+                "BEAR":       9.99,   # 약세장: 사실상 차단
+            }.get(_gr_val_p1, 0.45)
+
+            # [PHASE1-TIMEBLOCK] 새벽 00:00~08:59 KST SURGE 차단
+            _kst_h_p1   = datetime.now().hour  # 서버 KST 기준
+            _time_ok_p1 = not (0 <= _kst_h_p1 < 9)
+
             _is_surge_fast = (
                 _surge_info.get("is_surge", False)
-                and _surge_info.get("score", 0.0) >= 0.65
+                and _surge_info.get("score", 0.0) >= _surge_thr   # [PHASE1] 레짐 자동 임계값
                 and not _surge_info.get("pump_dump", False)
+                and _time_ok_p1                                    # [PHASE1] 시간대 필터
             )
+            if not _time_ok_p1 and _surge_info.get("is_surge", False):
+                logger.debug(
+                    f"[SURGE-TIMEBLOCK] {market} {_kst_h_p1}시 새벽차단 "
+                    f"(score={_surge_info.get('score',0):.3f})"
+                )
+            if _surge_info.get("is_surge", False) and _surge_info.get("score", 0) < _surge_thr and _time_ok_p1:
+                logger.debug(
+                    f"[SURGE-REGIME-BLOCK] {market} score={_surge_info.get('score',0):.3f} "
+                    f"< regime_thr={_surge_thr} ({_gr_val_p1})"
+                )
             if _is_surge_fast:
                 _sg = _surge_info.get("grade", "")
                 _ss = _surge_info.get("score", 0.0)
                 _sr = _surge_info.get("reason", "")
+                # ── [SURGE 완전 독립] ML/전략 파이프라인 완전 우회 ──
+                # [PHASE2-C] SURGE 전략별 슬롯 쿼터 체크 (가장 먼저)
+                _surge_quota_p2 = getattr(self, '_strategy_quota', {}).get('SURGE_FASTENTRY', 3)
+                _surge_open_p2  = sum(
+                    1 for _pp2 in self.portfolio.open_positions.values()
+                    if 'SURGE' in str(getattr(_pp2, 'strategy', ''))
+                )
+                if _surge_open_p2 >= _surge_quota_p2:
+                    logger.debug(
+                        f'[PHASE2-SURGE-QUOTA] {market} SURGE 쿼터 초과 '
+                        f'({_surge_open_p2}/{_surge_quota_p2}) → 스킵'
+                    )
+                    return
+                # 포지션 한도 체크
+                _max_pos = getattr(self.settings.trading, "max_positions", 10)
+                _cur_pos = self.portfolio.position_count
+                if _cur_pos >= _max_pos:
+                    logger.info(
+                        f"[SURGE-FASTENTRY] {market} 포지션 한도 초과 "
+                        f"({_cur_pos}/{_max_pos}) → 스킵"
+                    )
+                    return
+                # 이미 보유 중인 종목 체크
+                if self.portfolio.has_position(market):
+                    logger.info(f"[SURGE-FASTENTRY] {market} 이미 보유 중 → 스킵")
+                    return
+                # 손절 쿨다운 체크
+                if hasattr(self, "_sl_cooldown") and market in self._sl_cooldown:
+                    import datetime as _sdt
+                    if _sdt.datetime.now() < self._sl_cooldown[market]:
+                        _rem = int((
+                            self._sl_cooldown[market] - _sdt.datetime.now()
+                        ).total_seconds() // 60)
+                        logger.info(
+                            f"[SURGE-FASTENTRY] {market} 손절쿨다운 {_rem}분 남음 → 스킵"
+                        )
+                        return
+                # price_change_15m 과열 체크 (이미 20% 이상 오른 코인 제외)
+                _pc15 = _surge_info.get("price_change_5m", 0.0)
+                if abs(_pc15) > 0.20:
+                    logger.info(
+                        f"[SURGE-FASTENTRY] {market} 5분 변동 "
+                        f"{_pc15*100:.1f}% 과열 → 스킵"
+                    )
+                    return
                 logger.info(
                     f"[SURGE-FASTENTRY] {market} | {_sg}급 score={_ss:.3f} | "
-                    f"TrendFilter/ML 우회 → 즉시 진입 평가 | {_sr}"
+                    f"ML/전략 완전 우회 → 즉시 진입 | {_sr}"
                 )
-                # df_1h 기반으로 간단한 processed df 생성
                 try:
-                    import pandas as _pd
+                    from signals.signal_combiner import CombinedSignal
+                    from strategies.base_strategy import SignalType
                     df_surge = df_1h.copy()
                     if "atr" not in df_surge.columns:
                         _hl = df_surge["high"] - df_surge["low"]
                         df_surge["atr"] = _hl.rolling(14).mean()
-                    # SURGE 전용 ml_score: surge score * 1.2 (최대 1.0)
-                    _surge_ml_score = min(_ss * 1.2, 1.0)
-                    _surge_combined = await self._evaluate_entry_signals(
-                        market, df_surge, _surge_ml_score
+                    _surge_signal = CombinedSignal(
+                        market=market,
+                        signal_type=SignalType.BUY,
+                        score=float(_ss),
+                        confidence=float(_ss),
+                        agreement_rate=1.0,
+                        contributing_strategies=["SURGE_FASTENTRY"],
+                        reasons=[f"SURGE {_sg}급 score={_ss:.3f} | {_sr}"],
                     )
-                    if _surge_combined is not None:
-                        logger.info(
-                            f"[SURGE-FASTENTRY] {market} 진입 신호 확정 | "
-                            f"score={_surge_combined.score:.3f}"
-                        )
-                        await self._execute_buy(market, _surge_combined, df_surge)
-                    else:
-                        logger.info(
-                            f"[SURGE-FASTENTRY] {market} _evaluate_entry_signals 차단 → 스킵"
-                        )
+                    await self._execute_buy(market, _surge_signal, df_surge)
                 except Exception as _sfe:
                     logger.warning(f"[SURGE-FASTENTRY] {market} 오류: {_sfe}")
                 return
@@ -776,26 +851,10 @@ class EngineBuyMixin:
                         f"(실거래 초기 30일 안전모드)"
                     )
                     continue
-            # Vol_Breakout: ADX>35 + TRENDING_UP + FearGreed>40 동시 충족 시만 허용
+            # [FIX-VOLBREAK] Vol_Breakout 완전 비활성화 (승률 29%, 기대값 -0.270%)
             if name in ("Vol_Breakout", "VolBreakout", "volatility_break"):
-                if _fg_now < 40:
-                    logger.info(
-                        f"[MDD-L1] {market} Vol_Breakout 차단 "
-                        f"(FearGreed={_fg_now}<40)"
-                    )
-                    continue
-                if _adx_now < 35:
-                    logger.info(
-                        f"[MDD-L1] {market} Vol_Breakout 차단 "
-                        f"(ADX={_adx_now:.1f}<35)"
-                    )
-                    continue
-                if _regime_now is not None and "TRENDING_UP" not in str(_regime_now).upper():
-                    logger.info(
-                        f"[MDD-L1] {market} Vol_Breakout 차단 "
-                        f"(regime={_regime_now}≠TRENDING_UP)"
-                    )
-                    continue
+                logger.debug(f"[VOL-DISABLED] {market} Vol_Breakout 영구 차단")
+                continue
             # ML_Ensemble: 누적 거래 30건 미만이면 등록만 하고 나중에 크기 50% 축소
 
             # [REGIME-MATRIX] 레짐별 전략 허용 매트릭스
@@ -864,7 +923,7 @@ class EngineBuyMixin:
 
         # 급등 여부 확인
         surge_info  = getattr(self, "_surge_cache", {}).get(market, {})
-        is_surge    = surge_info.get("is_surge", False) and surge_info.get("score", 0) >= 0.6
+        is_surge    = surge_info.get("is_surge", False) and surge_info.get("score", 0) >= 0.35  # [FIX] 0.6->0.35 score scale unified
         surge_grade = surge_info.get("grade", "")
         surge_score = surge_info.get("score", 0.0)
         # 일반 매수 차단 (BEAR/BEAR_WATCH)
@@ -880,13 +939,14 @@ class EngineBuyMixin:
             return None
 
         # ML 임계값 레짐별 동적 조정
-        effective_ml_score = policy["min_ml_score"]
-        if ml_score < effective_ml_score:
-            logger.info(
-                f"[GlobalRegime] {market} ML점수 미달 | "
-                f"{ml_score:.3f} < {effective_ml_score:.3f} ({global_regime.value})"
-            )
-            return None
+        # [ML-BYPASS] ML 모델 미로드 상태 → min_ml_score 체크 비활성화
+        # 기술적 전략 신호만으로 진입 결정
+        effective_ml_score = policy["min_ml_score"]  # 참조만 유지
+        # if ml_score < effective_ml_score: → 비활성화
+        logger.debug(
+            f"[ML-BYPASS] {market} ML점수={ml_score:.3f} "
+            f"(임계값={effective_ml_score:.3f} 우회됨)"
+        )
         try:
             # 1. ATR 변동성 필터 (v2.1.0)
             if 'atr' in df.columns and df['atr'].iloc[-1] is not None and df['atr'].iloc[-1] > 0:
@@ -932,9 +992,13 @@ class EngineBuyMixin:
             # 3. Multi-Timeframe Confirmation (v2.1.0)
             if hasattr(self, 'mtf_confirmation'):
                 mtf_result = await self.mtf_confirmation.check(market, df)
-                if not mtf_result.get('aligned', False):
-                    logger.info(f"{market} MTF 미정렬 → 진입 차단")
-                    return None
+                if not mtf_result.get("aligned", False):
+                    # [FIX] SURGE 진입 시 MTF 미정렬 우회
+                    if not is_surge:
+                        logger.info(f"{market} MTF 미정렬 → 진입 차단")
+                        return None
+                    else:
+                        logger.info(f"[SURGE] {market} MTF 미정렬 → SURGE이므로 우회")
             
             # Kelly Criterion 포지션 크기 계산
             # 6. Kelly Criterion 포지션 크기 (v2.1.0)
@@ -1018,23 +1082,29 @@ class EngineBuyMixin:
             if self.portfolio.is_position_open(market):
                 logger.debug(f"    ({market}): 이미 포지션 존재")
                 return
-            if market in self._buying_markets:
-                logger.debug(f"    ({market}): 매수 진행 중")
-                return
-            self._buying_markets.add(market)
+            # [FIX-DUP] L1054 중복 체크 제거 (L1013에서 이미 선점 등록됨)
             # [FIX B] ML=SELL 신호이면 매수 차단
             _ml_pred_b = self._ml_predictions.get(market, {})
             if isinstance(_ml_pred_b, dict):
                 _ml_sig_b  = _ml_pred_b.get("signal", "HOLD")
                 _ml_conf_b = float(_ml_pred_b.get("confidence", 0))
                 _is_bear_rev_b = market in getattr(self, "_bear_reversal_markets", set())
-                if _ml_sig_b == "SELL" and _ml_conf_b >= 0.65 and not _is_bear_rev_b:
-                    # [FIX] BEAR_REVERSAL 마켓 면제 + 신뢰도 기준 0.42→0.65 상향
+                _is_surge_signal = (
+                    hasattr(signal, "contributing_strategies") and
+                    "SURGE_FASTENTRY" in (signal.contributing_strategies or [])
+                )
+                if (_ml_sig_b == "SELL" and _ml_conf_b >= 0.65
+                        and not _is_bear_rev_b and not _is_surge_signal):
+                    # [FIX] SURGE 진입 시 ML-SELL 차단 우회
                     logger.warning(
                         f"[ML-BLOCK] {market}: ML=SELL({_ml_conf_b:.2f}) → BUY 차단"
                     )
                     self._buying_markets.discard(market)
                     return
+                elif _is_surge_signal and _ml_sig_b == "SELL":
+                    logger.info(
+                        f"[ML-BLOCK-BYPASS] {market}: SURGE 진입 → ML=SELL 차단 우회"
+                    )
             # [FIX A-2] Sell Cooldown 체크 (10분 재매수 방지)
             if not hasattr(self, "_sell_cooldown"):
                 self._sell_cooldown = {}
@@ -1073,7 +1143,11 @@ class EngineBuyMixin:
             _is_bear_rev_signal = "BEAR_REVERSAL" in getattr(
                 signal, "contributing_strategies", []
             )
-            if not _is_bear_rev_signal:
+            _is_surge_entry = (
+                hasattr(signal, "contributing_strategies") and
+                "SURGE_FASTENTRY" in (signal.contributing_strategies or [])
+            )
+            if not _is_bear_rev_signal and not _is_surge_entry:
                 if getattr(signal, 'confidence', 0) < self.settings.risk.buy_signal_threshold:
                     logger.debug(
                         f"    ({market}): "
@@ -1082,14 +1156,25 @@ class EngineBuyMixin:
                     )
                     self._buying_markets.discard(market)
                     return
+            elif _is_surge_entry:
+                logger.info(
+                    f"[SURGE-THRESHOLD-BYPASS] {market}: SURGE 진입 → "
+                    f"buy_signal_threshold 우회 (confidence={getattr(signal, 'confidence', 0):.3f})"
+                )
 
             last = df.iloc[-1]
             try:
-                _sl_levels_buy = self.atr_stop.calculate(df, float(last["close"]), market=market,
-                            global_regime=getattr(self, "_global_regime", None))
+                # [FIX-SURGE-CALL] is_surge + local_regime 전달
+                _local_regime_buy = getattr(signal, "regime", None)
+                _sl_levels_buy = self.atr_stop.calculate(
+                    df, float(last["close"]), market=market,
+                    global_regime=getattr(self, "_global_regime", None),
+                    is_surge=_is_surge_entry,
+                    local_regime=_local_regime_buy,
+                )
                 atr         = _sl_levels_buy.atr
                 stop_loss   = _sl_levels_buy.stop_loss
-                stop_loss = max(stop_loss, float(last["close"]) * 0.97)  # [FIX-SL] ATR SL cap -3%
+                stop_loss = max(stop_loss, float(last["close"]) * 0.985)  # [FIX-SL2] ATR SL cap -1.5%
                 take_profit = _sl_levels_buy.take_profit
                 logger.info(
                     f" ATR-SL ({market}): "
@@ -1111,12 +1196,22 @@ class EngineBuyMixin:
 
             _strategy_name = getattr(signal, "contributing_strategies", ["default"])
             _strategy_name = _strategy_name[0] if _strategy_name else "default"
-            _ml_conf       = getattr(signal, "ml_confidence", 0.5)
+            # [FIX-KELLY] SURGE 신호는 confidence=score로 생성됨
+            _is_surge_kelly = (
+                hasattr(signal, "contributing_strategies") and
+                "SURGE_FASTENTRY" in (signal.contributing_strategies or [])
+            )
+            _ml_conf = (
+                getattr(signal, "confidence", 0.5)
+                if _is_surge_kelly
+                else getattr(signal, "ml_confidence", 0.5)
+            )
             position_size  = self.position_sizer.calculate(
                 total_capital=krw,
                 strategy=_strategy_name,
                 market=market,
                 confidence=_ml_conf,
+                global_regime=getattr(self, "_global_regime", None),  # [PHASE3]
             )
 
             # [MDD-L2] 연속손실 / ATR 변동성 기반 동적 포지션 축소
@@ -1152,9 +1247,13 @@ class EngineBuyMixin:
                     f"₩{position_size*2:,.0f} → ₩{position_size:,.0f}"
                 )
 
-            _ml_conf_score  = getattr(signal, "ml_confidence", 0.5)
-            _ensemble_score = getattr(signal, "score",         0.5)
-            _combined_score = (_ml_conf_score + _ensemble_score) / 2
+            # [FIX-RATIO] SURGE 신호는 confidence=score로 생성됨
+            if _is_surge_kelly:
+                _combined_score = getattr(signal, "confidence", 0.5)
+            else:
+                _ml_conf_score  = getattr(signal, "ml_confidence", 0.5)
+                _ensemble_score = getattr(signal, "score",         0.5)
+                _combined_score = (_ml_conf_score + _ensemble_score) / 2
 
             if _combined_score >= 0.80:
                 _buy_ratio  = 1.0

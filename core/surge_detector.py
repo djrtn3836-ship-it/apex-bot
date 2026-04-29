@@ -84,12 +84,22 @@ class SurgeResult:
                 for k, v in self.__dict__.items()}
 
 
+# [FIX-STABLE] 스테이블코인 / 무의미 코인 영구 블랙리스트
+_SURGE_BLACKLIST: set = {
+    "KRW-USDT", "KRW-USDC", "KRW-USD1", "KRW-BUSD", "KRW-DAI",
+    "KRW-TUSD", "KRW-USDP", "KRW-FDUSD", "KRW-PYUSD", "KRW-USDS",
+}
+
+# [FIX-STABLE] 최소 가격 변동성 기준 (스테이블코인 우회 방지)
+_SURGE_MIN_PRICE_CHANGE: float = 0.005  # 0.5% 미만 변동 → 차단
+
+
 @dataclass
 class SurgeConfig:
     """모든 파라미터 - 나중에 튜닝 가능"""
     threshold_s: float = 0.80
-    threshold_a: float = 0.65
-    threshold_b: float = 0.50
+    threshold_a: float = 0.35  # [FIX] 0.65->0.35
+    threshold_b: float = 0.25  # [FIX] 0.50->0.25
     threshold_c: float = 0.35
 
     weight_volume: float = 0.20
@@ -174,6 +184,34 @@ class SurgeDetector:
             btc_df_5m: BTC 5분봉 OHLCV
             ticker   : Upbit ticker dict
         """
+        # [FIX-STABLE] 스테이블코인 블랙리스트 차단
+        if market in _SURGE_BLACKLIST:
+            logger.debug(f"[STABLE-BLOCK] {market} 스테이블코인 SURGE 분석 차단")
+            return SurgeResult(
+                market=market, score=0.0,
+                is_surge=False, grade="NONE",
+                reason="STABLE_BLACKLIST"
+            )
+
+        # [FIX-STABLE] 가격 변동성 최소 기준 체크 (스테이블코인 우회 방지)
+        try:
+            if df_1m is not None and len(df_1m) >= 2:
+                _last_close  = float(df_1m["close"].iloc[-1])
+                _prev_close  = float(df_1m["close"].iloc[-2])
+                _pc = abs(_last_close - _prev_close) / (_prev_close + 1e-9)
+                if _pc < _SURGE_MIN_PRICE_CHANGE and _last_close > 1000:
+                    logger.debug(
+                        f"[LOW-VOL-BLOCK] {market} 가격변동 {_pc:.4%} < "
+                        f"{_SURGE_MIN_PRICE_CHANGE:.1%} → 저변동 차단"
+                    )
+                    return SurgeResult(
+                        market=market, score=0.0,
+                        is_surge=False, grade="NONE",
+                        reason="LOW_VOLATILITY"
+                    )
+        except Exception:
+            pass
+
         try:
             if df_1m is None or len(df_1m) < 20:
                 return self._empty(market, "1분봉데이터부족")

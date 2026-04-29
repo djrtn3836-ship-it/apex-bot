@@ -286,10 +286,24 @@ class EngineScheduleMixin:
                     _daily_pnl   = self.portfolio.get_daily_pnl(_total_asset)
                     _open_pos    = self.portfolio.position_count
                 except Exception:
-                    _krw_bal     = 0
-                    _total_asset = 0
-                    _daily_pnl   = 0
-                    _open_pos    = len(getattr(self, "_positions", {}))
+                    # [FIX-BUG3] total_assets=0 방지: SmartWallet / settings 기본값 fallback
+                    try:
+                        _krw_bal = getattr(self, "_last_krw_balance",
+                                   getattr(self.settings.trading, "initial_capital", 1_000_000))
+                        _pos_dict = getattr(self, "_positions", {})
+                        _pos_val  = sum(
+                            p.get("entry_price", 0) * p.get("quantity", 0)
+                            for p in _pos_dict.values()
+                            if isinstance(p, dict)
+                        )
+                        _total_asset = _krw_bal + _pos_val
+                        _daily_pnl   = 0
+                        _open_pos    = len(_pos_dict)
+                    except Exception:
+                        _krw_bal     = 0
+                        _total_asset = 0
+                        _daily_pnl   = 0
+                        _open_pos    = 0
                 await self.db_manager.save_daily_performance({
                     "date":           _dt_now.now().strftime("%Y-%m-%d"),
                     "total_assets":   _total_asset,
@@ -345,11 +359,11 @@ class EngineScheduleMixin:
             "total_assets":   total,
             "open_positions": self.portfolio.position_count,
         }
-        # [FIX] win_count / max_drawdown 명시적 보강 (get_statistics 키 보장)
+        # [FIX-BUG2] win_count 계산: 변수명 total_assets 충돌 방지
         if "win_count" not in report:
-            total = report.get("total_trades", 0)
-            wr    = report.get("win_rate", 0) / 100
-            report["win_count"] = int(total * wr)
+            _tc = report.get("total_trades", 0)
+            _wr = report.get("win_rate", 0) / 100.0
+            report["win_count"] = int(_tc * _wr)
         if "max_drawdown" not in report:
             report["max_drawdown"] = 0.0
         await self.telegram.notify_daily_report(report)
