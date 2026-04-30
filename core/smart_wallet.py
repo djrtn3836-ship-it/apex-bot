@@ -356,7 +356,7 @@ class SmartWalletManager:
             elif val <= UPBIT_DEAD_KRW:
                 wallet.dust_qty      = qty
                 wallet.dust_avg_price= avg_px
-                wallet.dust_state    = DustState.DEAD  # 500원 이하 → DEAD (ORPHAN 아님)
+                wallet.dust_state    = DustState.PENDING  # 500원 이하 소액 → 합산 대기
                 tag = f"💀 DEAD     | ₩{val:,.0f} → 무시"
 
             else:
