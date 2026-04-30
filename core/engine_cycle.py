@@ -357,6 +357,27 @@ class EngineCycleMixin:
 
     # ── 시간기반 강제청산 ────────────────────────────────────────
 
+    def _get_reliable_price(self, market: str) -> float:
+        """[FIX-RELIABLE-PRICE] WS -> REST 순서로 신뢰할 수 있는 현재가 반환
+        Returns 0.0 if both sources fail.
+        """
+        # 1순위: WebSocket 실시간 가격
+        price = self._market_prices.get(market, 0)
+        if price and price > 0:
+            return float(price)
+        # 2순위: pyupbit REST API fallback
+        try:
+            import pyupbit
+            _rest = pyupbit.get_current_price(market)
+            if _rest and float(_rest) > 0:
+                _p = float(_rest)
+                self._market_prices[market] = _p  # 캐시 업데이트
+                logger.debug(f'[RELIABLE-PRICE] {market} REST fallback: {_p:,.2f}')
+                return _p
+        except Exception as _rp_e:
+            logger.debug(f'[RELIABLE-PRICE] {market} REST 실패: {_rp_e}')
+        return 0.0
+
     async def _check_time_based_exits(self) -> None:
         now     = datetime.now()
         markets = list(self.portfolio.open_positions.keys())
@@ -366,8 +387,9 @@ class EngineCycleMixin:
                 pos = self.portfolio.get_position(market)
                 if not pos:
                     continue
-                current_price = self._market_prices.get(market)
+                current_price = self._get_reliable_price(market)  # [FIX-RELIABLE-PRICE]
                 if not current_price or current_price <= 0:
+                    logger.debug(f'[TIME-EXIT-SKIP] {market} 가격 미수신 → 스킵')
                     continue
                 entry_time = (
                     getattr(pos, "entry_time",  None)
@@ -461,11 +483,9 @@ class EngineCycleMixin:
         markets = list(self.portfolio.open_positions.keys())
         for market in markets:
             try:
-                current_price = self._market_prices.get(market)
+                current_price = self._get_reliable_price(market)  # [FIX-RELIABLE-PRICE]
                 if not current_price or current_price <= 0:
-                    logger.debug(f'[ANALYZE-SKIP] {market} current_price=0 (WS 미수신) → PnL 계산 스킵')
-                    continue  # [FIX-1] current_price=0 시 PnL=-100% 방지
-                if not current_price:
+                    logger.debug(f'[ANALYZE-SKIP] {market} 가격 미수신 → 스킵')
                     continue
                 pos = self.portfolio.get_position(market)
                 if pos is None:
