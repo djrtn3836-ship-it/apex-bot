@@ -264,6 +264,16 @@ class EngineSellMixin:
                     self._ws_bg_tasks.add(_db_task)
                     _db_task.add_done_callback(self._ws_bg_tasks.discard)
                 _db_task.add_done_callback(_on_db_done)
+                # [FIX-POSITIONS-TABLE] SELL 완료 시 positions 테이블에서 삭제
+                try:
+                    _del_task = _asyncio.get_running_loop().create_task(
+                        self.executor.db_manager.delete_position(market)
+                    )
+                    if hasattr(self, '_ws_bg_tasks'):
+                        self._ws_bg_tasks.add(_del_task)
+                        _del_task.add_done_callback(self._ws_bg_tasks.discard)
+                except Exception as _del_e:
+                    logger.debug(f"[DELETE-POS] {market} 삭제 오류: {_del_e}")
                 logger.info(
                     f"[DB-SELL] {market} "
                     f"profit={profit_rate:.2f}%  "

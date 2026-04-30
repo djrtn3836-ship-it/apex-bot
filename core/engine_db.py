@@ -22,98 +22,118 @@ from loguru import logger
 class EngineDBMixin:
     """DB 포지션 복원, 쿨다운 저장/로드 관련 메서드 Mixin"""
 
+
     async def _restore_positions_from_db(self):
+        """[FIX-POSITIONS-TABLE] positions 테이블 우선 복원 → fallback: trade_history"""
         try:
-            import aiosqlite as _aio
-            async with _aio.connect(str(self.db_manager.db_path)) as db:
-                db.row_factory = _aio.Row
-                cur = await db.execute("""
-                    SELECT b.market, b.price, b.volume, b.amount_krw,
-                           b.strategy, b.timestamp
-                    FROM trade_history b
-                    LEFT JOIN trade_history s
-                        ON b.market = s.market
-                       AND s.side   = 'SELL'
-                       AND s.timestamp > b.timestamp
-                    WHERE b.side = 'BUY'
-                      AND b.mode IN ('paper', 'live')
-                      AND s.id IS NULL
-                    ORDER BY b.timestamp ASC
-                """)
-                rows = await cur.fetchall()
+            # 1순위: positions 테이블에서 복원 (완전한 상태 포함)
+            rows = await self.db_manager.get_all_positions()
+
+            # positions 테이블이 비어있으면 trade_history fallback
+            if not rows:
+                import aiosqlite as _aio
+                async with _aio.connect(str(self.db_manager.db_path)) as db:
+                    db.row_factory = _aio.Row
+                    cur = await db.execute("""
+                        SELECT b.market, b.price, b.volume, b.amount_krw,
+                               b.strategy, b.timestamp
+                        FROM trade_history b
+                        LEFT JOIN trade_history s
+                            ON b.market = s.market
+                           AND s.side   = 'SELL'
+                           AND s.timestamp > b.timestamp
+                        WHERE b.side = 'BUY'
+                          AND b.mode IN ('paper', 'live')
+                          AND s.id IS NULL
+                        ORDER BY b.timestamp ASC
+                    """)
+                    th_rows = await cur.fetchall()
+
+                for row in th_rows:
+                    try:
+                        from datetime import datetime as _dtt
+                        _entry_unix = _dtt.fromisoformat(row["timestamp"]).timestamp()
+                    except Exception:
+                        import time as _t2
+                        _entry_unix = _t2.time()
+                    _is_surge = "SURGE" in (row["strategy"] or "")
+                    _sl_cap   = 0.987 if _is_surge else 0.983
+                    rows.append({
+                        "market":        row["market"],
+                        "entry_price":   float(row["price"] or 0),
+                        "volume":        float(row["volume"] or 0),
+                        "amount_krw":    float(row["amount_krw"] or 0),
+                        "stop_loss":     float(row["price"] or 0) * _sl_cap,
+                        "take_profit":   float(row["price"] or 0) * 1.03,
+                        "strategy":      row["strategy"] or "unknown",
+                        "entry_time":    _entry_unix,
+                        "pyramid_count": 0,
+                        "partial_exited": False,
+                        "breakeven_set": False,
+                        "max_price":     float(row["price"] or 0),
+                    })
+                if rows:
+                    logger.info(f"[RESTORE] trade_history fallback으로 {len(rows)}개 포지션 복원")
 
             restored = 0
             total_invested = 0.0
-            for row in rows:
+            for pos in rows:
                 try:
-                    mkt         = row["market"]
-                    _price      = float(row["price"]      or 0)
-                    _volume     = float(row["volume"]     or 0)
-                    _amount_krw = float(row["amount_krw"] or 0)
-                    _strategy   = row["strategy"] or "unknown"
-                    _ts_raw     = row["timestamp"] or ""
-
-                    # [FIX-ENTRY-TIME] DB timestamp → Unix float 변환
-                    try:
-                        from datetime import datetime as _dtt
-                        _entry_time = _dtt.fromisoformat(_ts_raw).timestamp()
-                    except Exception:
-                        import time as _t2
-                        _entry_time = _t2.time()
-
-                    # [FIX-SL-RESTORE] 전략별 SL 캡 분기
-                    _is_surge_r = "SURGE" in (_strategy or "")
-                    _sl_cap_r   = 0.987 if _is_surge_r else 0.983
-                    _sl_price_r = _price * _sl_cap_r
-                    _tp_price_r = _price * 1.03
+                    mkt         = pos["market"]
+                    _price      = pos["entry_price"]
+                    _volume     = pos["volume"]
+                    _amount_krw = pos["amount_krw"]
+                    _strategy   = pos["strategy"]
+                    _entry_time = pos["entry_time"]
+                    _sl         = pos["stop_loss"]
+                    _tp         = pos["take_profit"]
+                    _partial    = pos["partial_exited"]
+                    _breakeven  = pos["breakeven_set"]
+                    _max_price  = pos["max_price"] or _price
 
                     if self.portfolio.is_position_open(mkt):
                         continue
                     if _price <= 0 or _volume <= 0:
-                        logger.warning(
-                            f"   ({mkt}): 가격/수량 없음"
-                        )
+                        logger.warning(f"복원 스킵 ({mkt}): 가격/수량 없음")
                         continue
 
                     self.portfolio.open_position(
-                        market=mkt,
-                        entry_price=_price,
-                        volume=_volume,
-                        amount_krw=_amount_krw,
-                        strategy=_strategy,
-                        stop_loss=_sl_price_r,   # [FIX-SL-RESTORE] SURGE -1.3% / 일반 -1.7%
-                        take_profit=_tp_price_r, # [FIX-TP] +3% (첫 사이클에서 ATR로 교체됨)
-                        entry_time=_entry_time,  # [FIX-ENTRY-TIME]
+                        market=mkt, entry_price=_price, volume=_volume,
+                        amount_krw=_amount_krw, strategy=_strategy,
+                        stop_loss=_sl, take_profit=_tp, entry_time=_entry_time,
                     )
                     self.trailing_stop.add_position(
-                        market=mkt,
-                        entry_price=_price,
-                        initial_stop=_sl_price_r,  # [FIX-SL-RESTORE] 전략별 SL cap
-                        atr=0.0,
+                        market=mkt, entry_price=_price,
+                        initial_stop=_sl, atr=0.0,
                     )
-
                     if self.position_mgr_v2 is not None:
                         try:
                             from risk.position_manager_v2 import PositionV2
                             _pv2 = PositionV2(
-                                market=mkt,
-                                entry_price=_price,
-                                volume=_volume,
-                                amount_krw=_amount_krw,
-                                stop_loss=_sl_price_r,   # [FIX-SL-RESTORE] 전략별 SL cap
-                                take_profit=_tp_price_r, # [FIX-TP] +3%
-                                strategy=_strategy,
+                                market=mkt, entry_price=_price, volume=_volume,
+                                amount_krw=_amount_krw, stop_loss=_sl,
+                                take_profit=_tp, strategy=_strategy,
                             )
+                            _pv2.partial_exited = _partial
+                            _pv2.breakeven_set  = _breakeven
+                            _pv2.max_price      = _max_price
                             self.position_mgr_v2.add_position(_pv2)
                         except Exception as _rv2_e:
-                            logger.debug(f"M4  : {_rv2_e}")
+                            logger.debug(f"M4 복원 오류: {_rv2_e}")
 
                     self.partial_exit.add_position(
-                        market=mkt,
-                        entry_price=_price,
-                        volume=_volume,
-                        take_profit=_tp_price_r,  # [FIX-TP] +3%
+                        market=mkt, entry_price=_price,
+                        volume=_volume, take_profit=_tp,
                     )
+                    if _partial:
+                        try:
+                            _exited = await self.db_manager.get_partial_exit_ratio(mkt)
+                            if _exited and _exited > 0:
+                                self.partial_exit.restore_executed_levels(mkt, _exited)
+                                logger.info(f"부분청산 복원 | {mkt} | {_exited:.0%}")
+                        except Exception as _pe_e:
+                            logger.debug(f"부분청산 복원 오류 ({mkt}): {_pe_e}")
+
                     self.adapter._paper_balance["KRW"] = max(
                         0.0,
                         self.adapter._paper_balance.get("KRW", 1_000_000) - _amount_krw,
@@ -124,85 +144,55 @@ class EngineDBMixin:
                     )
                     restored       += 1
                     total_invested += _amount_krw
+                    _held_h = (time.time() - _entry_time) / 3600
                     logger.info(
-                        f"   | {mkt} | "
-                        f"={_price:,.0f} | "
-                        f"=₩{_amount_krw:,.0f} | {_strategy}"
+                        f"포지션 복원 | {mkt} | 진입가={_price:,.0f} | "
+                        f"보유={_held_h:.1f}h | SL={_sl:,.1f} | TP={_tp:,.1f} | {_strategy}"
                     )
-
-                    try:
-                        _exited = await self.db_manager.get_partial_exit_ratio(mkt)
-                        if _exited and _exited > 0:
-                            self.partial_exit.restore_executed_levels(mkt, _exited)
-                            logger.info(
-                                f"   | {mkt} | ={_exited:.0%}"
-                            )
-                    except Exception as _pe_e:
-                        logger.debug(f"   ({mkt}): {_pe_e}")
 
                 except Exception as _row_e:
-                    logger.warning(
-                        f"   "
-                        f"({row['market'] if row else '?'}): {_row_e}"
-                    )
+                    logger.warning(f"포지션 복원 실패 ({pos.get('market','?')}): {_row_e}")
                     continue
 
             if restored:
-                logger.info(
-                    f"   : {restored} | "
-                    f"=₩{total_invested:,.0f}"
-                )
+                logger.info(f"복원 완료: {restored}개 | 투자금=₩{total_invested:,.0f}")
                 try:
                     _krw_cash = await self.adapter.get_balance("KRW")
                     _open_pos = {
-                        m: {"volume": pos.volume}
-                        for m, pos in self.portfolio.open_positions.items()
+                        m: {"volume": p.volume}
+                        for m, p in self.portfolio.open_positions.items()
                     }
                     self.adapter.sync_paper_balance(_krw_cash, _open_pos)
                 except Exception as _sync_e:
-                    logger.debug(f"   : {_sync_e}")
+                    logger.debug(f"잔고 동기화 오류: {_sync_e}")
             else:
-                logger.info("    ( )")
+                logger.info("복원할 포지션 없음 (신규 시작)")
 
+            # BEAR_REVERSAL 카운트 복원 [FIX-_aio2 미정의 변수 수정]
             try:
-                _today_str      = datetime.now().strftime("%Y-%m-%d")
+                import aiosqlite as _aio3
+                _today_str = datetime.now().strftime("%Y-%m-%d")
+                async with _aio3.connect(str(self.db_manager.db_path)) as _db3:
+                    async with _db3.execute("""
+                        SELECT COUNT(*) FROM trade_history
+                        WHERE strategy LIKE '%BEAR_REVERSAL%'
+                          AND side = 'BUY'
+                          AND DATE(timestamp) = DATE('now','localtime')
+                    """) as _cur3:
+                        _row3 = await _cur3.fetchone()
+                        _bear_today = int(_row3[0]) if _row3 and _row3[0] else 0
                 _bear_count_key = f"_bear_rev_count_{_today_str}"
-                _bear_today     = 0
-                try:
-                    async with _aio2.connect(
-                        str(self.db_manager.db_path)
-                    ) as _db2:
-                        async with _db2.execute("""
-                            SELECT COUNT(*) FROM trade_history
-                            WHERE strategy LIKE '%BEAR_REVERSAL%'
-                              AND side = 'BUY'
-                              AND DATE(timestamp) = DATE('now','localtime')
-                        """) as _cur2:
-                            _row2 = await _cur2.fetchone()
-                            _bear_today = (
-                                int(_row2[0])
-                                if _row2 and _row2[0] is not None
-                                else 0
-                            )
-                except Exception:
-                    _bear_today = 0
                 setattr(self, _bear_count_key, _bear_today)
                 _remain = max(0, 6 - _bear_today)
-                _status = (
-                    "⛔ 오늘 한도 초과"
-                    if _bear_today >= 6
-                    else f"잔여 {_remain}회"
-                )
                 logger.info(
-                    f"  BEAR_REVERSAL  : "
-                    f" {_bear_today} → {_status}"
+                    f"BEAR_REVERSAL 카운트: 오늘 {_bear_today}회 → 잔여 {_remain}회"
                 )
             except Exception as _br_e:
-                logger.warning(f" BEAR_REVERSAL   : {_br_e}")
+                logger.warning(f"BEAR_REVERSAL 카운트 복원 실패: {_br_e}")
 
         except Exception as e:
             import traceback
-            logger.warning(f"    (): {e}")
+            logger.warning(f"포지션 복원 실패 (전체): {e}")
             logger.debug(traceback.format_exc())
 
 

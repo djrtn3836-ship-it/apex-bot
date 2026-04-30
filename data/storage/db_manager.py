@@ -125,6 +125,25 @@ class DatabaseManager:
             "CREATE INDEX IF NOT EXISTS idx_trade_market ON trade_history(market)",
             "CREATE INDEX IF NOT EXISTS idx_trade_ts ON trade_history(timestamp)",
             "CREATE INDEX IF NOT EXISTS idx_signal_market ON signal_log(market)",
+            # [FIX-POSITIONS-TABLE] 포지션 상태 영속화 테이블
+            """
+            CREATE TABLE IF NOT EXISTS positions (
+                market          TEXT PRIMARY KEY,
+                entry_price     REAL NOT NULL,
+                volume          REAL NOT NULL,
+                amount_krw      REAL NOT NULL,
+                stop_loss       REAL DEFAULT 0,
+                take_profit     REAL DEFAULT 0,
+                strategy        TEXT DEFAULT '',
+                entry_time      REAL NOT NULL,
+                pyramid_count   INTEGER DEFAULT 0,
+                partial_exited  INTEGER DEFAULT 0,
+                breakeven_set   INTEGER DEFAULT 0,
+                max_price       REAL DEFAULT 0,
+                updated_at      TEXT DEFAULT (datetime('now','localtime'))
+            )
+            """,
+            # trade_history entry_time 컬럼 (ALTER는 _migrate_schema에서 처리)
         ]
 
         async with self._lock:
@@ -143,8 +162,8 @@ class DatabaseManager:
                     """
                     INSERT INTO trade_history
                     (timestamp, market, side, price, volume, amount_krw,
-                     fee, profit_rate, strategy, reason, mode)
-                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                     fee, profit_rate, strategy, reason, mode, entry_time)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                     """,
                     (
                         trade.get("timestamp", datetime.now().isoformat()),
@@ -158,6 +177,7 @@ class DatabaseManager:
                         trade.get("strategy", ""),
                         trade.get("reason", ""),
                         self.settings.mode,
+                        trade.get("entry_time", trade.get("timestamp", datetime.now().isoformat())),  # [FIX-ENTRY-TIME]
                     )
                 )
                 await self._conn.commit()
@@ -317,6 +337,106 @@ class DatabaseManager:
             logger.error(f"get_state  [{key}]: {e}")
             return None
 
+
+    # ── positions 테이블 CRUD ─────────────────────────────────────
+    # [FIX-POSITIONS-TABLE] 포지션 상태 영속화
+    async def upsert_position(self, pos_data: dict) -> bool:
+        """포지션 상태를 positions 테이블에 저장/갱신 (BUY 시 + 상태 변경 시 호출)"""
+        if not self._conn:
+            return False
+        try:
+            async with self._lock:
+                await self._conn.execute("""
+                    INSERT INTO positions
+                    (market, entry_price, volume, amount_krw, stop_loss, take_profit,
+                     strategy, entry_time, pyramid_count, partial_exited, breakeven_set,
+                     max_price, updated_at)
+                    VALUES (:market, :entry_price, :volume, :amount_krw, :stop_loss,
+                            :take_profit, :strategy, :entry_time, :pyramid_count,
+                            :partial_exited, :breakeven_set, :max_price,
+                            datetime('now','localtime'))
+                    ON CONFLICT(market) DO UPDATE SET
+                        entry_price    = excluded.entry_price,
+                        volume         = excluded.volume,
+                        amount_krw     = excluded.amount_krw,
+                        stop_loss      = excluded.stop_loss,
+                        take_profit    = excluded.take_profit,
+                        strategy       = excluded.strategy,
+                        entry_time     = excluded.entry_time,
+                        pyramid_count  = excluded.pyramid_count,
+                        partial_exited = excluded.partial_exited,
+                        breakeven_set  = excluded.breakeven_set,
+                        max_price      = excluded.max_price,
+                        updated_at     = datetime('now','localtime')
+                """, {
+                    "market":         pos_data.get("market", ""),
+                    "entry_price":    pos_data.get("entry_price", 0),
+                    "volume":         pos_data.get("volume", 0),
+                    "amount_krw":     pos_data.get("amount_krw", 0),
+                    "stop_loss":      pos_data.get("stop_loss", 0),
+                    "take_profit":    pos_data.get("take_profit", 0),
+                    "strategy":       pos_data.get("strategy", ""),
+                    "entry_time":     pos_data.get("entry_time", 0),
+                    "pyramid_count":  pos_data.get("pyramid_count", 0),
+                    "partial_exited": int(pos_data.get("partial_exited", False)),
+                    "breakeven_set":  int(pos_data.get("breakeven_set", False)),
+                    "max_price":      pos_data.get("max_price", 0),
+                })
+                await self._conn.commit()
+            return True
+        except Exception as e:
+            logger.error(f"upsert_position 오류: {e}")
+            return False
+
+    async def delete_position(self, market: str) -> bool:
+        """SELL 완료 시 positions 테이블에서 포지션 삭제"""
+        if not self._conn:
+            return False
+        try:
+            async with self._lock:
+                await self._conn.execute(
+                    "DELETE FROM positions WHERE market = ?", (market,)
+                )
+                await self._conn.commit()
+            return True
+        except Exception as e:
+            logger.error(f"delete_position 오류: {e}")
+            return False
+
+    async def get_all_positions(self) -> list:
+        """재시작 시 positions 테이블에서 모든 열린 포지션 조회"""
+        if not self._conn:
+            return []
+        try:
+            async with self._conn.execute("""
+                SELECT market, entry_price, volume, amount_krw, stop_loss,
+                       take_profit, strategy, entry_time, pyramid_count,
+                       partial_exited, breakeven_set, max_price
+                FROM positions
+                ORDER BY entry_time ASC
+            """) as cur:
+                rows = await cur.fetchall()
+            return [
+                {
+                    "market":         r[0],
+                    "entry_price":    r[1],
+                    "volume":         r[2],
+                    "amount_krw":     r[3],
+                    "stop_loss":      r[4],
+                    "take_profit":    r[5],
+                    "strategy":       r[6],
+                    "entry_time":     r[7],
+                    "pyramid_count":  r[8],
+                    "partial_exited": bool(r[9]),
+                    "breakeven_set":  bool(r[10]),
+                    "max_price":      r[11],
+                }
+                for r in rows
+            ]
+        except Exception as e:
+            logger.error(f"get_all_positions 오류: {e}")
+            return []
+
     async def close(self):
         """DB"""
         if self._conn:
@@ -324,21 +444,21 @@ class DatabaseManager:
             logger.info("DB  ")
 
     async def get_partial_exit_ratio(self, market: str) -> float:
-        """PARTIAL_SELL    
-        trade_history volume  /  BUY volume"""
+        """PARTIAL_SELL 비율 반환: trade_history volume 합산 / BUY volume"""
         try:
             today = __import__("datetime").date.today().isoformat()
-            rows = await self._conn.execute(
+            buy_vol  = 0.0
+            sell_vol = 0.0
+            async with self._conn.execute(
                 """SELECT side, volume FROM trade_history
                    WHERE market=? AND timestamp LIKE ?
                    ORDER BY id ASC""",
                 (market, f"{today}%")
-            ).fetchall()
-            buy_vol = 0.0
-            sell_vol = 0.0
+            ) as cur:
+                rows = await cur.fetchall()
             for side, vol in rows:
                 if side == "BUY":
-                    buy_vol = vol  # 최초 BUY 수량 (마지막 BUY 기준)
+                    buy_vol = vol
                 elif side in ("SELL", "PARTIAL_SELL"):
                     sell_vol += vol
             if buy_vol > 0:
@@ -346,5 +466,5 @@ class DatabaseManager:
         except Exception as _e:
             import logging as _lg
             _lg.getLogger("db_manager").debug(f"[WARN] db_manager 오류 무시: {_e}")
-            pass
         return 0.0
+

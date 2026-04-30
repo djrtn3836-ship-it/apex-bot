@@ -1431,6 +1431,25 @@ class EngineBuyMixin:
                         "strategy":    req.strategy_name,
                         "reason":      req.reason,
                     })
+                    # [FIX-POSITIONS-TABLE] BUY 완료 시 positions 테이블 저장
+                    try:
+                        import time as _t_ups
+                        await self.db_manager.upsert_position({
+                            "market":         market,
+                            "entry_price":    buy_price,
+                            "volume":         buy_volume,
+                            "amount_krw":     amount_krw,
+                            "stop_loss":      stop_loss,
+                            "take_profit":    take_profit,
+                            "strategy":       strategy_name,
+                            "entry_time":     _t_ups.time(),
+                            "pyramid_count":  0,
+                            "partial_exited": False,
+                            "breakeven_set":  False,
+                            "max_price":      buy_price,
+                        })
+                    except Exception as _ups_e:
+                        logger.debug(f"[UPSERT-POS] {market} 저장 오류: {_ups_e}")
                 except Exception as _db_e:
                     logger.debug(f"BUY DB  : {_db_e}")
 
