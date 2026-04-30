@@ -684,7 +684,7 @@ class EngineBuyMixin:
 
             if combined.signal_type == SignalType.BUY:
                 # [FIX-QUOTA-CHECK] 전략별 쿼터 체크
-                _strat_list_q = getattr(signal, 'contributing_strategies', []) or []
+                _strat_list_q = getattr(combined, 'contributing_strategies', []) or []  # [FIX-SIGNAL-REF]
                 _strat_name_q = _strat_list_q[0] if _strat_list_q else 'default'
                 _quota_map_q  = getattr(self, '_strategy_quota', {})
                 _strat_quota  = _quota_map_q.get(_strat_name_q, 999)
@@ -742,7 +742,7 @@ class EngineBuyMixin:
                         await self._execute_buy(market, combined, df_processed)
                     # [FIX] BUY 시 쿨다운 갱신 제거
                     try:
-                        _sig_type_str = str(getattr(signal, 'signal_type', ''))
+                        _sig_type_str = str(getattr(combined, 'signal_type', ''))  # [FIX-SIGNAL-REF]
                     except Exception:
                         _sig_type_str = ''
                     if 'BUY' not in _sig_type_str.upper():
