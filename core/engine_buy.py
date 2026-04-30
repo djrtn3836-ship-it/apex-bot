@@ -683,6 +683,22 @@ class EngineBuyMixin:
                 logger.info(f"   ({market}): {_ob_e}")
 
             if combined.signal_type == SignalType.BUY:
+                # [FIX-QUOTA-CHECK] 전략별 쿼터 체크
+                _strat_list_q = getattr(signal, 'contributing_strategies', []) or []
+                _strat_name_q = _strat_list_q[0] if _strat_list_q else 'default'
+                _quota_map_q  = getattr(self, '_strategy_quota', {})
+                _strat_quota  = _quota_map_q.get(_strat_name_q, 999)
+                _strat_open   = sum(
+                    1 for _pq in self.portfolio.open_positions.values()
+                    if _strat_name_q in str(getattr(_pq, 'strategy', ''))
+                )
+                if _strat_quota < 999 and _strat_open >= _strat_quota:
+                    logger.debug(
+                        f'[QUOTA-BLOCK] {market} {_strat_name_q} '
+                        f'쿼터 초과 ({_strat_open}/{_strat_quota}) → 스킵'
+                    )
+                    self._buying_markets.discard(market)
+                    return
                 if market not in self.portfolio.open_positions:
                     # ── 전략별 쿨다운 체크 ──────────────────────────────────────
                     try:

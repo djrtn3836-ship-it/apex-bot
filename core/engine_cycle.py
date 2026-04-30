@@ -851,31 +851,33 @@ class EngineCycleMixin:
                         _gr_str_p2 = str(getattr(_new_regime, 'value', _new_regime)).upper()
                         # 전략 가중치 테이블
                         _REGIME_WEIGHTS_P2 = {
-                            'BULL':       {'SURGE_FASTENTRY': 1.4, 'Order_Block': 1.2, 'MACD_Cross': 1.0, 'Bollinger_Squeeze': 0.9, 'ML_Ensemble': 1.0},
-                            'RECOVERY':   {'SURGE_FASTENTRY': 1.0, 'Order_Block': 1.3, 'MACD_Cross': 1.1, 'Bollinger_Squeeze': 1.2, 'ML_Ensemble': 1.1},
-                            'BEAR_WATCH': {'SURGE_FASTENTRY': 0.7, 'Order_Block': 1.5, 'MACD_Cross': 0.9, 'Bollinger_Squeeze': 1.8, 'ML_Ensemble': 1.3},
-                            'BEAR':       {'SURGE_FASTENTRY': 0.0, 'Order_Block': 1.2, 'MACD_Cross': 0.8, 'Bollinger_Squeeze': 1.5, 'ML_Ensemble': 1.0},
-                        }
+                            'BULL':       {'SURGE_FASTENTRY': 1.4, 'OrderBlock_SMC': 1.2, 'MACD_Cross': 1.0, 'Bollinger_Squeeze': 0.9, 'ML_Ensemble': 1.0},
+                            'RECOVERY':   {'SURGE_FASTENTRY': 1.0, 'OrderBlock_SMC': 1.3, 'MACD_Cross': 1.1, 'Bollinger_Squeeze': 1.2, 'ML_Ensemble': 1.1},
+                            'BEAR_WATCH': {'SURGE_FASTENTRY': 0.7, 'OrderBlock_SMC': 1.5, 'MACD_Cross': 0.9, 'Bollinger_Squeeze': 1.8, 'ML_Ensemble': 1.3},
+                            'BEAR':       {'SURGE_FASTENTRY': 0.0, 'OrderBlock_SMC': 1.2, 'MACD_Cross': 0.8, 'Bollinger_Squeeze': 1.5, 'ML_Ensemble': 1.0},
+                        }  # [FIX-STRATEGY-NAME] Order_Block → OrderBlock_SMC
                         # 슬롯 쿼터 테이블 (합계 > max_positions → 전략 간 자연 경쟁 유도)
                         _QUOTA_MAP_P2 = {
-                            'BULL':       {'SURGE_FASTENTRY': 6, 'Order_Block': 4, 'MACD_Cross': 3, 'Bollinger_Squeeze': 3, 'ML_Ensemble': 2},
-                            'RECOVERY':   {'SURGE_FASTENTRY': 4, 'Order_Block': 4, 'MACD_Cross': 3, 'Bollinger_Squeeze': 4, 'ML_Ensemble': 3},
-                            'BEAR_WATCH': {'SURGE_FASTENTRY': 3, 'Order_Block': 5, 'MACD_Cross': 4, 'Bollinger_Squeeze': 5, 'ML_Ensemble': 3},
-                            'BEAR':       {'SURGE_FASTENTRY': 0, 'Order_Block': 6, 'MACD_Cross': 4, 'Bollinger_Squeeze': 5, 'ML_Ensemble': 3},
-                        }
+                            'BULL':       {'SURGE_FASTENTRY': 6, 'OrderBlock_SMC': 4, 'MACD_Cross': 3, 'Bollinger_Squeeze': 3, 'ML_Ensemble': 2},
+                            'RECOVERY':   {'SURGE_FASTENTRY': 4, 'OrderBlock_SMC': 4, 'MACD_Cross': 3, 'Bollinger_Squeeze': 4, 'ML_Ensemble': 3},
+                            'BEAR_WATCH': {'SURGE_FASTENTRY': 3, 'OrderBlock_SMC': 5, 'MACD_Cross': 2, 'Bollinger_Squeeze': 5, 'ML_Ensemble': 3},
+                            'BEAR':       {'SURGE_FASTENTRY': 0, 'OrderBlock_SMC': 6, 'MACD_Cross': 2, 'Bollinger_Squeeze': 5, 'ML_Ensemble': 3},
+                        }  # [FIX-STRATEGY-NAME] Order_Block → OrderBlock_SMC, BEAR_WATCH MACD 4→2
                         _w = _REGIME_WEIGHTS_P2.get(_gr_str_p2, _REGIME_WEIGHTS_P2['BEAR_WATCH'])
                         _q = _QUOTA_MAP_P2.get(_gr_str_p2, _QUOTA_MAP_P2['BEAR_WATCH'])
                         # signal_combiner 가중치 1회 갱신
                         if hasattr(self, 'signal_combiner') and hasattr(self.signal_combiner, 'STRATEGY_WEIGHTS'):
                             self.signal_combiner.STRATEGY_WEIGHTS.update(_w)
-                        # 쿼터 저장
-                        self._strategy_quota = _q
+                        # 쿼터/가중치 저장
+                        self._strategy_quota  = _q
+                        self._strategy_weight = _w  # [FIX-WEIGHT-SAVE]
                         from loguru import logger as _lg
                         _lg.info(
                             f'[PHASE2-REGIME] 레짐 변경 → {_gr_str_p2} | '
                             f'SURGE {_w["SURGE_FASTENTRY"]:.1f}x({_q["SURGE_FASTENTRY"]}슬롯) '
                             f'Bollinger {_w["Bollinger_Squeeze"]:.1f}x({_q["Bollinger_Squeeze"]}슬롯) '
-                            f'Order_Block {_w["Order_Block"]:.1f}x({_q["Order_Block"]}슬롯)'
+                            f'OrderBlock {_w["OrderBlock_SMC"]:.1f}x({_q["OrderBlock_SMC"]}슬롯) '
+                            f'MACD {_w["MACD_Cross"]:.1f}x({_q["MACD_Cross"]}슬롯)'  # [FIX-STRATEGY-NAME]
                         )
                     else:
                         from loguru import logger as _lg
