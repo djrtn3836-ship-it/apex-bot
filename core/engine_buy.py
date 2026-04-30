@@ -1436,20 +1436,20 @@ class EngineBuyMixin:
                         import time as _t_ups
                         await self.db_manager.upsert_position({
                             "market":         market,
-                            "entry_price":    buy_price,
-                            "volume":         buy_volume,
-                            "amount_krw":     amount_krw,
+                            "entry_price":    result.executed_price,
+                            "volume":         result.executed_volume,
+                            "amount_krw":     position_size,
                             "stop_loss":      stop_loss,
                             "take_profit":    take_profit,
-                            "strategy":       strategy_name,
+                            "strategy":       req.strategy_name,
                             "entry_time":     _t_ups.time(),
                             "pyramid_count":  0,
                             "partial_exited": False,
                             "breakeven_set":  False,
-                            "max_price":      buy_price,
+                            "max_price":      result.executed_price,
                         })
                     except Exception as _ups_e:
-                        logger.debug(f"[UPSERT-POS] {market} 저장 오류: {_ups_e}")
+                        logger.warning(f"[UPSERT-POS] {market} 저장 오류: {_ups_e}")
                 except Exception as _db_e:
                     logger.debug(f"BUY DB  : {_db_e}")
 

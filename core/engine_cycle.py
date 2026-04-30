@@ -659,7 +659,7 @@ class EngineCycleMixin:
             else:
                 entry_price = 0
 
-            current_price = self._market_prices.get(market, 0)
+            current_price = self._get_reliable_price(market)  # [FIX-RELIABLE-PRICE]
             # [FIX-2] REST fallback: WS 미수신 시 REST로 현재가 조회
             if not current_price or current_price <= 0:
                 try:
