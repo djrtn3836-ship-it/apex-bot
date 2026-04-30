@@ -213,7 +213,7 @@ class EngineCycleMixin:
         try:
             import time as _pq_t
             _TTL_SEC   = 1800  # 기본 30분
-                    # [FIX-B4] scr 기반 동적 TTL은 대기열 추가 시 적용
+                    # scr 점수 비례 동적 TTL 적용 (대기열 추가 시점 기준)
             _REPLACE_SCORE = 0.80   # 교체매매 최소 surge score
             _REPLACE_PNL   = -1.5   # 교체매매 대상 최소 손실 (%)
             _REPLACE_HOLD  = 30     # 교체매매 최소 보유시간 (분)
@@ -291,7 +291,7 @@ class EngineCycleMixin:
                 _targets = sorted(_targets,
                                   key=lambda m: _change_rates.get(m, 0.0),
                                   reverse=True)[:15]
-                # [FIX-SURGE-A] SurgeCache 코인 최우선 삽입
+                # SurgeCache 감지 코인은 분석 대기열 최우선 삽입
                 _surge_priority = [
                     m for m in getattr(self, "_surge_cache", {}).keys()
                     if m not in _open_now and m not in _buying_now
@@ -387,7 +387,7 @@ class EngineCycleMixin:
                 pos = self.portfolio.get_position(market)
                 if not pos:
                     continue
-                current_price = self._get_reliable_price(market)  # [FIX-RELIABLE-PRICE]
+                current_price = self._get_reliable_price(market)
                 if not current_price or current_price <= 0:
                     logger.debug(f'[TIME-EXIT-SKIP] {market} 가격 미수신 → 스킵')
                     continue
@@ -396,7 +396,7 @@ class EngineCycleMixin:
                     or getattr(pos, "created_at", None)
                 )
                 if entry_time is None:
-                    # [FIX] entry_time 없는 포지션 → 생성일 알 수 없으므로
+                    # entry_time 미설정 포지션은 보유시간 계산 불가 → 스킵
                     # held_hours를 999로 설정해 72h 강제청산 대상으로 처리
                     held_hours = 999.0
                     profit_rate = (
@@ -423,7 +423,7 @@ class EngineCycleMixin:
                 _pos_strat_p1 = getattr(pos, "strategy", "") or ""
                 if "SURGE" in _pos_strat_p1:
                     # Case A: 1시간 경과 + ±0.5% 횡보 → 급등 실패
-                    if held_hours >= 1.0 and profit_rate < 0.005 and abs(profit_rate) < 0.015:  # [FIX-B-v2] 상승 중 제외, 손실/횡보만 청산
+                    if held_hours >= 1.0 and profit_rate < 0.005 and abs(profit_rate) < 0.015:  # 상승 중 제외, 손실/횡보만 청산
                         logger.info(
                             f"[SURGE-SIDEWAYS] {market} | "
                             f"보유={held_hours:.1f}h | "
@@ -435,7 +435,7 @@ class EngineCycleMixin:
                         )
                         continue
                     # Case B: 4시간 경과 + 손실 중 → 강제청산
-                    if held_hours >= 4.0 and profit_rate < 0.005:   # [FIX-SURGE-4H] 수수료 감안 +0.5% 미만 청산
+                    if held_hours >= 4.0 and profit_rate < 0.005:   # 수수료 감안 +0.5% 미만 4h 후 청산
                         logger.info(
                             f"[SURGE-MAXHOLD] {market} | "
                             f"보유={held_hours:.1f}h | "
@@ -463,7 +463,7 @@ class EngineCycleMixin:
                     await self._execute_sell(market, "횡보청산_48h", current_price)
                     continue
 
-                # [FIX-A-v2] 전략별 24h 손실 기준 분리
+                # 전략별 24h 손실 기준 분리 (SURGE vs 일반)
                 _loss_thr_24h = -0.015 if "SURGE" in (_pos_strat_p1 or "") else -0.020
                 if held_hours >= 24 and profit_rate <= _loss_thr_24h:
                     logger.info(
@@ -483,7 +483,7 @@ class EngineCycleMixin:
         markets = list(self.portfolio.open_positions.keys())
         for market in markets:
             try:
-                current_price = self._get_reliable_price(market)  # [FIX-RELIABLE-PRICE]
+                current_price = self._get_reliable_price(market)
                 if not current_price or current_price <= 0:
                     logger.debug(f'[ANALYZE-SKIP] {market} 가격 미수신 → 스킵')
                     continue
@@ -504,9 +504,9 @@ class EngineCycleMixin:
                     _df_pos = self.cache_manager.get_ohlcv(market)
                     if _df_pos is not None and len(_df_pos) >= 20:
                         _profit_pct = (current_price - entry_price) / entry_price
-                        # [FIX-SURGE-CAP] 전략별 SL cap 분기
+                        # 전략별 SL cap 분기: SURGE=1.3%, 일반=1.7%
                         _pos_strat = getattr(self.portfolio.get_position(market), "strategy", "")
-                        _is_surge_a = "SURGE" in (_pos_strat or "")  # [FIX-IS-SURGE]
+                        _is_surge_a = "SURGE" in (_pos_strat or "")
                         _sl_cap_val = 0.987 if _is_surge_a else 0.983
                         _sl_levels  = self.atr_stop.get_dynamic_levels(
                             _df_pos, entry_price, current_price, _profit_pct,
@@ -659,8 +659,8 @@ class EngineCycleMixin:
             else:
                 entry_price = 0
 
-            current_price = self._get_reliable_price(market)  # [FIX-RELIABLE-PRICE]
-            # [FIX-2] REST fallback: WS 미수신 시 REST로 현재가 조회
+            current_price = self._get_reliable_price(market)
+            # WS 미수신 시 REST fallback으로 현재가 조회
             if not current_price or current_price <= 0:
                 try:
                     import asyncio as _aio_fb
@@ -681,7 +681,7 @@ class EngineCycleMixin:
                 (current_price - entry_price) / entry_price * 100
                 if entry_price > 0 else 0.0
             )
-            # [FIX-REASON] 비정상 pnl_pct 방어 — 재시작 직후 가격 미수신 시 스킵
+            # 비정상 pnl_pct 방어 — 재시작 직후 가격 미수신 시 스킵
             if pnl_pct <= -99.0:
                 logger.warning(
                     f'[PNL-GUARD] {market} pnl_pct={pnl_pct:.1f}%'
@@ -698,7 +698,7 @@ class EngineCycleMixin:
             if entry_price > 0 and current_price > 0 and _candle_len >= 20:
                 try:
                     _profit_pct = (current_price - entry_price) / entry_price
-                    _pos_strat_b = getattr(self.portfolio.get_position(market), 'strategy', '')  # [FIX-IS-SURGE]
+                    _pos_strat_b = getattr(self.portfolio.get_position(market), 'strategy', '')
                     _is_surge_b = 'SURGE' in (_pos_strat_b or '')
                     _sl_cap_b = 0.987 if _is_surge_b else 0.983
                     _atr_levels = self.atr_stop.get_dynamic_levels(
@@ -724,7 +724,7 @@ class EngineCycleMixin:
                             f"({_loss_pct:.2f}%)"
                         )
                         await self._execute_sell(
-                            market, f"기본손절_{_loss_pct:.1f}%", current_price  # [FIX-REASON]
+                            market, f"기본손절_{_loss_pct:.1f}%", current_price
                         )
                         return
 
@@ -765,9 +765,9 @@ class EngineCycleMixin:
                 (signal == "SELL" and confidence >= 0.65 and pnl_pct >= 0.5) or   # ML익절 최소 +0.5%
                 (signal == "SELL" and confidence >= 0.65 and pnl_pct <= -1.5) or  # ML손절 -1.5%
                 (confidence >= 0.65 and pnl_pct >= 1.5) or                        # 강한 수익 익절
-                (confidence >= 0.65 and pnl_pct <= -1.5) or                       # [FIX-RR] -2.0 → -1.5
+                (confidence >= 0.65 and pnl_pct <= -1.5) or                       # RR 개선: 임계값 -2.0 → -1.5
                 (pnl_pct >= 3.0) or                                                # 3% 무조건 익절
-                (pnl_pct <= -2.0 and (confidence >= 0.50 or _held_min >= 720))  # [FIX-C-v2] ATR SL 상한과 일치 or # 12h+ 보유시 confidence 완화
+                (pnl_pct <= -2.0 and (confidence >= 0.50 or _held_min >= 720))  # ATR SL 상한 일치, 12h+ 보유 시 confidence 완화
                 (pnl_pct >= self._time_based_tp_threshold(market))                 # 시간 기반 익절
             ):
                 logger.info(
@@ -837,7 +837,7 @@ class EngineCycleMixin:
         from strategies.momentum.supertrend import SupertrendStrategy
         from strategies.mean_reversion.bollinger_squeeze import BollingerSqueezeStrategy
         from strategies.mean_reversion.vwap_reversion import VWAPReversionStrategy
-        # [FIX-VOLBREAK] Vol_Breakout 비활성화 (승률 29%, 기대값 -0.270%)
+        # VolBreakout 전략 비활성화 — 백테스트 승률 29%, 기대값 -0.270%
         # from strategies.volatility.vol_breakout import VolBreakoutStrategy
         from strategies.volatility.atr_channel import ATRChannelStrategy
         from strategies.market_structure.order_block import OrderBlockStrategy
@@ -845,7 +845,7 @@ class EngineCycleMixin:
         strategies = [
             MACDCrossStrategy(), RSIDivergenceStrategy(), SupertrendStrategy(),
             BollingerSqueezeStrategy(), VWAPReversionStrategy(),
-            ATRChannelStrategy(), OrderBlockStrategy(),  # [FIX-VOLBREAK] VolBreakoutStrategy 제거
+            ATRChannelStrategy(), OrderBlockStrategy(),  # VolBreakoutStrategy 제거 (승률 미달)
         ]
         for s in strategies:
             self._strategies[s.NAME] = s
@@ -860,7 +860,7 @@ class EngineCycleMixin:
         self._last_scan_time = now
 
         try:
-            # [FIX-REGIME] GlobalRegime 주기적 갱신 (5분 캐시, _market_scanner 진입마다)
+            # GlobalRegime 5분 주기 갱신 (_market_scanner 매 진입 시 체크)
             try:
                 _btc_df_gr = self.cache_manager.get_ohlcv("KRW-BTC")
                 if _btc_df_gr is not None and len(_btc_df_gr) >= 50:
@@ -875,14 +875,14 @@ class EngineCycleMixin:
                             'RECOVERY':   {'SURGE_FASTENTRY': 1.0, 'OrderBlock_SMC': 1.3, 'MACD_Cross': 1.1, 'Bollinger_Squeeze': 1.2, 'ML_Ensemble': 1.1},
                             'BEAR_WATCH': {'SURGE_FASTENTRY': 0.7, 'OrderBlock_SMC': 1.5, 'MACD_Cross': 0.9, 'Bollinger_Squeeze': 1.8, 'ML_Ensemble': 1.3},
                             'BEAR':       {'SURGE_FASTENTRY': 0.0, 'OrderBlock_SMC': 1.2, 'MACD_Cross': 0.8, 'Bollinger_Squeeze': 1.5, 'ML_Ensemble': 1.0},
-                        }  # [FIX-STRATEGY-NAME] Order_Block → OrderBlock_SMC
+                        }
                         # 슬롯 쿼터 테이블 (합계 > max_positions → 전략 간 자연 경쟁 유도)
                         _QUOTA_MAP_P2 = {
                             'BULL':       {'SURGE_FASTENTRY': 6, 'OrderBlock_SMC': 4, 'MACD_Cross': 3, 'Bollinger_Squeeze': 3, 'ML_Ensemble': 2},
                             'RECOVERY':   {'SURGE_FASTENTRY': 4, 'OrderBlock_SMC': 4, 'MACD_Cross': 3, 'Bollinger_Squeeze': 4, 'ML_Ensemble': 3},
                             'BEAR_WATCH': {'SURGE_FASTENTRY': 3, 'OrderBlock_SMC': 5, 'MACD_Cross': 2, 'Bollinger_Squeeze': 5, 'ML_Ensemble': 3},
                             'BEAR':       {'SURGE_FASTENTRY': 0, 'OrderBlock_SMC': 6, 'MACD_Cross': 2, 'Bollinger_Squeeze': 5, 'ML_Ensemble': 3},
-                        }  # [FIX-STRATEGY-NAME] Order_Block → OrderBlock_SMC, BEAR_WATCH MACD 4→2
+                        }
                         _w = _REGIME_WEIGHTS_P2.get(_gr_str_p2, _REGIME_WEIGHTS_P2['BEAR_WATCH'])
                         _q = _QUOTA_MAP_P2.get(_gr_str_p2, _QUOTA_MAP_P2['BEAR_WATCH'])
                         # signal_combiner 가중치 1회 갱신
@@ -890,14 +890,14 @@ class EngineCycleMixin:
                             self.signal_combiner.STRATEGY_WEIGHTS.update(_w)
                         # 쿼터/가중치 저장
                         self._strategy_quota  = _q
-                        self._strategy_weight = _w  # [FIX-WEIGHT-SAVE]
+                        self._strategy_weight = _w
                         from loguru import logger as _lg
                         _lg.info(
                             f'[PHASE2-REGIME] 레짐 변경 → {_gr_str_p2} | '
                             f'SURGE {_w["SURGE_FASTENTRY"]:.1f}x({_q["SURGE_FASTENTRY"]}슬롯) '
                             f'Bollinger {_w["Bollinger_Squeeze"]:.1f}x({_q["Bollinger_Squeeze"]}슬롯) '
                             f'OrderBlock {_w["OrderBlock_SMC"]:.1f}x({_q["OrderBlock_SMC"]}슬롯) '
-                            f'MACD {_w["MACD_Cross"]:.1f}x({_q["MACD_Cross"]}슬롯)'  # [FIX-STRATEGY-NAME]
+                            f'MACD {_w["MACD_Cross"]:.1f}x({_q["MACD_Cross"]}슬롯)'
                         )
                     else:
                         from loguru import logger as _lg
@@ -989,7 +989,7 @@ class EngineCycleMixin:
                 if _m:
                     self._surge_cache[_m] = {**_c, "_ts": _now}
             logger.debug(f"[SurgeCache] {len(self._surge_cache)}개 코인 캐시")
-            # [FIX-SURGE-B] 감지 즉시 _analyze_market 독립 트리거
+            # SURGE 감지 즉시 _analyze_market 독립 트리거 (대기열 우회)
             import asyncio as _sg_aio
             _open_pos_now = set(self.portfolio.open_positions.keys())
             _buying_now_b = getattr(self, "_buying_markets", set())
@@ -1011,7 +1011,7 @@ class EngineCycleMixin:
                 _already = any(x[0] == _sm for x in self._pending_surge_queue)
                 _in_open  = _sm in self.portfolio.open_positions
                 if _open_cnt >= _max_pos and not _already and not _in_open and _sm:
-                    # [FIX-B4] scr 크기 비례 동적 TTL 계산
+                    # scr 점수 비례 동적 TTL 계산
                     _scr_val  = getattr(self, '_market_change_rates', {}).get(_sm, 0.0)
                     _dyn_ttl  = (3600 if _scr_val >= 0.30
                                   else 1800 if _scr_val >= 0.10

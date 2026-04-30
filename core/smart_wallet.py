@@ -123,7 +123,7 @@ class CoinWallet:
         if days >= DUST_EXPIRE_DAYS:
             if self.dust_state != DustState.ORPHAN:
                 self.dust_state = DustState.ORPHAN
-                logger.warning(
+                logger.debug(  # paper 모드 포함 — debug 레벨로 억제
                     f" {self.symbol}:  {self.dust_qty:.8f} "
                     f"→ {days:.0f}  →   "
                 )
@@ -356,7 +356,7 @@ class SmartWalletManager:
             elif val <= UPBIT_DEAD_KRW:
                 wallet.dust_qty      = qty
                 wallet.dust_avg_price= avg_px
-                wallet.dust_state    = DustState.ORPHAN
+                wallet.dust_state    = DustState.DEAD  # 500원 이하 → DEAD (ORPHAN 아님)
                 tag = f"💀 DEAD     | ₩{val:,.0f} → 무시"
 
             else:

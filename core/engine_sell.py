@@ -144,6 +144,36 @@ class EngineSellMixin:
             except Exception as _db_e:
                 logger.debug(f" DB   ({market}): {_db_e}")
 
+            # [REFACTOR-W1] partial_exited 상태 positions 테이블 갱신
+            try:
+                import time as _t_pe
+                _pos_pe = self.portfolio.get_position(market)
+                if _pos_pe and getattr(_pos_pe, "volume", 0) > 0:
+                    # 부분청산 후 포지션 잔존 → partial_exited=True 갱신
+                    await self.db_manager.upsert_position({
+                        "market":         market,
+                        "entry_price":    getattr(_pos_pe, "entry_price", 0),
+                        "volume":         getattr(_pos_pe, "volume", 0),
+                        "amount_krw":     getattr(_pos_pe, "amount_krw", 0),
+                        "stop_loss":      getattr(_pos_pe, "stop_loss", 0),
+                        "take_profit":    getattr(_pos_pe, "take_profit", 0),
+                        "strategy":       getattr(_pos_pe, "strategy", ""),
+                        "entry_time":     getattr(_pos_pe, "entry_time", _t_pe.time()),
+                        "pyramid_count":  getattr(_pos_pe, "pyramid_count", 0),
+                        "partial_exited": True,
+                        "breakeven_set":  getattr(_pos_pe, "breakeven_set", False),
+                        "max_price":      getattr(_pos_pe, "max_price",
+                                          getattr(_pos_pe, "peak_price",
+                                          getattr(_pos_pe, "entry_price", 0))),
+                    })
+                    logger.debug(f"[PARTIAL-UPSERT] {market} partial_exited=True 갱신")
+                else:
+                    # 전량 청산 → positions 테이블 삭제
+                    await self.db_manager.delete_position(market)
+                    logger.debug(f"[PARTIAL-DELETE] {market} 전량청산 → positions 삭제")
+            except Exception as _pe_ups_e:
+                logger.warning(f"[PARTIAL-UPSERT] {market} 오류: {_pe_ups_e}")
+
             log_trade(
                 "PARTIAL_SELL", market, result.executed_price,
                 volume * result.executed_price, reason, profit_rate

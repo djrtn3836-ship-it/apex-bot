@@ -1418,6 +1418,7 @@ class EngineBuyMixin:
                     req.reason, req.strategy_name
                 )
 
+                # [REFACTOR-W1] insert_trade / upsert_position 분리 (try 중첩 제거)
                 try:
                     await self.db_manager.insert_trade({
                         "timestamp":   datetime.now().isoformat(),
@@ -1431,27 +1432,29 @@ class EngineBuyMixin:
                         "strategy":    req.strategy_name,
                         "reason":      req.reason,
                     })
-                    # [FIX-POSITIONS-TABLE] BUY 완료 시 positions 테이블 저장
-                    try:
-                        import time as _t_ups
-                        await self.db_manager.upsert_position({
-                            "market":         market,
-                            "entry_price":    result.executed_price,
-                            "volume":         result.executed_volume,
-                            "amount_krw":     position_size,
-                            "stop_loss":      stop_loss,
-                            "take_profit":    take_profit,
-                            "strategy":       req.strategy_name,
-                            "entry_time":     _t_ups.time(),
-                            "pyramid_count":  0,
-                            "partial_exited": False,
-                            "breakeven_set":  False,
-                            "max_price":      result.executed_price,
-                        })
-                    except Exception as _ups_e:
-                        logger.warning(f"[UPSERT-POS] {market} 저장 오류: {_ups_e}")
                 except Exception as _db_e:
-                    logger.debug(f"BUY DB  : {_db_e}")
+                    logger.warning(f"[BUY-DB] {market} insert_trade 오류: {_db_e}")
+
+                # [REFACTOR-W1] positions 테이블 저장 (독립 try)
+                try:
+                    import time as _t_ups
+                    await self.db_manager.upsert_position({
+                        "market":         market,
+                        "entry_price":    result.executed_price,
+                        "volume":         result.executed_volume,
+                        "amount_krw":     position_size,
+                        "stop_loss":      stop_loss,
+                        "take_profit":    take_profit,
+                        "strategy":       req.strategy_name,
+                        "entry_time":     _t_ups.time(),
+                        "pyramid_count":  0,
+                        "partial_exited": False,
+                        "breakeven_set":  False,
+                        "max_price":      result.executed_price,
+                    })
+                    logger.debug(f"[UPSERT-POS] {market} positions 저장 완료")
+                except Exception as _ups_e:
+                    logger.warning(f"[UPSERT-POS] {market} 저장 오류: {_ups_e}")
 
                 try:
                     await self.db_manager.log_signal({
