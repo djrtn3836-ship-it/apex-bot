@@ -1174,7 +1174,8 @@ class EngineBuyMixin:
                 )
                 atr         = _sl_levels_buy.atr
                 stop_loss   = _sl_levels_buy.stop_loss
-                stop_loss = max(stop_loss, float(last["close"]) * 0.985)  # [FIX-SL2] ATR SL cap -1.5%
+                _sl_cap_buy = 0.987 if _is_surge_entry else 0.983  # [FIX-BUY-SL-CAP] SURGE -1.3% / 일반 -1.7%
+                stop_loss   = max(stop_loss, float(last["close"]) * _sl_cap_buy)
                 take_profit = _sl_levels_buy.take_profit
                 logger.info(
                     f" ATR-SL ({market}): "
@@ -1186,11 +1187,13 @@ class EngineBuyMixin:
                 logger.warning(
                     f" ATR   ({market}): {_atr_e} → 고정비율 사용"
                 )
-                atr         = float(last["close"]) * 0.02
-                stop_loss   = float(last["close"]) * (
-                    1 - self.settings.risk.atr_stop_multiplier * 0.01
+                atr           = float(last["close"]) * 0.02
+                _sl_cap_buy   = 0.987 if _is_surge_entry else 0.983  # [FIX-BUY-FALLBACK] SURGE -1.3% / 일반 -1.7%
+                stop_loss     = max(
+                    float(last["close"]) * (1 - self.settings.risk.atr_stop_multiplier * 0.01),
+                    float(last["close"]) * _sl_cap_buy,
                 )
-                take_profit = float(last["close"]) * (
+                take_profit   = float(last["close"]) * (
                     1 + self.settings.risk.atr_target_multiplier * 0.01
                 )
 
