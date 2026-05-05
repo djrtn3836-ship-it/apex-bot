@@ -823,20 +823,11 @@ class EngineCycleMixin:
                     continue
                 strategy  = self._strategies[strategy_name]
                 is_active = info.get("is_active", True)
-                _oos      = info.get("oos_sharpe", None)
-                # [IF1_WalkForwardGuard] OOS Sharpe=0.000은 데이터 없음
-                # → 데이터 없을 때 전략 비활성화 방지 (None 또는 0.0 제외)
-                if not is_active and _oos is not None and _oos < -0.1:
+                if not is_active:
                     strategy.disable()
                     logger.info(
                         f"   {strategy_name}  "
-                        f"(OOS ={_oos:.3f})"
-                    )
-                elif not is_active and (_oos is None or _oos >= -0.1):
-                    # OOS 데이터 부족 → 비활성화 건너뜀
-                    logger.debug(
-                        f"[WF-SKIP] {strategy_name} is_active=False "
-                        f"but OOS={_oos} (데이터부족) → 비활성화 스킵"
+                        f"(OOS ={info.get('oos_sharpe', 0):.3f})"
                     )
                 else:
                     if info.get("params"):
