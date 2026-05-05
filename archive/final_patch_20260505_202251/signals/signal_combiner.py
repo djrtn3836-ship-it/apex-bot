@@ -241,9 +241,6 @@ class SignalCombiner:
         return None  # HOLD
 
     def _filter_by_regime(self, signals: List[Signal], regime: str) -> List[Signal]:
-        # [FP7-PATCH] 비활성 전략 사전 필터링 (부스트 연산 불필요 방지)
-        signals = [s for s in signals if s.strategy_name not in DISABLED_STRATEGIES
-                   and self.STRATEGY_WEIGHTS.get(s.strategy_name, 1.0) > 0.0]
         preferred = self.REGIME_PREFERRED.get(regime.upper(), None)
         if preferred is None:
             return signals

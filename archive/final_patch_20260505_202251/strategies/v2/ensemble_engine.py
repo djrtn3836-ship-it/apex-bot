@@ -342,15 +342,10 @@ class EnsembleEngine:
                     f"[Ensemble] ❌ {market} 진입거부 | {reasoning}"
                 )
 
-            # [FP4-PATCH] confidence = 실제 신호 평균 confidence (≠ normalized score)
-            _avg_conf = (
-                sum(sig.confidence for sig in signals.values()) / len(signals)
-                if signals else normalized
-            )
             return EnsembleDecision(
                 should_enter=should_enter,
                 final_score=normalized,
-                confidence=_avg_conf,
+                confidence=normalized,
                 position_size_mult=size_mult,
                 signals_fired=list(signals.keys()),
                 dominant_strategy=best_name,

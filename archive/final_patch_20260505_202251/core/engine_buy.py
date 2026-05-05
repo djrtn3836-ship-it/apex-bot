@@ -465,7 +465,6 @@ class EngineBuyMixin:
                         agreement_rate=1.0,
                         contributing_strategies=["BEAR_REVERSAL"],
                         reasons=["극단적 공포 역발상 매수"],
-                        bear_reversal=True,  # [FP8-PATCH] 명시적 플래그
                     )
 
             if combined is None:

@@ -91,11 +91,6 @@ class KellyPositionSizer:
         if total_capital <= 0:
             return 0.0
 
-        # [FP5-PATCH] confidence=0 (ML 실패/HOLD) 시 매수 차단
-        if confidence <= 0.0:
-            logger.debug(f'[Kelly-CONF0] {strategy} {market} | confidence=0 → 매수 차단')
-            return 0.0
-
         # ── Step 1: Kelly fraction ───────────────────────────────
         kelly_f, n_trades = self._get_kelly_fraction_with_count(strategy)
 

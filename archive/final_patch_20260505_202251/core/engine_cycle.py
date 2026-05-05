@@ -146,9 +146,6 @@ class EngineCycleMixin:
             pass
         # ── ML 초기화 끝 ────────────────────────────────────────────────
 
-        # [FP6-PATCH] _cycle() 직접 호출 시 _cb_main_loop_active 초기화 보장
-        if not hasattr(self, '_cb_main_loop_active'):
-            self._cb_main_loop_active = False
         # [MDD-L3] 포트폴리오 서킷브레이커
         try:
             from datetime import datetime as _dt
