@@ -151,7 +151,6 @@ class SurgeConfig:
 # ══════════════════════════════════════════════════════════════
 # 메인 클래스
 # ══════════════════════════════════════════════════════════════
-# [FIX] SURGE WR=45.9% PnL=-12.54% → 비활성화
 class SurgeDetector:
     """
     전문 급등 포착 엔진 v2.1.0
@@ -160,8 +159,6 @@ class SurgeDetector:
 
     def __init__(self, config: Optional[SurgeConfig] = None):
         self.cfg = config or SurgeConfig()
-
-    ENABLED = False  # [FIX] 비활성화
 
     def analyze(
         self,
