@@ -436,43 +436,22 @@ class EnsembleEngine:
                     pass
 
         if w.signal_count >= 3:
-            mem_wr     = w.win_count / w.signal_count
+            mem_wr    = w.win_count / w.signal_count
+            # DB 최근 승률과 인메모리 승률 가중 평균 (DB 70%, 메모리 30%)
+            # → 재시작 직후 소수 거래로 인한 급격한 가중치 변동 방지
             blended_wr = w.recent_wr * 0.7 + mem_wr * 0.3
-            # [G2_SharpeUpdateResult] update_result에서도 Sharpe 반영
-            # DB에서 최근 수익률 조회하여 Sharpe 계산
-            try:
-                import sqlite3 as _sq2
-                _conn2 = sqlite3.connect(self._db_path, timeout=3)
-                _rows2 = _conn2.execute(
-                    "SELECT profit_rate FROM trade_history "
-                    "WHERE strategy=? AND side='SELL' "
-                    "ORDER BY timestamp DESC LIMIT 30",
-                    (strategy_name,)
-                ).fetchall()
-                _conn2.close()
-                if len(_rows2) >= 5:
-                    _rt2    = [r[0] for r in _rows2]
-                    _m2     = sum(_rt2) / len(_rt2)
-                    _s2     = (sum((x-_m2)**2 for x in _rt2)/len(_rt2))**0.5
-                    _sh2    = (_m2 / (_s2 + 1e-9)) * (252**0.5) if _s2 > 1e-6 else 1.0
-                    _sm2    = min(2.0, max(0.3, _sh2))
-                else:
-                    _sm2 = 1.0
-            except Exception:
-                _sm2 = 1.0
-            perf_mult  = (blended_wr / self.REFERENCE_WR) * _sm2
+            perf_mult  = blended_wr / self.REFERENCE_WR
             new_w      = w.base_weight * perf_mult
-            # 클램핑: base × 0.4 ~ base × 2.5
+            # 클램핑: base × 0.5 ~ base × 2.0
             clamped_w  = round(
-                max(w.base_weight * 0.4, min(new_w, w.base_weight * 2.5)), 3
+                max(w.base_weight * 0.5, min(new_w, w.base_weight * 2.0)), 3
             )
             w.recent_wr      = blended_wr
             w.dynamic_weight = clamped_w
             logger.info(
                 f"[Ensemble] 가중치 업데이트 | {strategy_name} | "
                 f"DB_WR={w.recent_wr:.1%} MEM_WR={mem_wr:.1%} "
-                f"blended={blended_wr:.1%} Sharpe×={_sm2:.2f} "
-                f"→ weight={clamped_w:.2f}"
+                f"blended={blended_wr:.1%} → weight={clamped_w:.2f}"
             )
 
     def get_weight_summary(self) -> str:

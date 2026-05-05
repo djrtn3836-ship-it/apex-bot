@@ -267,23 +267,15 @@ class EngineBuyMixin:
                         f"POC={_vp.poc_price:,.0f} "
                         f"VAH={_vp.vah:,.0f} VAL={_vp.val:,.0f} RR={_rr:.2f}"
                     )
-                    # [G1_VPCacheTTL] POC 캐시 + 30분 TTL
-                    import time as _vp_t
+                    # POC 컨텍스트 캐시 저장 (진입 신뢰도 부스트용)
                     if not hasattr(self, "_vp_cache"):
                         self._vp_cache = {}
-                    # TTL 만료 항목 정리
-                    _vp_now = _vp_t.time()
-                    self._vp_cache = {
-                        k: v for k, v in self._vp_cache.items()
-                        if _vp_now - v.get("ts", 0) < 1800
-                    }
                     self._vp_cache[market] = {
-                        "poc":   float(_vp.poc_price),
-                        "vah":   float(_vp.vah),
-                        "val":   float(_vp.val),
-                        "rr":    float(_rr),
+                        "poc": float(_vp.poc_price),
+                        "vah": float(_vp.vah),
+                        "val": float(_vp.val),
+                        "rr":  float(_rr),
                         "price": float(_cur_price),
-                        "ts":    _vp_now,  # [G1_VPCacheTTL] 저장 시각
                     }
             except Exception as _ve:
                 logger.info(f"[VolumeProfile]  ({market}): {_ve}")

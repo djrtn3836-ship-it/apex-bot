@@ -153,21 +153,6 @@ class KellyPositionSizer:
             )
             base_amount *= atr_mult
 
-        # ── Step 7b: [G3_VolNormStep] 코인별 변동성 정규화 ────────
-        # market_sigma = ATR14 / current_price (캔들에서 계산)
-        # size_adj = size_kelly × (VOL_REF_SIGMA / market_sigma)
-        # 클램핑: 0.4 ~ 2.0 (극단적 사이즈 방지)
-        if market_sigma > 1e-6:
-            vol_norm = self.VOL_REF_SIGMA / market_sigma
-            vol_norm = max(0.4, min(vol_norm, 2.0))
-            if abs(vol_norm - 1.0) > 0.05:  # 5% 이상 변화 시만 로그
-                logger.info(
-                    f"[Kelly-VOL] {strategy} {market} | "
-                    f"σ_market={market_sigma:.4f} σ_ref={self.VOL_REF_SIGMA:.4f} "
-                    f"→ vol_norm={vol_norm:.2f}×"
-                )
-            base_amount *= vol_norm
-
         # ── Step 8: BEAR_REVERSAL 50% 축소 (이관) ────────────────
         if is_bear_reversal:
             base_amount *= 0.5
