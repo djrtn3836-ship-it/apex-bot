@@ -386,18 +386,30 @@ class EngineCycleMixin:
                     or getattr(pos, "created_at", None)
                 )
                 if entry_time is None:
-                    # entry_time 미설정 포지션은 보유시간 계산 불가 → 스킵
-                    # held_hours를 999로 설정해 72h 강제청산 대상으로 처리
-                    held_hours = 999.0
-                    profit_rate = (
-                        (current_price - pos.entry_price) / pos.entry_price
-                        if getattr(pos, 'entry_price', 0) > 0 else 0.0
-                    )
+                    # ── BUG-4 FIX: entry_time=None 즉시 강제청산 방지 ──────
+                    # 봇 재시작 직후 DB 복원 포지션은 entry_time이 None일 수 있음
+                    # → 봇 시작 후 1시간 유예, 이후에만 강제청산
+                    _bot_start = getattr(self, "_bot_start_time", None)
+                    if _bot_start is None:
+                        logger.warning(
+                            f"[TIME-EXIT] {market}: entry_time=None "
+                            f"→ _bot_start_time 미설정, 이번 사이클 스킵"
+                        )
+                        continue
+                    _elapsed_h = (now - _bot_start).total_seconds() / 3600
+                    if _elapsed_h < 1.0:
+                        logger.info(
+                            f"[TIME-EXIT] {market}: entry_time=None "
+                            f"봇시작 {_elapsed_h:.1f}h → 1h 유예 중"
+                        )
+                        continue
                     logger.info(
-                        f'[TIME-EXIT] {market}: entry_time=None → 72h 강제청산 대상'
+                        f"[TIME-EXIT] {market}: entry_time=None "
+                        f"봇시작 {_elapsed_h:.1f}h 경과 → 강제청산"
                     )
                     await self._execute_sell(market, 'entry_time_없음_강제청산', current_price)
                     continue
+                    # ── BUG-4 FIX 끝 ────────────────────────────────────────
                 if isinstance(entry_time, str):
                     try:
                         entry_time = datetime.fromisoformat(entry_time)

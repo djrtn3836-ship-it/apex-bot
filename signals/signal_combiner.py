@@ -165,13 +165,15 @@ class SignalCombiner:
             if agreement_rate < self.min_agreement:
                 return None
 
-            avg_confidence = (
-                sum(s.confidence for s in filtered_signals
-                    if s.signal == SignalType.BUY)
-                / max(n_buy, 1)
-            )
-            if avg_confidence < 0.01 and ml_confidence > 0.0:
+            # ── BUG-5 FIX: v1 신호 없고 ML만 있을 때 avg_confidence=0 방지 ──
+            _v1_buy_sigs = [s for s in filtered_signals if s.signal == SignalType.BUY]
+            if _v1_buy_sigs:
+                avg_confidence = sum(s.confidence for s in _v1_buy_sigs) / len(_v1_buy_sigs)
+            elif ml_confidence > 0.0:
                 avg_confidence = ml_confidence
+            else:
+                avg_confidence = 0.0
+            # ── BUG-5 FIX 끝 ──────────────────────────────────────────────
             return CombinedSignal(
                 market=market,
                 signal_type=SignalType.BUY,

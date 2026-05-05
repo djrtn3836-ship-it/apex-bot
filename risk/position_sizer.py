@@ -18,18 +18,20 @@ from core.constants import StrategyKey  # [REFACTOR] STRATEGY_MULTIPLIER 키 표
 
 # [REFACTOR] 모듈 레벨로 이동 (StrategyKey 초기화 순서 보장)
 STRATEGY_MULTIPLIER = {
-    StrategyKey.BOLLINGER_SQUEEZE.value: 1.2,
-    StrategyKey.ML_ENSEMBLE.value:       0.5,
+    # ── BUG-2 FIX: 모든 키를 순수 문자열로 통일, SURGE_FASTENTRY 제거 ──
+    "Bollinger_Squeeze": 1.2,
+    "ML_Ensemble":       0.5,
     "BEAR_REVERSAL":     1.2,
-    StrategyKey.ORDER_BLOCK_SMC.value:    0.7,   # [REFACTOR] Order_Block → OrderBlock_SMC
-    StrategyKey.RSI_DIVERGENCE.value:    1.0,
-    StrategyKey.MACD_CROSS.value:        0.9,
-    "SURGE_FASTENTRY":   1.0,
-    StrategyKey.VWAP_REVERSION.value:    0.8,
-    StrategyKey.VOL_BREAKOUT.value:       0.2,   # [REFACTOR] Vol_Breakout 키 폐기
+    "OrderBlock_SMC":    0.7,
+    "RSI_Divergence":    1.0,
+    "MACD_Cross":        0.9,
+    "Supertrend":        1.0,
+    "ATR_Channel":       1.0,
+    "VWAP_Reversion":    0.8,
+    "VolBreakout":       0.2,
     "volatility_break":  0.2,
     "ml_signal":         1.0,
-    "default":           0.8,   # [BUG-7] 기본값 보수화
+    "default":           0.8,
 }
 class KellyPositionSizer:
     """Half-Kelly Criterion + GlobalRegime + MDD + ATR 통합 포지션 사이징"""
