@@ -198,18 +198,16 @@ class OrderBlockStrategy2(BaseStrategy):
                 f"신뢰도={confidence:.2f}"
             )
 
-            return Signal(
+            return self._create_signal(
                 signal=SignalType.BUY,
+                score=confidence * 2.0 - 1.0,
                 confidence=confidence,
-                strategy_name=self.NAME,
-            market         = market,
-            score          = confidence * 2.0 - 1.0,
-            entry_price    = safe_last(df["close"]),
-            stop_loss      = safe_last(df["close"]) * (1 - _SETTINGS.STRATEGY_SL_RATIO.get("OrderBlock_SMC", 0.017)),
-            take_profit    = safe_last(df["close"]) * 1.045,
-            reason         = f"{self.NAME} v2 신호",
-            timeframe      = "1h",
-            timestamp      = kst_now(),
+                market=market,
+                entry_price=safe_last(df["close"]),
+                stop_loss=safe_last(df["close"]) * (1 - _SETTINGS.STRATEGY_SL_RATIO.get("OrderBlock_SMC", 0.017)),
+                take_profit=safe_last(df["close"]) * 1.045,
+                reason=f"{self.NAME} v2 신호",
+                timeframe="1h",
                 metadata={
                     "ob_low": ob.low,
                     "ob_high": ob.high,

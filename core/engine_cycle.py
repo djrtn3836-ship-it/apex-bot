@@ -43,7 +43,7 @@ class EngineCycleMixin:
         try:
             import datetime as _dt
             daily_loss_limit = getattr(
-                self.settings.risk, "daily_loss_limit", 0.05
+                self.settings.risk, "daily_loss_limit", 0.03
             )
 
             if self.adapter.is_paper:
@@ -841,7 +841,7 @@ class EngineCycleMixin:
         # VolBreakout 전략 비활성화 — 백테스트 승률 29%, 기대값 -0.270%
         # from strategies.volatility.vol_breakout import VolBreakoutStrategy
         from strategies.volatility.atr_channel import ATRChannelStrategy
-        from strategies.market_structure.order_block import OrderBlockStrategy
+        from strategies.v2.order_block_v2 import OrderBlockStrategy2 as OrderBlockStrategy  # [REFACTOR] v2 활성
 
         strategies = [
             MACDCrossStrategy(), RSIDivergenceStrategy(), SupertrendStrategy(),

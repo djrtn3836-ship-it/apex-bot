@@ -1,4 +1,5 @@
 from typing import Optional
+from loguru import logger
 import pandas as pd
 from strategies.base_strategy import BaseStrategy, StrategySignal, SignalType
 
@@ -78,6 +79,5 @@ class OrderBlockStrategy(BaseStrategy):
                         timeframe=timeframe)
 
         except Exception as e:
-            import logging
-            logging.getLogger(__name__).debug(f"OrderBlock signal error: {e}")
+            logger.debug(f"OrderBlock signal error: {e}")
         return None

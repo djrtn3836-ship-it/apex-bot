@@ -7,6 +7,7 @@ import pandas as pd
 from dataclasses import dataclass, field
 from typing import Dict, List, Optional, Tuple
 from loguru import logger
+from core.constants import DISABLED_STRATEGIES as _GLOBAL_DISABLED
 from strategies.base_strategy import BaseStrategy, Signal, SignalType
 from strategies.v2.context.market_context import MarketContextEngine, MarketContext
 from strategies.v2.order_block_v2 import OrderBlockStrategy2
@@ -67,7 +68,7 @@ class EnsembleEngine:
 
     # [FIX-B] 비활성화 전략 목록 — 여기서만 관리
     # 추가 시: 전략명을 이 set에 추가하면 앙상블 전체에서 자동 제외
-    DISABLED_STRATEGIES: set = {"VWAP_Reversion", "VolBreakout"}
+    DISABLED_STRATEGIES: set = _GLOBAL_DISABLED  # [REFACTOR] constants.py 단일 관리
 
     REFERENCE_WR:     float = 0.55
     MIN_SIGNALS_NEEDED: int  = 2

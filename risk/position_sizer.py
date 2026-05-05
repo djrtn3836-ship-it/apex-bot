@@ -36,7 +36,6 @@ class KellyPositionSizer:
         "MACD_Cross":        0.9,
         "SURGE_FASTENTRY":   1.0,
         "VWAP_Reversion":    0.8,
-        "OrderBlock_SMC":    0.7,   # [BUG-7] 180일 승률 37.9% → 축소
         "VolBreakout":       0.2,   # [REFACTOR] Vol_Breakout 키 폐기
         "volatility_break":  0.2,
         "ml_signal":         1.0,
