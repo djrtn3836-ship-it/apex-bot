@@ -158,7 +158,7 @@ class EngineCycleMixin:
                 logger.warning(
                     f"[MDD-L3] 🚨 서킷브레이커 발동! "
                     f"일일손실 ₩{abs(_daily_loss):,.0f} > "
-                    f"한도 ₩{_loss_limit:,.0f} (2%) → 신규매수 중단"
+                    f"한도 ₩{_loss_limit:,.0f} ({_dl_pct*100:.0f}%) → 신규매수 중단"
                 )
                 self._circuit_breaker_active = True
             else:
