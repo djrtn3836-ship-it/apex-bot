@@ -1,4 +1,3 @@
-from loguru import logger
 from typing import Optional
 import pandas as pd
 from strategies.base_strategy import BaseStrategy, StrategySignal, SignalType
@@ -43,5 +42,6 @@ class ATRChannelStrategy(BaseStrategy):
                     stop_loss=price + atr_v * 1.5, take_profit=float(mid.iloc[-1]),
                     reason=f"ATR 채널 상단 돌파", timeframe=timeframe)
         except Exception as e:
-                        logging.getLogger(__name__).debug(f"atr_channel signal error: {e}")
+            import logging
+            logging.getLogger(__name__).debug(f"atr_channel signal error: {e}")
         return None

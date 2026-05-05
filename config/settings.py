@@ -98,17 +98,17 @@ class StrategyConfig:
     """? ?"""
     # [ST-5] enabled_strategies: 앙상블 엔진 미참조 (dead code)
     # 실제 전략 제어 → strategies/v2/ensemble_engine.py BASE_WEIGHTS
-    enabled_strategies: List[str] = field(default_factory=lambda: [
-        # Phase9 백테스트 결과 기반 최적화
-        # 유효 전략 (rsi_divergence +6.3%/년, mean_reversion +5.3%/년)
-        "Williams_R",         # RSI 계열 유지
-        "MACD_Cross",         # 보조 (macd_momentum 중립)
-        "Bollinger_Squeeze",  # mean_reversion 계열
-        "BEAR_REVERSAL",      # 시장 방어용 유지
-        "Volume_Profile",     # 보조 지표
-        # "Smart_Money",      # Phase9: order_block_smc 성과 부진 (-16.1%/년)
-        "Ichimoku_Cloud"      # 추세 보조
-    ])
+# [M-3 DEAD]     enabled_strategies: List[str] = field(default_factory=lambda: [
+# [M-3 DEAD]         # Phase9 백테스트 결과 기반 최적화
+# [M-3 DEAD]         # 유효 전략 (rsi_divergence +6.3%/년, mean_reversion +5.3%/년)
+# [M-3 DEAD]         "Williams_R",         # RSI 계열 유지
+# [M-3 DEAD]         "MACD_Cross",         # 보조 (macd_momentum 중립)
+# [M-3 DEAD]         "Bollinger_Squeeze",  # mean_reversion 계열
+# [M-3 DEAD]         "BEAR_REVERSAL",      # 시장 방어용 유지
+# [M-3 DEAD]         "Volume_Profile",     # 보조 지표
+# [M-3 DEAD]         # "Smart_Money",      # Phase9: order_block_smc 성과 부진 (-16.1%/년)
+# [M-3 DEAD]         "Ichimoku_Cloud"      # 추세 보조
+# [M-3 DEAD]     ])
     # [ST-5] signal_weight: 앙상블 엔진 미참조 (dead code)
     # 실제 가중치 → strategies/v2/ensemble_engine.py dynamic_weight
     signal_weight: dict = field(default_factory=lambda: {
