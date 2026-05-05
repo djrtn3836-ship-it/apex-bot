@@ -135,12 +135,6 @@ class VolumeProfileAnalyzer:
         support = max([p for p in result.hvn_levels if p < current_price], default=result.val)
         resistance = min([p for p in result.hvn_levels if p > current_price], default=result.vah)
         
-        # [VP-1] RR 분모 최솟값 보호: 지지선이 현재가에 너무 가까울 때 극단값 방지
-        _rr_numerator   = resistance - current_price
-        _rr_denominator = max(current_price - support, current_price * 0.005)  # 최솟값 0.5%
-        _rr_value       = _rr_numerator / (_rr_denominator + 1e-8)
-        # [VP-1] RR 상한/하한 클램핑: -2.0 ~ +50.0 범위로 제한
-        _rr_value = max(-2.0, min(50.0, _rr_value))
         return {
             "poc": result.poc_price,
             "support": support,
@@ -148,5 +142,5 @@ class VolumeProfileAnalyzer:
             "vah": result.vah,
             "val": result.val,
             "above_poc": result.above_poc,
-            "risk_reward": _rr_value,
+            "risk_reward": (resistance - current_price) / (current_price - support + 1e-8)
         }

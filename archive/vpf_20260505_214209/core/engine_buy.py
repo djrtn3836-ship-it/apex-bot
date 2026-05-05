@@ -425,29 +425,6 @@ class EngineBuyMixin:
                 if combined.confidence < _ml_conf:
                     combined.confidence = _ml_conf
                     logger.info(f'[ANALYZE] {market} confidence 보정: 0.0→{_ml_conf:.3f}')
-            # [VP-4] SELL 신호만 있고 ML이 BUY이면 combined 재생성
-            if combined is None and signals and ml_pred is not None:
-                _vp4_sell_only = all(
-                    getattr(s, "signal", None) and s.signal.name == "SELL"
-                    for s in signals
-                )
-                _vp4_ml_buy = ml_pred.get("signal", "HOLD") == "BUY"
-                _vp4_ml_conf = ml_pred.get("confidence", 0.0)
-                if _vp4_sell_only and _vp4_ml_buy and _vp4_ml_conf >= 0.58:
-                    from signals.signal_combiner import CombinedSignal as _CS4, SignalType as _ST4
-                    combined = _CS4(
-                        market=market,
-                        signal_type=_ST4.BUY,
-                        score=_vp4_ml_conf * 1.5,
-                        confidence=_vp4_ml_conf,
-                        agreement_rate=0.5,
-                        contributing_strategies=["ML_Ensemble"],
-                        reasons=[f"ML BUY override (전략 SELL 신호 상충, ML conf={_vp4_ml_conf:.2f})"],
-                    )
-                    logger.info(
-                        f"[VP-4] {market} 전략SELL vs ML_BUY 상충 → "
-                        f"ML 우선(conf={_vp4_ml_conf:.2f}) BUY 진행"
-                    )
 
             if combined is None:
                 logger.info(f'[ANALYZE] {market} combined=None → BEAR_REVERSAL 체크')
