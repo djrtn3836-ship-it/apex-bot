@@ -445,7 +445,7 @@ class TradingEngine(
             # MultiStreamCollector는 start()에서 구독 설정하므로 subscribe_* 불필요
             # subscribe_ticker / subscribe_orderbook 은 각 스트림 내부에서 자동 처리
             logger.info(
-                f"[MULTI-STREAM] WebSocket 초기화 | "
+                f"[MULTI-STREAM] WebSocket 초기화 (연결간격 0.5s) | "
                 f"총 {len(_ws_markets)}개 종목 → "
                 f"{(len(_ws_markets)+19)//20}개 스트림 (스트림당 최대 20개)"
             )
