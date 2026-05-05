@@ -112,7 +112,7 @@ class RiskManager:
             self._daily_loss = 0.0
             self._daily_reset_ts = time.time()
         self._daily_loss = min(self._daily_loss, daily_pnl)
-        limit = getattr(self.risk_cfg, "daily_loss_limit", 0.03) if self.risk_cfg else 0.05
+        limit = getattr(self.risk_cfg, "daily_loss_limit", 0.03) if self.risk_cfg else 0.03
         if self._daily_loss <= -limit:
             await self._trigger_circuit_breaker(2, 86400,
                 f"일일 손실 한도 {self._daily_loss*100:.1f}% 초과")
@@ -131,37 +131,16 @@ class RiskManager:
             self._consecutive_losses += 1
 
     # ── [BUG-REAL-1-C 수정] get_kelly_params ────────────────────────
+    # [REFACTOR] get_kelly_params -> 수신 전담
+    # Kelly 계산은 position_sizer.py DB 기반으로 단일화.
+    # 이 메서드는 연속손실 추적 상태만 반환 (계산 로직 제거).
     def get_kelly_params(self) -> Dict:
-        """동적 Kelly 계산 — 실제 거래 pnl 기반 avg_win / avg_loss 산출"""
-        wr = self._calc_recent_win_rate()
-
-        # 기본값 (거래 이력 부족 시 보수적 고정값)
-        avg_win  = 0.020   # 기본 2%
-        avg_loss = 0.015   # 기본 1.5%
-
-        # 실제 pnl 데이터가 있으면 동적 계산
-        if len(self._trade_results) >= 10:
-            try:
-                if isinstance(self._trade_results[0], dict):
-                    wins_pnl = [abs(r["pnl"]) for r in self._trade_results
-                                if r.get("win") and r.get("pnl", 0) > 0]
-                    loss_pnl = [abs(r["pnl"]) for r in self._trade_results
-                                if not r.get("win") and r.get("pnl", 0) < 0]
-                else:
-                    # 이전 버전 호환 (bool 리스트)
-                    wins_pnl = []
-                    loss_pnl = []
-
-                if wins_pnl:
-                    avg_win  = max(0.005, min(sum(wins_pnl) / len(wins_pnl), 0.20))
-                if loss_pnl:
-                    avg_loss = max(0.005, min(sum(loss_pnl) / len(loss_pnl), 0.20))
-            except Exception:
-                pass  # 파싱 실패 시 기본값 유지
-
-        kelly = (wr * avg_win - (1 - wr) * avg_loss) / avg_win if avg_win > 0 else 0.10
-        kelly = max(0.05, min(kelly, 0.20))
-        return {"win_rate": wr, "avg_win": avg_win, "avg_loss": avg_loss, "kelly": kelly}
+        """연속손실/승률 상태 반환 (Kelly 계산은 position_sizer.py 전담)"""
+        return {
+            "win_rate":    self._calc_recent_win_rate(),
+            "consec_loss": self._consecutive_losses,
+            "trade_count": len(self._trade_results),
+        }
 
     # ── [BUG-REAL-1-C 수정] _calc_recent_win_rate ───────────────────
     def _calc_recent_win_rate(self) -> float:

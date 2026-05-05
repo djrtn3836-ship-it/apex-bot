@@ -12,6 +12,11 @@ import sqlite3
 from pathlib import Path
 from typing import Optional
 from utils.logger import logger
+# [REFACTOR] STRATEGY_MULTIPLIER 키는 core.constants.StrategyKey 값과 일치해야 함
+try:
+    from core.constants import StrategyKey as _SK  # noqa: F401
+except ImportError:
+    _SK = None
 
 
 class KellyPositionSizer:

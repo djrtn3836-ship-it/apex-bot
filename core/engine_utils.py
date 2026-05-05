@@ -19,14 +19,6 @@ from typing import TYPE_CHECKING
 # ── [M-4] Upbit 수량 소수점 자리수 — 모듈 레벨 상수 ────────────
 # [REFACTOR] _PREC_MAP → core.constants.VOLUME_PRECISION alias
 _PREC_MAP: dict[str, int] = VOLUME_PRECISION
-_PREC_MAP_ORIG = {
-    "KRW-BTC":  8, "KRW-ETH":  8, "KRW-XRP":  2,
-    "KRW-SOL":  4, "KRW-ADA":  2, "KRW-DOGE": 2,
-    "KRW-AVAX": 4, "KRW-DOT":  2, "KRW-LINK": 4,
-    "KRW-ATOM": 4, "KRW-BEAM": 2, "KRW-RED":  2,
-    "KRW-BLAST":2, "KRW-COMP": 4, "KRW-DOOD": 2,
-    "KRW-POKT": 2, "KRW-INJ":  4, "KRW-AGLD": 2,
-}
 
 
 def _floor_vol(market: str, volume: float) -> float:
