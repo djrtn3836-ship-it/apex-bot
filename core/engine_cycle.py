@@ -297,7 +297,7 @@ class EngineCycleMixin:
                     getattr(self, '_global_regime', 'UNKNOWN')
                 )).upper()
                 _REGIME_PRIORITY_P2 = {
-                    'BULL':       ['KRW-BTC','KRW-ETH','KRW-SOL','KRW-XRP','KRW-DOGE','KRW-ADA'],
+                    'BULL':       ['KRW-BTC','KRW-ETH','KRW-SOL','KRW-XRP','KRW-DOGE','KRW-ADA','KRW-HIVE','KRW-ZIL','KRW-ALGO','KRW-ENA'],
                     'RECOVERY':   ['KRW-BTC','KRW-ETH','KRW-ADA','KRW-AVAX','KRW-DOT','KRW-LINK'],
                     'BEAR_WATCH': ['KRW-BTC','KRW-ETH','KRW-XRP','KRW-ADA','KRW-LINK','KRW-DOT'],
                     'BEAR':       ['KRW-BTC','KRW-ETH'],

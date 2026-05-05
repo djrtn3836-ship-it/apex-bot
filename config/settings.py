@@ -28,7 +28,8 @@ class TradingConfig:
     """?"""
     target_markets: List[str] = field(default_factory=lambda: [
         "KRW-BTC", "KRW-ETH", "KRW-XRP", "KRW-SOL", "KRW-ADA",
-        "KRW-DOGE", "KRW-AVAX", "KRW-DOT", "KRW-LINK", "KRW-ATOM"
+        "KRW-DOGE", "KRW-AVAX", "KRW-DOT", "KRW-LINK", "KRW-ATOM",
+        "KRW-HIVE", "KRW-ZIL", "KRW-ALGO", "KRW-ENA", "KRW-CHZ"
     ])
     primary_timeframe: str = "60"
     signal_timeframe: str = "5"

@@ -1,5 +1,5 @@
 {
-  "updated_at": "2026-05-05T21:07:27.945488",
+  "updated_at": "2026-05-05T21:26:27.530789",
   "in_sample_days": 90,
   "out_sample_days": 30,
   "strategies": {
@@ -27,7 +27,7 @@
         "ob_lookback": 13,
         "fvg_min_size": 0.0030878822792644355
       },
-      "weight_boost": 0.9091,
+      "weight_boost": 1.0,
       "oos_sharpe": 1.56,
       "oos_win_rate": 50.0,
       "oos_pnl_pct": 0.0,
@@ -58,7 +58,7 @@
         "ob_lookback": 23,
         "fvg_min_size": 0.008436480462164383
       },
-      "weight_boost": 0.9091,
+      "weight_boost": 1.0,
       "oos_sharpe": 0.8,
       "oos_win_rate": 50.0,
       "oos_pnl_pct": 0.0,
@@ -89,7 +89,7 @@
         "ob_lookback": 13,
         "fvg_min_size": 0.0067041906609261025
       },
-      "weight_boost": 0.9091,
+      "weight_boost": 1.0,
       "oos_sharpe": 0.7,
       "oos_win_rate": 50.0,
       "oos_pnl_pct": 0.0,
@@ -120,7 +120,7 @@
         "ob_lookback": 25,
         "fvg_min_size": 0.005517822868981001
       },
-      "weight_boost": 0.9091,
+      "weight_boost": 1.0,
       "oos_sharpe": 3.92,
       "oos_win_rate": 50.0,
       "oos_pnl_pct": 0.0,
@@ -151,7 +151,7 @@
         "ob_lookback": 26,
         "fvg_min_size": 0.00469696136692805
       },
-      "weight_boost": 0.0,
+      "weight_boost": 1.0,
       "oos_sharpe": 0.0,
       "oos_win_rate": 50.0,
       "oos_pnl_pct": 0.0,
@@ -182,7 +182,7 @@
         "ob_lookback": 13,
         "fvg_min_size": 0.001984348578200344
       },
-      "weight_boost": 0.0,
+      "weight_boost": 1.0,
       "oos_sharpe": 0.0,
       "oos_win_rate": 50.0,
       "oos_pnl_pct": 0.0,
@@ -213,7 +213,7 @@
         "ob_lookback": 15,
         "fvg_min_size": 0.009969371976754435
       },
-      "weight_boost": 0.9091,
+      "weight_boost": 1.0,
       "oos_sharpe": 0.9,
       "oos_win_rate": 50.0,
       "oos_pnl_pct": 0.0,
@@ -244,7 +244,7 @@
         "ob_lookback": 30,
         "fvg_min_size": 0.009133349169500034
       },
-      "weight_boost": 0.9091,
+      "weight_boost": 1.0,
       "oos_sharpe": -1.26,
       "oos_win_rate": 50.0,
       "oos_pnl_pct": 0.0,
