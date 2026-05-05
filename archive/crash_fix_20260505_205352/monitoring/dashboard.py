@@ -2,18 +2,6 @@
 
 WebSocket    + REST API"""
 
-import socket as _socket
-
-def _get_free_port(start=8888, retries=5):
-    for port in range(start, start + retries):
-        with _socket.socket(_socket.AF_INET, _socket.SOCK_STREAM) as s:
-            s.setsockopt(_socket.SOL_SOCKET, _socket.SO_REUSEADDR, 1)
-            try:
-                s.bind(("0.0.0.0", port))
-                return port
-            except OSError:
-                continue
-    return start + retries  # END_FIX_C
 import asyncio
 
 import json

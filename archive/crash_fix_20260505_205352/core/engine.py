@@ -468,8 +468,7 @@ class TradingEngine(
     async def stop(self):
         logger.info(" APEX BOT  ...")
         self.state_machine.transition(BotState.STOPPED)
-        if self.scheduler and self.scheduler.running:
-            self.scheduler.shutdown(wait=False)  # FIX-B
+        self.scheduler.shutdown(wait=False)
         self._process_pool.shutdown(wait=False)
         if self.ws_collector:
             await self.ws_collector.stop()
