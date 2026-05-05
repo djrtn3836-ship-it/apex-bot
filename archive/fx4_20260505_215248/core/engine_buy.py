@@ -245,7 +245,7 @@ class EngineBuyMixin:
                     _gr_vp = str(getattr(getattr(self, "_global_regime", None), "value",
                                  getattr(self, "_global_regime", "UNKNOWN") or "UNKNOWN")).upper()
                     _rr_thr = {
-                        "BULL":       -0.95,  # BULL: [BSF-2] 더욱 완화 (VAH 근처 허용)
+                        "BULL":       -0.80,  # BULL: [BSF-2] 더욱 완화 (VAH 근처 허용)
                         "RECOVERY":   -0.45,  # 회복: 중간
                         "BEAR_WATCH": -0.30,  # 약세경계: 기존값 유지
                         "BEAR":       -0.20,  # 약세: 엄격

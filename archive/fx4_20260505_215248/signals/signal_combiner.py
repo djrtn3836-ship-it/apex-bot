@@ -118,7 +118,7 @@ class SignalCombiner:
         # [U4-PATCH] buy_threshold: risk 설정(0.55) 대신 조정값 0.42 사용
         # 근거: weighted_strength = score×weight×confidence (단일전략 ≈0.50~0.65)
         _raw_thr = self.settings.risk.buy_signal_threshold  # 0.55
-        self.buy_threshold  = max(0.35, _raw_thr * 0.80)  # 0.55×0.80=0.44
+        self.buy_threshold  = max(0.40, _raw_thr * 0.80)  # 0.55×0.80=0.44
         self.sell_threshold = -self.settings.risk.sell_signal_threshold
         self.min_agreement  = 0.20
 
