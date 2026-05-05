@@ -30,7 +30,7 @@ class MTFGate:
     """
 
     TF_WEIGHTS = {"1d": 0.50, "4h": 0.30, "1h": 0.20}
-    GATE_THRESHOLD_BULL    = -0.30   # BULL: [BSF-1] 역방향 허용 확대
+    GATE_THRESHOLD_BULL    = -0.10   # BULL: 약간의 역방향도 허용
     GATE_THRESHOLD_DEFAULT = 0.0     # 기타: 동방향 필수
     GATE_THRESHOLD_BEAR_REV = -0.50  # BEAR_REVERSAL: 역방향 대부분 허용
     MIN_CANDLES = 20                 # 방향 판단 최소 캔들 수

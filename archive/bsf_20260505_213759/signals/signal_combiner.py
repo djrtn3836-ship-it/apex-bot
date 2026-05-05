@@ -69,7 +69,7 @@ class SignalCombiner:
         StrategyKey.SUPERTREND:        1.3,
         StrategyKey.BOLLINGER_SQUEEZE: 1.4,
         StrategyKey.ATR_CHANNEL:       1.0,
-        StrategyKey.ORDER_BLOCK_SMC:   1.0,   # [BSF-5] BULL 레짐 복원
+        StrategyKey.ORDER_BLOCK_SMC:   0.3,   # 백테스트 -4.7% → 하향
         StrategyKey.ML_ENSEMBLE:       1.5,   # [P2-PATCH] 3.0→1.5: 기술전략 대비 균형 복원
         StrategyKey.BEAR_REVERSAL:     2.0,
     }

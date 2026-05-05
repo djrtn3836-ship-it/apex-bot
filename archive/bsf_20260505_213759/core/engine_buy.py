@@ -321,7 +321,7 @@ class EngineBuyMixin:
             # [VP3-PATCH] GlobalRegime=BULL/RECOVERY 시 개별 TRENDING_DOWN 차단 완화
             _gr_vp3 = str(getattr(getattr(self, "_global_regime", None), "value",
                           getattr(self, "_global_regime", "UNKNOWN") or "UNKNOWN")).upper()
-            if regime == MarketRegime.TRENDING_DOWN and _gr_vp3 not in ("BULL", "RECOVERY", "UNKNOWN"):  # [BSF-6]
+            if regime == MarketRegime.TRENDING_DOWN and _gr_vp3 not in ("BULL", "RECOVERY"):
                 logger.info(f'[ANALYZE] {market} TRENDING_DOWN 차단 (regime={regime})')
                 return
             elif regime == MarketRegime.TRENDING_DOWN and _gr_vp3 in ("BULL", "RECOVERY"):

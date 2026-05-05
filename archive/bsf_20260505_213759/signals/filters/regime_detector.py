@@ -166,7 +166,7 @@ class RegimeDetector:
         if rsi <= 35:
             reversal_signals += 1
 
-        if fear_greed_index is not None and fear_greed_index <= 40:  # [BSF-4]
+        if fear_greed_index is not None and fear_greed_index <= 25:
             reversal_signals += 1
 
         if bb_pct <= 0.15:
