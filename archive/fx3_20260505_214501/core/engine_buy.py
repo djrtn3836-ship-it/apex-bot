@@ -199,9 +199,10 @@ class EngineBuyMixin:
                 # [PHASE2-C] SURGE 전략별 슬롯 쿼터 체크 (가장 먼저)
                 # ── [PHASE2] SURGE_FASTENTRY 완전 비활성화 ──────────────────
                 # 누적 손실 -41.02% (326 trades, WR 46%) → 즉시 차단
-                # [FX3-4] SURGE_FASTENTRY 비활성화 후 일반 파이프라인으로 계속 진행
-                # (기존: return → 완전 스킵 / 변경: 아래 일반 분석 파이프라인 진행)
-                logger.debug(f"[SURGE-PIPELINE] {market} → 일반 파이프라인 진행")
+                # [PHASE2] SURGE_FASTENTRY 영구 비활성화
+                # 사유: 누적 손실 -41.02% (326 trades, WR 46%)
+                logger.debug(f"[SURGE-DISABLED] {market} → 스킵")
+                return
 
             try:
                 df_1d = await self.rest_collector.get_ohlcv(market, "day", 210)
