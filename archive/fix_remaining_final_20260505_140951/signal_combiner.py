@@ -65,8 +65,11 @@ class SignalCombiner:
     # 규칙: 비활성화 전략은 0.0 으로 명시 (기본값 1.0 방지)
     STRATEGY_WEIGHTS: Dict[str, float] = {
         StrategyKey.MACD_CROSS:        1.8,
+        StrategyKey.RSI_DIVERGENCE:    0.0,   # 백테스트 -10.0%/년 → 비활성
         StrategyKey.SUPERTREND:        1.3,
         StrategyKey.BOLLINGER_SQUEEZE: 1.4,
+        StrategyKey.VWAP_REVERSION:    0.0,   # DB -₩3,158 → 비활성
+        StrategyKey.VOL_BREAKOUT:      0.0,   # DB -₩3,521 → 비활성  [FIX: 중복 제거]
         StrategyKey.ATR_CHANNEL:       1.0,
         StrategyKey.ORDER_BLOCK_SMC:   0.3,   # 백테스트 -4.7% → 하향
         StrategyKey.ML_ENSEMBLE:       3.0,   # 핵심 전략

@@ -33,15 +33,15 @@ class KellyPositionSizer:
     DB_PATH       = Path("database/apex_bot.db")
 
     STRATEGY_MULTIPLIER = {
-        StrategyKey.BOLLINGER_SQUEEZE.value: 1.2,
-        StrategyKey.ML_ENSEMBLE.value:       0.5,
+        "Bollinger_Squeeze": 1.2,
+        "ML_Ensemble":       0.5,
         "BEAR_REVERSAL":     1.2,
-        StrategyKey.ORDER_BLOCK_SMC.value:    0.7,   # [REFACTOR] Order_Block → OrderBlock_SMC
-        StrategyKey.RSI_DIVERGENCE.value:    1.0,
-        StrategyKey.MACD_CROSS.value:        0.9,
+        "OrderBlock_SMC":    0.7,   # [REFACTOR] Order_Block → OrderBlock_SMC
+        "RSI_Divergence":    1.0,
+        "MACD_Cross":        0.9,
         "SURGE_FASTENTRY":   1.0,
-        StrategyKey.VWAP_REVERSION.value:    0.8,
-        StrategyKey.VOL_BREAKOUT.value:       0.2,   # [REFACTOR] Vol_Breakout 키 폐기
+        "VWAP_Reversion":    0.8,
+        "VolBreakout":       0.2,   # [REFACTOR] Vol_Breakout 키 폐기
         "volatility_break":  0.2,
         "ml_signal":         1.0,
         "default":           0.8,   # [BUG-7] 기본값 보수화
