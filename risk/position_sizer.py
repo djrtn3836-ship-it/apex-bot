@@ -12,13 +12,25 @@ import sqlite3
 from pathlib import Path
 from typing import Optional
 from utils.logger import logger
-# [REFACTOR] STRATEGY_MULTIPLIER 키는 core.constants.StrategyKey 값과 일치해야 함
-try:
-    from core.constants import StrategyKey as _SK  # noqa: F401
-except ImportError:
-    _SK = None
+from core.constants import StrategyKey  # [REFACTOR] STRATEGY_MULTIPLIER 키 표준화
 
 
+
+# [REFACTOR] 모듈 레벨로 이동 (StrategyKey 초기화 순서 보장)
+STRATEGY_MULTIPLIER = {
+    StrategyKey.BOLLINGER_SQUEEZE.value: 1.2,
+    StrategyKey.ML_ENSEMBLE.value:       0.5,
+    "BEAR_REVERSAL":     1.2,
+    StrategyKey.ORDER_BLOCK_SMC.value:    0.7,   # [REFACTOR] Order_Block → OrderBlock_SMC
+    StrategyKey.RSI_DIVERGENCE.value:    1.0,
+    StrategyKey.MACD_CROSS.value:        0.9,
+    "SURGE_FASTENTRY":   1.0,
+    StrategyKey.VWAP_REVERSION.value:    0.8,
+    StrategyKey.VOL_BREAKOUT.value:       0.2,   # [REFACTOR] Vol_Breakout 키 폐기
+    "volatility_break":  0.2,
+    "ml_signal":         1.0,
+    "default":           0.8,   # [BUG-7] 기본값 보수화
+}
 class KellyPositionSizer:
     """Half-Kelly Criterion + GlobalRegime + MDD + ATR 통합 포지션 사이징"""
 
@@ -32,20 +44,7 @@ class KellyPositionSizer:
     ROLLING_DAYS  = 7
     DB_PATH       = Path("database/apex_bot.db")
 
-    STRATEGY_MULTIPLIER = {
-        StrategyKey.BOLLINGER_SQUEEZE.value: 1.2,
-        StrategyKey.ML_ENSEMBLE.value:       0.5,
-        "BEAR_REVERSAL":     1.2,
-        StrategyKey.ORDER_BLOCK_SMC.value:    0.7,   # [REFACTOR] Order_Block → OrderBlock_SMC
-        StrategyKey.RSI_DIVERGENCE.value:    1.0,
-        StrategyKey.MACD_CROSS.value:        0.9,
-        "SURGE_FASTENTRY":   1.0,
-        StrategyKey.VWAP_REVERSION.value:    0.8,
-        StrategyKey.VOL_BREAKOUT.value:       0.2,   # [REFACTOR] Vol_Breakout 키 폐기
-        "volatility_break":  0.2,
-        "ml_signal":         1.0,
-        "default":           0.8,   # [BUG-7] 기본값 보수화
-    }
+    STRATEGY_MULTIPLIER = STRATEGY_MULTIPLIER  # [REFACTOR] 모듈 레벨 참조
 
     REGIME_SIZE_MULTIPLIER = {
         "BULL":       1.30,
