@@ -1,5 +1,4 @@
 from typing import Optional
-from loguru import logger
 import pandas as pd
 from strategies.base_strategy import BaseStrategy, StrategySignal, SignalType
 
@@ -52,5 +51,6 @@ class BollingerSqueezeStrategy(BaseStrategy):
                     stop_loss=price + atr * 1.5, take_profit=price - atr * 3.0,
                     reason=f"BB 스퀴즈 상단({cur_bb_pct:.2f})", timeframe=timeframe)
         except Exception as e:
-                        logger.debug(f"Bollinger_Squeeze signal error: {e}")
+            import logging
+            logging.getLogger(__name__).debug(f"Bollinger_Squeeze signal error: {e}")
         return None

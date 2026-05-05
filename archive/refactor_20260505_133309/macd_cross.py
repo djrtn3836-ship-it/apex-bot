@@ -1,5 +1,4 @@
 from datetime import datetime
-from loguru import logger
 from typing import Optional
 import pandas as pd
 from strategies.base_strategy import BaseStrategy, StrategySignal, SignalType
@@ -70,5 +69,6 @@ class MACDCrossStrategy(BaseStrategy):
                     stop_loss=price + atr * 1.5, take_profit=price - atr * 3.0,
                     reason=f"MACD 데드크로스(hist={float(hist.iloc[-1]):.4f} vol={vol_ratio:.1f}x)", timeframe=timeframe)
         except Exception as e:
-                        logger.debug(f"MACD signal error: {e}")
+            import logging
+            logging.getLogger(__name__).debug(f"MACD signal error: {e}")
         return None

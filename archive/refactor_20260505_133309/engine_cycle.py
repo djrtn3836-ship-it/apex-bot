@@ -151,9 +151,7 @@ class EngineCycleMixin:
             _daily_loss_key = f"_daily_loss_{_today}"
             _daily_loss     = getattr(self, _daily_loss_key, 0.0)
             _krw_bal        = getattr(self, "_krw_balance", 0)
-            _dl_limit_cfg   = getattr(getattr(self, 'settings', None), 'risk', None)
-            _dl_pct         = getattr(_dl_limit_cfg, 'daily_loss_limit', 0.03)
-            _loss_limit     = _krw_bal * _dl_pct
+            _loss_limit     = _krw_bal * 0.02
             if _daily_loss < -_loss_limit and _loss_limit > 0:
                 logger.warning(
                     f"[MDD-L3] 🚨 서킷브레이커 발동! "

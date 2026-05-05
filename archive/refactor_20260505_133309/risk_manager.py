@@ -112,7 +112,7 @@ class RiskManager:
             self._daily_loss = 0.0
             self._daily_reset_ts = time.time()
         self._daily_loss = min(self._daily_loss, daily_pnl)
-        limit = getattr(self.risk_cfg, "daily_loss_limit", 0.03) if self.risk_cfg else 0.05
+        limit = getattr(self.risk_cfg, "daily_loss_limit", 0.05) if self.risk_cfg else 0.05
         if self._daily_loss <= -limit:
             await self._trigger_circuit_breaker(2, 86400,
                 f"일일 손실 한도 {self._daily_loss*100:.1f}% 초과")

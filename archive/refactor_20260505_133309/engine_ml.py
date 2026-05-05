@@ -1,6 +1,5 @@
 from __future__ import annotations
 from datetime import datetime
-from pathlib import Path
 """
 core/engine_ml.py
 ─────────────────────────────────────────────────────────────
@@ -38,6 +37,7 @@ class EngineMLMixin:
                     from monitoring.dashboard import dashboard_state
                 except Exception:
                     dashboard_state = None
+                from datetime import datetime
                 _sig  = result.get("signal",     "HOLD")
                 _conf = result.get("confidence", 0.0)
                 _bp   = result.get("buy_prob",   0.0)
@@ -97,6 +97,7 @@ class EngineMLMixin:
                     # [ML-2 FIX] dashboard_state 로컬 import 추가
                     try:
                         from monitoring.dashboard import dashboard_state
+                        from datetime import datetime
                     except Exception:
                         dashboard_state = None
                     if dashboard_state is not None:
@@ -140,6 +141,8 @@ class EngineMLMixin:
             logger.debug(f"PPO   ({market}): {e}")
             return None
 
+    # ── 매수 실행 ────────────────────────────────────────────────
+    
 
     async def _load_ml_model(self):
         try:

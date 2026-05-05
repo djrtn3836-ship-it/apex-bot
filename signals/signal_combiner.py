@@ -1,26 +1,31 @@
-"""APEX BOT -  
-   →    
+"""
+signals/signal_combiner.py
+─────────────────────────────────────────────────────────────
+APEX BOT 신호 결합기
 
- :
-  v1.1 - _filter_by_regime() Signal    
-         (signal_type= → signal=, strength= → score=)
-       -     _boost_signal() 
-  v1.2 - RSI_Divergence  0.0 → REGIME_PREFERRED  
-         ( 0.0    0.0 × 1.2 = 0.0   )"""
+변경 이력:
+  v1.0 - 초기 구현
+  v1.1 - _filter_by_regime() Signal 필드명 수정
+  v1.2 - RSI_Divergence REGIME_PREFERRED 제거
+  v1.3 - [REFACTOR] VolBreakout 중복 키 제거, VWAP 명시 0.0,
+          StrategyKey constants 참조
+─────────────────────────────────────────────────────────────
+"""
+from __future__ import annotations
 import asyncio
-from typing import Dict, List, Optional, Tuple
+from typing import Dict, List, Optional
 from dataclasses import dataclass, field
 from datetime import datetime
-import pandas as pd
 from loguru import logger
 
 from strategies.base_strategy import StrategySignal as Signal, SignalType
 from config.settings import get_settings
+from core.constants import StrategyKey, DISABLED_STRATEGIES
 
 
 @dataclass
 class CombinedSignal:
-    """CombinedSignal 클래스"""
+    """결합 신호 데이터 클래스"""
     market: str
     signal_type: SignalType
     score: float
@@ -28,10 +33,8 @@ class CombinedSignal:
     agreement_rate: float
     contributing_strategies: List[str] = field(default_factory=list)
 
-    # ── strategy_name 하위호환 property ──────────────────────
     @property
     def strategy_name(self) -> str:
-        """contributing_strategies[0] 반환 (하위호환용)"""
         return self.contributing_strategies[0] if self.contributing_strategies else ""
 
     reasons: List[str] = field(default_factory=list)
@@ -39,95 +42,67 @@ class CombinedSignal:
     ml_signal: Optional[str] = None
     ml_confidence: float = 0.0
 
-    # ── dict-like compatibility (하위호환) ──────────────────
     def get(self, key: str, default=None):
-        """dict.get() 호환 - CombinedSignal을 dict처럼 사용하는 코드 지원"""
         return getattr(self, key, default)
 
     def __getitem__(self, key: str):
-        """dict[] 접근 호환"""
         val = getattr(self, key, None)
         if val is None:
             raise KeyError(key)
         return val
 
     def __contains__(self, key: str) -> bool:
-        """'key' in signal 호환"""
         return hasattr(self, key)
 
 
 class SignalCombiner:
-    """:
-    - ML  (LSTM+TFT+CNN):  3.0
-    -   (BEAR_REVERSAL): 2.0
-    -  (MACD/Supertrend): 1.3~1.8
-    -  (VWAP/BB): 1.0~1.2
-    -   (ATR/): 0.4~1.0
-    -  (OB/SMC): 0.3
-    - RSI_Divergence: 0.0 ( -10.0% →  )"""
+    """
+    전략 신호 결합기
+    [REFACTOR v1.3] StrategyKey Enum 참조, 중복 키 제거
+    """
 
-    STRATEGY_WEIGHTS = {
-        # ── 모멘텀 전략 ──────────────────────────────────────
-        # MACD_Cross: 백테스트 +2.2% → 1.8 상향
-        "Vol_Breakout":     0.2,  # [BUG-REAL-5 FIX] VolBreakout과 통일
-        "VolBreakout":      0.2,  # v2 앙상블에서 사용하는 키명
-        "MACD_Cross":        1.8,
-        # RSI_Divergence: 백테스트 -10.0% → 0.0 완전 차단
-        "RSI_Divergence":    0.0,
-        # Supertrend: 백테스트 +2.0% → 1.3 유지
-        "Supertrend":        1.3,
-        # ── 평균회귀 전략 ─────────────────────────────────────
-        "Bollinger_Squeeze": 1.4,  # [FIX] 급등포착 상향 1.0->1.4
-        # [ST-1] "VWAP_Reversion": 0.7,  # 비활성화: -₩3,158
-        # ── 변동성 전략 ──────────────────────────────────────
-        # VolBreakout: 백테스트 -2.7% → 0.4로 하향
-        "VolBreakout":       0.4,
-        "ATR_Channel":       1.0,
-        # ── 시장구조 전략 ─────────────────────────────────────
-        # OrderBlock_SMC: 백테스트 -4.7% → 0.3으로 하향
-        "OrderBlock_SMC":    0.3,
-        # ── ML/AI 레이어 ─────────────────────────────────────
-        # ML_Ensemble: 백테스트 +2.9% → 3.0으로 상향 (핵심 전략)
-        "ML_Ensemble":       3.0,
-        "BEAR_REVERSAL":     2.0,
+    # ── 전략 가중치 ──────────────────────────────────────────
+    # 규칙: 비활성화 전략은 0.0 으로 명시 (기본값 1.0 방지)
+    STRATEGY_WEIGHTS: Dict[str, float] = {
+        StrategyKey.MACD_CROSS:        1.8,
+        StrategyKey.RSI_DIVERGENCE:    0.0,   # 백테스트 -10.0%/년 → 비활성
+        StrategyKey.SUPERTREND:        1.3,
+        StrategyKey.BOLLINGER_SQUEEZE: 1.4,
+        StrategyKey.VWAP_REVERSION:    0.0,   # DB -₩3,158 → 비활성
+        StrategyKey.VOL_BREAKOUT:      0.0,   # DB -₩3,521 → 비활성  [FIX: 중복 제거]
+        StrategyKey.ATR_CHANNEL:       1.0,
+        StrategyKey.ORDER_BLOCK_SMC:   0.3,   # 백테스트 -4.7% → 하향
+        StrategyKey.ML_ENSEMBLE:       3.0,   # 핵심 전략
+        StrategyKey.BEAR_REVERSAL:     2.0,
     }
 
-    # ✅ FIX v1.2: RSI_Divergence 제거
-    # 가중치가 0.0인 전략을 레짐 부스트(×1.2)해도 0.0이므로
-    # REGIME_PREFERRED 포함 자체가 의미 없고 코드 혼란만 유발
-    REGIME_PREFERRED = {
+    # ── 레짐별 우선 전략 (1.2× 부스트) ──────────────────────
+    # 비활성 전략(가중치 0.0)은 부스트해도 0.0이므로 제외
+    REGIME_PREFERRED: Dict[str, set] = {
         "TRENDING": {
-            "MACD_Cross",
-            "Supertrend",
-            "OrderBlock_SMC",
-            "VolBreakout",
+            StrategyKey.MACD_CROSS,
+            StrategyKey.SUPERTREND,
+            StrategyKey.ORDER_BLOCK_SMC,
         },
         "RANGING": {
-            "VWAP_Reversion",
-            "Bollinger_Squeeze",
-            # RSI_Divergence 제거 — 가중치 0.0, 비활성화 전략
-            "ATR_Channel",
+            StrategyKey.BOLLINGER_SQUEEZE,
+            StrategyKey.ATR_CHANNEL,
         },
         "VOLATILE": {
-            "VolBreakout",
-            "ATR_Channel",
-            "Bollinger_Squeeze",
+            StrategyKey.ATR_CHANNEL,
+            StrategyKey.BOLLINGER_SQUEEZE,
         },
         "BEAR_REVERSAL": {
-            # RSI_Divergence 제거 — 가중치 0.0, 비활성화 전략
-            "VWAP_Reversion",
-            "Bollinger_Squeeze",
-            "BEAR_REVERSAL",
+            StrategyKey.BOLLINGER_SQUEEZE,
+            StrategyKey.BEAR_REVERSAL,
         },
     }
 
     def __init__(self, settings=None):
-        self.settings = settings or get_settings()
-        self.buy_threshold  = self.settings.risk.buy_signal_threshold  # BUG-1 FIX: min(0.35) 제거
-        self.sell_threshold = -self.settings.risk.sell_signal_threshold  # BUG-1 FIX: max(-0.35) 제거
-        self.min_agreement  = 0.20  # 단일 전략 신호도 허용
-
-    # ── 신호 결합 ────────────────────────────────────────────────
+        self.settings       = settings or get_settings()
+        self.buy_threshold  = self.settings.risk.buy_signal_threshold
+        self.sell_threshold = -self.settings.risk.sell_signal_threshold
+        self.min_agreement  = 0.20
 
     def combine(
         self,
@@ -136,7 +111,7 @@ class SignalCombiner:
         ml_prediction: Optional[Dict] = None,
         regime: str = "UNKNOWN",
     ) -> Optional[CombinedSignal]:
-        """→"""
+
         if not signals and not ml_prediction:
             return None
 
@@ -148,14 +123,18 @@ class SignalCombiner:
 
         filtered_signals = self._filter_by_regime(signals, regime)
 
-        buy_score        = 0.0
-        sell_score       = 0.0
-        buy_strategies   = []
-        sell_strategies  = []
-        reasons          = []
+        buy_score, sell_score   = 0.0, 0.0
+        buy_strategies          = []
+        sell_strategies         = []
+        reasons                 = []
 
         for sig in filtered_signals:
+            # [FIX] 비활성화 전략 신호 차단 (가중치 0.0 또는 DISABLED_STRATEGIES)
+            if sig.strategy_name in DISABLED_STRATEGIES:
+                continue
             weight            = self.STRATEGY_WEIGHTS.get(sig.strategy_name, 1.0)
+            if weight == 0.0:
+                continue
             weighted_strength = sig.score * weight * sig.confidence
 
             if sig.signal == SignalType.BUY:
@@ -167,17 +146,16 @@ class SignalCombiner:
                 sell_strategies.append(sig.strategy_name)
                 reasons.append(sig.reason)
 
-        # ML 신호 점수 추가 (confidence > 0.50 조건 유지)
+        # ML 신호 추가
         if ml_signal and ml_confidence > 0.45:
-            ml_weight = self.STRATEGY_WEIGHTS["ML_Ensemble"]
+            ml_weight = self.STRATEGY_WEIGHTS[StrategyKey.ML_ENSEMBLE]
             if ml_signal == "BUY":
                 buy_score += ml_weight * ml_confidence
-                buy_strategies.append("ML_Ensemble")
+                buy_strategies.append(StrategyKey.ML_ENSEMBLE)
             elif ml_signal == "SELL":
                 sell_score += ml_weight * ml_confidence
-                sell_strategies.append("ML_Ensemble")
+                sell_strategies.append(StrategyKey.ML_ENSEMBLE)
             elif ml_signal == "HOLD" and len(buy_strategies) >= 3:
-                # [FIX] ML=HOLD 이지만 전략 BUY 3개 이상 → 절반 가중치로 BUY 보정
                 buy_score += ml_weight * ml_confidence * 0.5
                 buy_strategies.append("ML_HOLD_BOOST")
 
@@ -188,7 +166,7 @@ class SignalCombiner:
             n_buy          = len(buy_strategies)
             agreement_rate = n_buy / max(total_strategies, 1)
             if agreement_rate < self.min_agreement:
-                return None  # BUY 동의율 미달 → HOLD
+                return None
 
             avg_confidence = (
                 sum(s.confidence for s in filtered_signals
@@ -196,7 +174,7 @@ class SignalCombiner:
                 / max(n_buy, 1)
             )
             if avg_confidence < 0.01 and ml_confidence > 0.0:
-                avg_confidence = ml_confidence  # ML confidence fallback (BUY)
+                avg_confidence = ml_confidence
             return CombinedSignal(
                 market=market,
                 signal_type=SignalType.BUY,
@@ -205,11 +183,7 @@ class SignalCombiner:
                 agreement_rate=agreement_rate,
                 contributing_strategies=buy_strategies,
                 reasons=reasons[:5],
-                metadata={
-                    "buy_score":  buy_score,
-                    "sell_score": sell_score,
-                    "regime":     regime,
-                },
+                metadata={"buy_score": buy_score, "sell_score": sell_score, "regime": regime},
                 ml_signal=ml_signal,
                 ml_confidence=ml_confidence,
             )
@@ -220,7 +194,7 @@ class SignalCombiner:
             if agreement_rate < self.min_agreement and not (
                 ml_signal == "SELL" and ml_confidence > 0.52
             ):
-                return None  # SELL 동의율 미달 → HOLD
+                return None
 
             avg_confidence = (
                 sum(s.confidence for s in filtered_signals
@@ -228,7 +202,7 @@ class SignalCombiner:
                 / max(n_sell, 1)
             )
             if avg_confidence < 0.01 and ml_confidence > 0.0:
-                avg_confidence = ml_confidence  # ML confidence fallback (SELL)
+                avg_confidence = ml_confidence
             return CombinedSignal(
                 market=market,
                 signal_type=SignalType.SELL,
@@ -237,59 +211,31 @@ class SignalCombiner:
                 agreement_rate=agreement_rate,
                 contributing_strategies=sell_strategies,
                 reasons=reasons[:5],
-                metadata={
-                    "buy_score":  buy_score,
-                    "sell_score": sell_score,
-                    "regime":     regime,
-                },
+                metadata={"buy_score": buy_score, "sell_score": sell_score, "regime": regime},
                 ml_signal=ml_signal,
                 ml_confidence=ml_confidence,
             )
 
         return None  # HOLD
 
-    # ── 레짐 필터 ────────────────────────────────────────────────
-
-    def _filter_by_regime(
-        self, signals: List[Signal], regime: str
-    ) -> List[Signal]:
-        """+   1.2 
-
-         FIX v1.1: Signal   signal= (not signal_type=),
-                     score= (not strength=) 
-         FIX v1.2: RSI_Divergence REGIME_PREFERRED 
-                     preferred"""
+    def _filter_by_regime(self, signals: List[Signal], regime: str) -> List[Signal]:
         preferred = self.REGIME_PREFERRED.get(regime.upper(), None)
         if preferred is None:
-            return signals  # 알 수 없는 레짐 → 필터 없음
-
-        boosted = []
-        for sig in signals:
-            if sig.strategy_name in preferred:
-                boosted.append(
-                    self._boost_signal(
-                        sig,
-                        score_mult=1.2,
-                        reason_suffix="[레짐부스트]",
-                    )
-                )
-            else:
-                boosted.append(sig)
-        return boosted
+            return signals
+        return [
+            self._boost_signal(sig, score_mult=1.2, reason_suffix="[레짐부스트]")
+            if sig.strategy_name in preferred else sig
+            for sig in signals
+        ]
 
     @staticmethod
-    def _boost_signal(
-        sig: Signal,
-        score_mult: float = 1.0,
-        reason_suffix: str = "",
-    ) -> Signal:
-        """FIX v1.1: StrategySignal  (signal, score)"""
+    def _boost_signal(sig: Signal, score_mult: float = 1.0, reason_suffix: str = "") -> Signal:
         from strategies.base_strategy import StrategySignal
         return StrategySignal(
             strategy_name=sig.strategy_name,
             market=sig.market,
-            signal=sig.signal,                       # ✅ signal= (not signal_type=)
-            score=min(sig.score * score_mult, 1.0),  # ✅ score= (not strength=)
+            signal=sig.signal,
+            score=min(sig.score * score_mult, 1.0),
             confidence=sig.confidence,
             entry_price=sig.entry_price,
             stop_loss=sig.stop_loss,
@@ -301,15 +247,13 @@ class SignalCombiner:
         )
 
     def get_score_breakdown(self, signals: List[Signal]) -> Dict:
-        """get_score_breakdown 실행"""
-        breakdown = {}
-        for sig in signals:
-            weight = self.STRATEGY_WEIGHTS.get(sig.strategy_name, 1.0)
-            breakdown[sig.strategy_name] = {
+        return {
+            sig.strategy_name: {
                 "type":           sig.signal.name,
                 "strength":       sig.score,
                 "confidence":     sig.confidence,
-                "weight":         weight,
-                "weighted_score": sig.score * weight * sig.confidence,
+                "weight":         self.STRATEGY_WEIGHTS.get(sig.strategy_name, 1.0),
+                "weighted_score": sig.score * self.STRATEGY_WEIGHTS.get(sig.strategy_name, 1.0) * sig.confidence,
             }
-        return breakdown
+            for sig in signals
+        }

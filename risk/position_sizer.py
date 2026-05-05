@@ -31,14 +31,13 @@ class KellyPositionSizer:
         "Bollinger_Squeeze": 1.2,
         "ML_Ensemble":       0.5,
         "BEAR_REVERSAL":     1.2,
-        "Order_Block":       1.1,
+        "OrderBlock_SMC":    0.7,   # [REFACTOR] Order_Block → OrderBlock_SMC
         "RSI_Divergence":    1.0,
         "MACD_Cross":        0.9,
         "SURGE_FASTENTRY":   1.0,
         "VWAP_Reversion":    0.8,
         "OrderBlock_SMC":    0.7,   # [BUG-7] 180일 승률 37.9% → 축소
-        "Vol_Breakout":      0.2,
-        "VolBreakout":       0.2,
+        "VolBreakout":       0.2,   # [REFACTOR] Vol_Breakout 키 폐기
         "volatility_break":  0.2,
         "ml_signal":         1.0,
         "default":           0.8,   # [BUG-7] 기본값 보수화

@@ -1,5 +1,4 @@
 from typing import Optional
-from loguru import logger
 import pandas as pd
 from strategies.base_strategy import BaseStrategy, StrategySignal, SignalType
 
@@ -54,5 +53,6 @@ class SupertrendStrategy(BaseStrategy):
                     stop_loss=price + atr_v * 1.5, take_profit=price - atr_v * 3.0,
                     reason="Supertrend 하향 전환", timeframe=timeframe)
         except Exception as e:
-                        logger.debug(f"supertrend signal error: {e}")
+            import logging
+            logging.getLogger(__name__).debug(f"supertrend signal error: {e}")
         return None

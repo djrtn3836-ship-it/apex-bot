@@ -1,20 +1,13 @@
-"""APEX BOT - 전략 추상 기반 클래스 (Abstract Base Class)"""
-from __future__ import annotations
+"""APEX BOT -    (Abstract Base Class)"""
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
+from datetime import datetime
 from enum import Enum
 from typing import Optional
-import math
-import numpy as np
 import pandas as pd
-import pytz
-from datetime import datetime
-from loguru import logger   # [REFACTOR] logging → loguru 통일
+import logging
 
-
-def kst_now() -> datetime:
-    """KST 기준 현재 datetime (timezone-aware)"""
-    return datetime.now(pytz.timezone("Asia/Seoul"))
+logger = logging.getLogger(__name__)
 
 
 class SignalType(Enum):
@@ -25,7 +18,7 @@ class SignalType(Enum):
 
 @dataclass
 class StrategySignal:
-    """전략 신호 데이터 클래스"""
+    """StrategySignal 클래스"""
     strategy_name: str
     market: str
     signal: SignalType
@@ -53,61 +46,71 @@ class StrategySignal:
 
     @property
     def weighted_score(self) -> float:
-        """신호강도 × 신뢰도"""
+        """( × )"""
         return self.score * self.confidence
 
-    # ── 하위 호환 속성 ───────────────────────────────────────
+    # ── 하위 호환 속성 (signal_type, strength) ──────────────────
     @property
-    def signal_type(self) -> SignalType:
-        """하위호환: signal"""
+    def signal_type(self) -> 'SignalType':
+        """: signal"""
         return self.signal
 
     @property
     def strength(self) -> float:
-        """하위호환: score"""
+        """: score"""
         return self.score
 
 
-# 하위 호환 별칭
+# ── 하위 호환 별칭 ─────────────────────────────────────────────
 Signal = StrategySignal
 
 
 class BaseStrategy(ABC):
-    """전략 추상 기반 클래스"""
+    """BaseStrategy 클래스"""
 
-    NAME: str        = "base"
+    # 전략 메타데이터 (하위 클래스에서 오버라이드)
+    NAME: str = "base"
     DESCRIPTION: str = ""
-    WEIGHT: float    = 1.0
-    MIN_CANDLES: int = 200
-    SUPPORTED_TIMEFRAMES: list = ["60"]
+    WEIGHT: float = 1.0                  # 앙상블 가중치
+    MIN_CANDLES: int = 200               # 최소 필요 캔들 수
+    SUPPORTED_TIMEFRAMES: list = ["60"]  # 지원 타임프레임
 
     def __init__(self, params: dict = None):
-        self.params         = params or self._default_params()
+        self.params = params or self._default_params()
         self._last_signal: Optional[StrategySignal] = None
-        self._signal_count  = 0
-        self._enabled       = True
+        self._signal_count = 0
+        self._enabled = True
 
     @abstractmethod
     def _default_params(self) -> dict:
+        """_default_params 실행"""
         return {}
 
     @abstractmethod
-    def generate_signal(
-        self, df: pd.DataFrame, market: str, timeframe: str = "60"
-    ) -> Optional[StrategySignal]:
-        """신호 생성 — 하위 클래스에서 구현"""
+    def generate_signal(self, df: pd.DataFrame, market: str,
+                        timeframe: str = "60") -> Optional[StrategySignal]:
+        """( )
+        
+        Args:
+            df: OHLCV +  DataFrame (calculate_all_indicators  )
+            market:   (: "KRW-BTC")
+            timeframe:  ( )
+        
+        Returns:
+            StrategySignal  None ( )"""
         pass
 
     def validate_df(self, df: pd.DataFrame) -> bool:
+        """DataFrame"""
         if df is None or df.empty:
             return False
         if len(df) < self.MIN_CANDLES:
-            logger.debug(f"전략 {self.NAME}: 캔들 부족 ({len(df)} < {self.MIN_CANDLES})")
+            logger.debug(f" {self.NAME}:   ({len(df)} < {self.MIN_CANDLES})")
             return False
         required_cols = ["open", "high", "low", "close", "volume"]
         missing = [c for c in required_cols if c not in df.columns]
         if missing:
-            logger.warning(f"전략 {self.NAME}: 컬럼 누락 {missing}")
+            logger.warning(f" {self.NAME}:    {missing}")
             return False
         return True
 
@@ -122,9 +125,9 @@ class BaseStrategy(ABC):
         take_profit: float,
         reason: str,
         timeframe: str,
-        metadata: dict = None,
+        metadata: dict = None
     ) -> StrategySignal:
-        """신호 생성 + 통계 추적 (loguru 로그 포함)"""
+        """구현부"""
         self._signal_count += 1
         sig = StrategySignal(
             strategy_name=self.NAME,
@@ -137,13 +140,13 @@ class BaseStrategy(ABC):
             take_profit=take_profit,
             reason=reason,
             timeframe=timeframe,
-            timestamp=kst_now(),   # [REFACTOR] kst_now() 통일
+            timestamp=datetime.now(),
             metadata=metadata or {},
         )
         self._last_signal = sig
         logger.info(
-            f"[{self.NAME}] {signal.name} 신호 | {market} | "
-            f"점수:{score:.2f} | 신뢰도:{confidence:.2%} | {reason}"
+            f" [{self.NAME}] {signal.name}  | {market} | "
+            f": {score:.2f} | : {confidence:.2%} | {reason}"
         )
         return sig
 
@@ -159,35 +162,39 @@ class BaseStrategy(ABC):
 
     def get_stats(self) -> dict:
         return {
-            "name":         self.NAME,
-            "enabled":      self._enabled,
-            "weight":       self.WEIGHT,
+            "name": self.NAME,
+            "enabled": self._enabled,
+            "weight": self.WEIGHT,
             "signal_count": self._signal_count,
-            "last_signal":  self._last_signal.signal.name if self._last_signal else None,
+            "last_signal": self._last_signal.signal.name if self._last_signal else None,
         }
 
-    # ── 하위 호환 속성 & 메서드 ──────────────────────────────
+    # ── 하위 호환 속성 & 메서드 ───────────────────────────────────
     @property
     def name(self) -> str:
+        """: NAME"""
         return self.NAME
 
     @property
     def weight(self) -> float:
+        """: WEIGHT"""
         return self.WEIGHT
 
     def get_parameters(self) -> dict:
+        """: _default_params()  +  params"""
         return self.params.copy()
 
-    def analyze(
-        self, market: str, df: pd.DataFrame, timeframe: str = "60"
-    ) -> Optional[StrategySignal]:
-        """하위호환: generate_signal() 래퍼"""
+    def analyze(self, market: str, df: pd.DataFrame,
+                timeframe: str = "60") -> Optional[StrategySignal]:
+        """: generate_signal()"""
         return self.generate_signal(df, market, timeframe)
 
 
-# ── 안전 유틸 함수 (v2 전략 전용) ────────────────────────────
+
 def safe_last(series) -> float:
+    """Series/array 마지막 값을 안전하게 float 반환. NaN/inf/빈값 -> 0.0"""
     try:
+        import numpy as np, pandas as pd
         if isinstance(series, pd.Series):
             val = series.dropna()
             if len(val) == 0:
@@ -195,14 +202,15 @@ def safe_last(series) -> float:
             v = float(val.iloc[-1])
         else:
             v = float(series[-1])
-        if math.isnan(v) or math.isinf(v):
+        if np.isnan(v) or np.isinf(v):
             return 0.0
         return v
     except Exception:
         return 0.0
 
-
 def safe_float(value, default: float = 0.0) -> float:
+    """NaN/inf 방어 float 변환 — v2 전략 전용"""
+    import math
     try:
         v = float(value)
         if math.isnan(v) or math.isinf(v):
@@ -213,26 +221,43 @@ def safe_float(value, default: float = 0.0) -> float:
 
 
 def safe_rolling_mean(series, window: int, default: float = 0.0):
+    """rolling().mean() NaN 방어 — 앞부분 NaN을 default로 채움"""
+    import math
     try:
-        return series.rolling(window).mean().fillna(default)
+        result = series.rolling(window).mean()
+        return result.fillna(default)
     except Exception:
         return series * 0 + default
 
 
 def safe_rolling_std(series, window: int, default: float = 0.0):
+    """rolling().std() NaN 방어"""
+    import math
     try:
-        return series.rolling(window).std().fillna(default)
+        result = series.rolling(window).std()
+        return result.fillna(default)
     except Exception:
         return series * 0 + default
 
 
 def safe_div(numerator, denominator, default: float = 0.0):
+    """Division by Zero 방어"""
+    import math
     try:
         if hasattr(denominator, "__len__"):
+            import pandas as pd
             denom = denominator.replace(0, float("nan"))
-            return (numerator / denom).fillna(default)
+            result = numerator / denom
+            return result.fillna(default)
         if denominator == 0 or (isinstance(denominator, float) and math.isnan(denominator)):
             return default
         return numerator / denominator
     except Exception:
         return default
+
+
+def kst_now():
+    """KST 기준 현재 datetime (timezone-aware)"""
+    from datetime import datetime
+    import pytz
+    return datetime.now(pytz.timezone("Asia/Seoul"))

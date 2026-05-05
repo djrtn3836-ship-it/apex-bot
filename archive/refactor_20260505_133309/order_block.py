@@ -3,9 +3,8 @@ import pandas as pd
 from strategies.base_strategy import BaseStrategy, StrategySignal, SignalType
 
 
-# [REFACTOR] v1 비활성 — 롤백 필요 시 NAME을 OrderBlock_SMC로 복원
 class OrderBlockStrategy(BaseStrategy):
-    NAME = "OrderBlock_SMC_V1"  # [REFACTOR] v2 활성화로 v1은 비활성 롤백용
+    NAME = "OrderBlock_SMC"
     DESCRIPTION = "스마트머니 오더블록 전략"
     WEIGHT = 1.2
     MIN_CANDLES = 30

@@ -1,5 +1,4 @@
 from typing import Optional
-from loguru import logger
 import pandas as pd
 from strategies.base_strategy import BaseStrategy, StrategySignal, SignalType
 
@@ -71,5 +70,6 @@ class VWAPReversionStrategy(BaseStrategy):
                     reason=f"VWAP 상방이탈({dev*100:.1f}% RSI={rsi:.0f if rsi else '?'})",
                     timeframe=timeframe)
         except Exception as e:
-                        logger.debug(f"VWAP signal error: {e}")
+            import logging
+            logging.getLogger(__name__).debug(f"VWAP signal error: {e}")
         return None

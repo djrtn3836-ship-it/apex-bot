@@ -12,14 +12,11 @@ core/engine_utils.py
     [M-4] _PREC_MAP 모듈 레벨 상수화 (매 호출마다 dict 생성 제거)
 """
 from __future__ import annotations
-from core.constants import VOLUME_PRECISION, MIN_ORDER_KRW, MIN_POSITION_KRW
 import math, socket
 from typing import TYPE_CHECKING
 
 # ── [M-4] Upbit 수량 소수점 자리수 — 모듈 레벨 상수 ────────────
-# [REFACTOR] _PREC_MAP → core.constants.VOLUME_PRECISION alias
-_PREC_MAP: dict[str, int] = VOLUME_PRECISION
-_PREC_MAP_ORIG = {
+_PREC_MAP: dict[str, int] = {
     "KRW-BTC":  8, "KRW-ETH":  8, "KRW-XRP":  2,
     "KRW-SOL":  4, "KRW-ADA":  2, "KRW-DOGE": 2,
     "KRW-AVAX": 4, "KRW-DOT":  2, "KRW-LINK": 4,
@@ -145,3 +142,8 @@ def _find_free_port(start_port: int = 8888) -> int:
         except OSError:
             port += 1
     return start_port
+
+
+class TradingEngine:
+    """APEX BOT 엔진 v2.0.0"""
+    VERSION = "2.0.0"
