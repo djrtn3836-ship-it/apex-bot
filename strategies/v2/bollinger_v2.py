@@ -7,6 +7,15 @@ from loguru import logger
 from strategies.base_strategy import BaseStrategy, Signal, SignalType, safe_float, safe_last, safe_rolling_mean, safe_rolling_std, safe_div, kst_now
 from strategies.v2.context.market_context import MarketContextEngine, MarketContext
 
+# [PHASE2-D] settings SL 참조
+try:
+    from config.settings import Settings as _SettingsClass; _SETTINGS = _SettingsClass()
+except Exception:
+    class _SettingsClass:
+        STRATEGY_SL_RATIO = {"DEFAULT": 0.017}
+        STRATEGY_TP_RATIO = {"DEFAULT": 0.045}
+    _SETTINGS = _SettingsClass()
+
 
 @dataclass
 class SqueezeState:
@@ -197,7 +206,7 @@ class BollingerSqueezeStrategy2(BaseStrategy):
             market         = market,
             score          = confidence * 2.0 - 1.0,
             entry_price    = safe_last(df["close"]),
-            stop_loss      = safe_last(df["close"]) * 0.98,
+            stop_loss      = safe_last(df["close"]) * (1 - _SETTINGS.STRATEGY_SL_RATIO.get("Bollinger_Squeeze", 0.017)),
             take_profit    = safe_last(df["close"]) * 1.04,
             reason         = f"{self.NAME} v2 신호",
             timeframe      = "1h",

@@ -232,10 +232,13 @@ class CorrelationFilter:
         )
 
         # 새로 추가할 코인도 고상관 그룹이면 체크
-        if market in HIGH_CORR_GROUP and corr_count >= 6:
+        # [CF-1 FIX] 전체 포지션 한도 5개 기준, 고상관 최대 3개 제한
+        # 이전: >= 6 은 사실상 데드 코드 (봇 최대 포지션=5이므로 절대 차단 안됨)
+        MAX_CORR_POSITIONS = 3
+        if market in HIGH_CORR_GROUP and corr_count >= MAX_CORR_POSITIONS:
             return (
                 False,
-                f"고상관 포지션 한도 초과 ({corr_count}/3): "
+                f"고상관 포지션 한도 초과 ({corr_count}/{MAX_CORR_POSITIONS}): "
                 f"{', '.join(p for p in open_positions if p in HIGH_CORR_GROUP)}"
             )
 

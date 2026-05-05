@@ -234,6 +234,9 @@ class NewsSentimentAnalyzer:
 
         # signal_boost: 양수 감성 → 임계값 낮춤 (매수 쉬워짐)
         #               음수 감성 → 임계값 높임 (매수 어려워짐)
+        # [NS-1 설계의도] 긍정 뉴스(combined>0) → boost 음수
+        # engine_buy.py에서 combined.score -= news_boost 로 사용
+        # → 결과적으로 score 증가 = 매수 임계값 낮춤 (올바른 동작)
         boost = combined * -2.0  # -2.0 ~ +2.0
         boost = max(-2.0, min(2.0, boost))  # 클리핑
 

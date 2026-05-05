@@ -177,39 +177,33 @@ class TestRiskManager:
 
 
 # ── 포지션 사이저 테스트 ──────────────────────────────────────────
-class TestPositionSizer:
+class TestKellyPositionSizer:
     def setup_method(self):
         import os
         os.environ["UPBIT_ACCESS_KEY"] = "test"
         os.environ["UPBIT_SECRET_KEY"] = "test"
-        from risk.position_sizer import PositionSizer
-        self.sizer = PositionSizer()
+        from risk.position_sizer import KellyPositionSizer
+        self.sizer = KellyPositionSizer()
 
     def test_basic_sizing(self):
         size = self.sizer.calculate(
-            capital=1_000_000,
-            entry_price=50_000_000,
-            atr=500_000,
+            total_capital=1_000_000,
+            confidence=0.5,
         )
         assert size > 0
         assert size <= 1_000_000 * 0.20 + 1  # 최대 20%
 
     def test_minimum_size(self):
         size = self.sizer.calculate(
-            capital=1_000_000,
-            entry_price=100,
-            atr=1,
+            total_capital=1_000_000,
+            confidence=0.1,
         )
         assert size >= 5000  # 최소 5000원
 
     def test_kelly_with_stats(self):
         size = self.sizer.calculate(
-            capital=1_000_000,
-            entry_price=50_000_000,
-            atr=500_000,
-            win_rate=60,
-            avg_win=2.0,
-            avg_loss=1.0,
+            total_capital=1_000_000,
+            confidence=0.5,
         )
         assert size > 0
 
@@ -235,7 +229,6 @@ class TestSignalCombiner:
             signal=sig_type,
             score=score,
             confidence=confidence,
-            entry_price=100.0,
             stop_loss=95.0,
             take_profit=110.0,
             reason=reason,

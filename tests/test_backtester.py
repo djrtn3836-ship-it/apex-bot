@@ -53,7 +53,7 @@ class TestBacktester:
 
         backtester = Backtester()
         df = create_test_df(200)
-        result = await backtester.run(df, random_signal_fn, "KRW-BTC", 1_000_000)
+        result = result = backtester.run(df, random_signal_fn, "KRW-BTC", 1_000_000)
 
         assert result is not None
         assert result.initial_capital == 1_000_000
@@ -69,7 +69,7 @@ class TestBacktester:
 
         backtester = Backtester()
         df = create_test_df(300)
-        result = await backtester.run(df, random_signal_fn, "KRW-ETH", 1_000_000)
+        result = result = backtester.run(df, random_signal_fn, "KRW-ETH", 1_000_000)
 
         assert hasattr(result, "total_return")
         assert hasattr(result, "sharpe_ratio")
@@ -86,7 +86,7 @@ class TestBacktester:
 
         backtester = Backtester()
         df = create_test_df(200)
-        result = await backtester.run(df, random_signal_fn, "KRW-BTC", 1_000_000)
+        result = result = backtester.run(df, random_signal_fn, "KRW-BTC", 1_000_000)
 
         if result.trades:
             mc = backtester.monte_carlo(result.trades, n_simulations=100)
@@ -103,7 +103,7 @@ class TestBacktester:
 
         backtester = Backtester()
         df = create_test_df(500)
-        results = await backtester.walk_forward(df, random_signal_fn, "KRW-BTC", n_splits=3)
+        results = await backtester.walk_forward(df, "default", "KRW-BTC", n_splits=3)
 
         assert len(results) == 3
         for r in results:
@@ -120,7 +120,7 @@ class TestBacktester:
         df = create_test_df(100)
         # 신호 없는 전략
         no_signal_fn = lambda df: pd.Series(0, index=df.index)
-        result = await backtester.run(df, no_signal_fn, "KRW-BTC", 1_000_000)
+        result = result = backtester.run(df, no_signal_fn, "KRW-BTC", 1_000_000)
 
         assert result.total_trades == 0
         assert result.final_capital == 1_000_000  # 손익 없음

@@ -196,12 +196,20 @@ class MultiStreamCollector:
        WebSocket"""
     MAX_MARKETS_PER_STREAM = 20  # 스트림당 최대 20개 코인
 
+    # 업비트 WebSocket 연결 제한: 초당 5회 → 연결 간격 최소 0.25초
+    # 429 방지를 위해 실제 연결 완료 후 대기 (create_task 후 sleep)
+    CONNECT_INTERVAL = 0.5   # 스트림 간 연결 간격 (초) — 429 방지
+    CONNECT_WAIT     = 1.0   # 연결 후 안정화 대기 (초)
+
     def __init__(self, all_markets: List[str], on_candle: Callable,
-                 on_trade: Callable, on_orderbook: Callable):
-        self.all_markets = all_markets
-        self.on_candle = on_candle
-        self.on_trade = on_trade
-        self.on_orderbook = on_orderbook
+                 on_trade: Callable, on_orderbook: Callable,
+                 target_markets: Optional[List[str]] = None):
+        self.all_markets    = all_markets
+        # orderbook 구독 대상: target_markets(10개)만, 없으면 all_markets
+        self.target_markets = target_markets or all_markets
+        self.on_candle      = on_candle
+        self.on_trade       = on_trade
+        self.on_orderbook   = on_orderbook
         self._collectors: List[UpbitWebSocketCollector] = []
         self._tasks: List[asyncio.Task] = []
         self._started: bool = False  # start() 호출 여부 플래그
@@ -225,23 +233,45 @@ class MultiStreamCollector:
             await self.on_orderbook(data)
 
     async def start(self):
-        """start 실행"""
+        """start 실행
+        [WS-2] 변경사항:
+          - subscribe_trade() 제거: _on_ws_trade=pass로 미사용, 불필요한 데이터
+          - orderbook 구독: target_markets(10개)만, 전체 254개 → 불필요
+          - CONNECT_INTERVAL(0.5s): create_task 후 실제 연결 간격 보장
+          - CONNECT_WAIT(1.0s): 첫 3개 스트림 이후 안정화 대기
+        """
         self._started = True  # 즉시 플래그 (WS-WATCH 재진입 방지)
-        chunks = self._chunk_markets()
-        logger.info(f" {len(chunks)}개 스트림으로 {len(self.all_markets)}개 마켓 수집 시작")
+        chunks       = self._chunk_markets()
+        # orderbook 전용 스트림: target_markets만 (10개)
+        ob_collector = (
+            UpbitWebSocketCollector(list(self.target_markets), self._message_router)
+            .subscribe_orderbook()
+        )
+        self._collectors.append(ob_collector)
+        ob_task = asyncio.create_task(ob_collector.run(), name="stream_orderbook")
+        self._tasks.append(ob_task)
+        await asyncio.sleep(self.CONNECT_INTERVAL)
+
+        logger.info(
+            f"[WS-START] {len(chunks)}개 ticker 스트림 + 1개 orderbook 스트림 "
+            f"| 총 {len(self.all_markets)}개 마켓"
+        )
 
         for i, chunk in enumerate(chunks):
             collector = (
                 UpbitWebSocketCollector(chunk, self._message_router)
                 .subscribe_ticker()
-                .subscribe_trade()
-                .subscribe_orderbook()
+                # [WS-2] trade 제거: engine.py _on_ws_trade = pass (미사용)
             )
             self._collectors.append(collector)
-            task = asyncio.create_task(collector.run(), name=f"stream_{i}")
+            task = asyncio.create_task(collector.run(), name=f"stream_ticker_{i}")
             self._tasks.append(task)
-            # 연결 간격 (업비트 제한: 초당 5회)
-            await asyncio.sleep(0.3)
+            # [WS-2] 실제 연결 간격 보장: 업비트 초당 5회 제한 → 0.5s 간격
+            await asyncio.sleep(self.CONNECT_INTERVAL)
+            # 처음 3개 스트림 이후 추가 안정화 대기
+            if i == 2:
+                logger.info("[WS-START] 초기 3개 스트림 연결 완료 → 1초 안정화 대기")
+                await asyncio.sleep(self.CONNECT_WAIT)
 
     async def stop(self):
         """stop 실행"""
@@ -254,17 +284,30 @@ class MultiStreamCollector:
     # ── 호환 인터페이스 (UpbitWebSocketCollector와 동일한 API) ──────────
     @property
     def _running(self) -> bool:
-        """하위 스트림 중 하나라도 실행 중이면 True"""
-        return self._started or any(c._running for c in self._collectors)
+        """하위 스트림 중 하나라도 실행 중이면 True
+        [WS-3] _started 단독 의존 제거:
+          _started=True이지만 모든 collector 종료 → False 반환 (재시작 감지 가능)
+        """
+        if not self._collectors:
+            return self._started  # 아직 start() 전: _started 기준
+        return any(c._running for c in self._collectors)
 
     async def run(self):
         """engine_schedule.py 호환용 run() → start() 래퍼
-        기존 ws_collector.run() 호출부 수정 없이 동작"""
+        [WS-4] 재시작 시 _collectors/_tasks 초기화 후 start() 재호출
+        """
         if not self._collectors:
             await self.start()
         else:
-            # 이미 start() 됐으면 모든 스트림 태스크가 끝날 때까지 대기
-            if self._tasks:
+            # 재시작 감지: 모든 collector 종료 → 초기화 후 재시작
+            if not any(c._running for c in self._collectors):
+                logger.info("[WS-RUN] 모든 스트림 종료 감지 → collectors 초기화 후 재시작")
+                self._collectors.clear()
+                self._tasks.clear()
+                self._started = False
+                await self.start()
+            elif self._tasks:
+                # 실행 중: 모든 스트림 태스크가 끝날 때까지 대기
                 await asyncio.gather(*self._tasks, return_exceptions=True)
 
 

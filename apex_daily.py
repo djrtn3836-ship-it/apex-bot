@@ -1,4 +1,4 @@
-﻿import sqlite3, json, os
+import sqlite3, json, os
 from datetime import datetime
 
 conn = sqlite3.connect('database/apex_bot.db')

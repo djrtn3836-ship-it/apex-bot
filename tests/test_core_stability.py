@@ -199,7 +199,7 @@ class TestFearGreedMonitor:
 
 
 # ── 6. 포지션 사이저 테스트 ────────────────────────────────
-class TestPositionSizer:
+class TestKellyPositionSizer:
     def test_calc_position_size_basic(self):
         from core.engine import calc_position_size
         result = calc_position_size(

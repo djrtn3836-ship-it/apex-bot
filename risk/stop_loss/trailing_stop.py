@@ -28,7 +28,7 @@ class TrailingStopManager:
         (0.02, 0.015),
         (0.01, 0.020),
     ]   # +2% ?ъ꽦???몃젅?쇰쭅 ?쒖꽦??
-    TRAIL_PCT     = 0.015  # 怨좎젏 ?鍮?-1.5% ?섎씫??留ㅻ룄
+    # [S-C3 FIX] 중복 TRAIL_PCT 정의 제거됨
 
     def __init__(self):
         self._states: Dict[str, TrailingState] = {}

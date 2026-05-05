@@ -376,7 +376,9 @@ class MLPredictor:
                 hv = _pd.Series(_ret(c, 1)).rolling(n, min_periods=2).std().fillna(0).values
                 feats.append(_zs(hv))
             SEQ  = getattr(self, 'SEQ_LEN',    60)
-            ISIZ = getattr(self, 'INPUT_SIZE', 120)
+            # [PR-2 FIX] settings.ml.feature_count 기준으로 동적 참조
+            ISIZ = getattr(self, 'INPUT_SIZE',
+                          getattr(self.settings.ml, 'feature_count', 120))
             arr  = np.stack(feats, axis=0)
             n_f, T = arr.shape
             if T >= SEQ:
@@ -390,7 +392,8 @@ class MLPredictor:
                 arr = arr[:, :ISIZ]
             return np.nan_to_num(arr, nan=0.0, posinf=1.0, neginf=-1.0).astype(np.float32)
         except Exception as e:
-            self.logger.warning(f'_extract_features error: {e}')
+            # [PR-1 FIX] self.logger 미정의 → 모듈 레벨 logger 사용
+            logger.warning(f'[MLPredictor] _extract_features 오류: {e}')
             return None
 
 

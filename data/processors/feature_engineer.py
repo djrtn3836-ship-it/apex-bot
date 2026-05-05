@@ -82,10 +82,11 @@ class FeatureEngineer:
 
         # ─ 2. 이동평균 관련 피처 (20개) ─
         for period in [5, 10, 20, 50, 100, 200]:
-            if f"ema_{period}" in df.columns:
-                feat[f"ema_{period}_dist"] = (c - df[f"ema_{period}"]) / c
-            if f"sma_{period}" in df.columns:
-                feat[f"sma_{period}_dist"] = (c - df[f"sma_{period}"]) / c
+            # [FE-1 FIX] candle_processor는 ema{p} (언더스코어 없음) 로 저장
+            if f"ema{period}" in df.columns:
+                feat[f"ema{period}_dist"] = (c - df[f"ema{period}"]) / c
+            if f"sma{period}" in df.columns:
+                feat[f"sma{period}_dist"] = (c - df[f"sma{period}"]) / c
         # EMA 간 거리
         for fast, slow in [(5, 20), (20, 50), (50, 200)]:
             if f"ema_{fast}" in df.columns and f"ema_{slow}" in df.columns:

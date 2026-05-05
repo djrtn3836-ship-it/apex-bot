@@ -10,9 +10,11 @@ from loguru import logger
 from strategies.base_strategy import BaseStrategy, Signal, SignalType
 from strategies.v2.context.market_context import MarketContextEngine, MarketContext
 from strategies.v2.order_block_v2 import OrderBlockStrategy2
-from strategies.v2.vol_breakout_v2 import VolBreakoutStrategy2
+# [FX-1] VolBreakout 비활성화 (-₩3,521) — import 불필요
+# from strategies.v2.vol_breakout_v2 import VolBreakoutStrategy2
 from strategies.v2.supertrend_v2 import SupertrendStrategy2
-from strategies.v2.vwap_v2 import VWAPReversionStrategy2
+# [FX-1] VWAP_Reversion 비활성화 (-₩3,158) — import 불필요
+# from strategies.v2.vwap_v2 import VWAPReversionStrategy2
 from strategies.v2.macd_v2 import MACDCrossStrategy2
 from strategies.v2.rsi_v2 import RSIDivergenceStrategy2
 from strategies.v2.bollinger_v2 import BollingerSqueezeStrategy2
@@ -56,27 +58,39 @@ class EnsembleEngine:
         "Bollinger_Squeeze": 1.6,
         "ATR_Channel":       1.5,
         "OrderBlock_SMC":    2.0,
-        "VolBreakout":       0.3,
         "Supertrend":        0.8,
-        "VWAP_Reversion":    0.5,
+        # [ST-1] VWAP_Reversion 비활성화: DB -₩3,158, 42% 승률 (2026-05-03)
+        # "VWAP_Reversion":    0.5,
+        # [ST-2] VolBreakout 비활성화: DB -₩3,521, 29% 승률 (2026-05-03)
+        # "VolBreakout":       0.3,
     }
+
+    # [FIX-B] 비활성화 전략 목록 — 여기서만 관리
+    # 추가 시: 전략명을 이 set에 추가하면 앙상블 전체에서 자동 제외
+    DISABLED_STRATEGIES: set = {"VWAP_Reversion", "VolBreakout"}
 
     REFERENCE_WR:     float = 0.55
     MIN_SIGNALS_NEEDED: int  = 2
     ENTRY_THRESHOLD:  float = 0.55
 
-    # 레짐별 전략 부스트 (RANGING/TRENDING/VOLATILE)
+    # 레짐별 전략 부스트 [EN-H2] GlobalRegime 실제 enum 값과 일치하도록 수정
+    # GlobalRegime: TRENDING_UP / TRENDING_DOWN / RANGING / VOLATILE
+    #               BEAR_REVERSAL / RECOVERY / UNKNOWN
     REGIME_BOOSTS: Dict[str, Dict[str, float]] = {
-        "RANGING":   {"VWAP_Reversion": 1.3, "Bollinger_Squeeze": 1.2, "RSI_Divergence": 1.1},
-        "TRENDING":  {"Supertrend": 1.4, "MACD_Cross": 1.3, "ATR_Channel": 1.2},
-        "VOLATILE":  {"VolBreakout": 1.5, "OrderBlock_SMC": 1.3, "ATR_Channel": 1.2},
-        "BEARISH":   {"RSI_Divergence": 1.2, "VWAP_Reversion": 1.1},
-        "BULLISH":   {"MACD_Cross": 1.3, "Supertrend": 1.2, "OrderBlock_SMC": 1.1},
+        # [ST-1] VWAP_Reversion 제거, [ST-2] VolBreakout 제거
+        "RANGING":       {"Bollinger_Squeeze": 1.2, "RSI_Divergence": 1.1},
+        "TRENDING_UP":   {"Supertrend": 1.4, "MACD_Cross": 1.3, "ATR_Channel": 1.2,
+                          "OrderBlock_SMC": 1.1},
+        "TRENDING_DOWN": {"RSI_Divergence": 1.2, "Supertrend": 0.7},
+        "VOLATILE":      {"OrderBlock_SMC": 1.3, "ATR_Channel": 1.2},
+        "BEAR_REVERSAL": {"RSI_Divergence": 1.3, "OrderBlock_SMC": 1.2},
+        "RECOVERY":      {"MACD_Cross": 1.3, "OrderBlock_SMC": 1.2, "Bollinger_Squeeze": 1.1},
+        "UNKNOWN":       {},  # 레짐 불명 시 boost 없음
     }
 
     @staticmethod
     def _load_base_weights() -> dict:
-        """config/optimized_params.json 에서 전략별 boost 반환"""
+        """config/optimized_params.json 에서 전략별 boost 반환 [EN-M1 로그 강화]"""
         try:
             import json as _j, pathlib as _pl
             _cfg = _j.loads(_pl.Path('config/optimized_params.json')
@@ -88,20 +102,29 @@ class EnsembleEngine:
                 'RSI_Divergence':    'RSI_Divergence',
                 'MACD_Cross':        'MACD_Cross',
                 'ATR_Channel':       'ATR_Channel',
-                'VWAP_Reversion':    'VWAP_Reversion',
+                # [FIX-A] 'VWAP_Reversion': 'VWAP_Reversion',  # 비활성화: -₩3,158
                 'Supertrend':        'Supertrend',
-                'Vol_Breakout':      'VolBreakout',
+                # [ST-2] 'Vol_Breakout': 'VolBreakout',  # 비활성화: -₩3,521
             }
-            return {eng_k: _strats[cfg_k].get('boost', 1.0)
-                    for cfg_k, eng_k in _MAP.items()
-                    if cfg_k in _strats}
+            result = {eng_k: _strats[cfg_k].get('boost', 1.0)
+                      for cfg_k, eng_k in _MAP.items()
+                      if cfg_k in _strats}
+            # [EN-M1] 적용값 명시 로그
+            for eng_k, boost_v in result.items():
+                logger.debug(f'[Ensemble] config boost 적용: {eng_k:20s} boost={boost_v:.3f}')
+            return result
         except Exception as _e:
+            logger.debug(f'[Ensemble] config 로드 실패: {_e}')
             return {}
 
     def __init__(self, settings=None):
         # config boost 값 반영
         _cfg_boosts = self._load_base_weights()
         self.BASE_WEIGHTS = {**self.BASE_WEIGHTS, **_cfg_boosts}
+        # [FIX-C] 비활성화 전략 이중 필터링
+        # → _MAP 주석처리(FIX-A)로 이미 차단, 여기서 최종 방어
+        for _dis in self.DISABLED_STRATEGIES:
+            self.BASE_WEIGHTS.pop(_dis, None)
         if _cfg_boosts:
             logger.info(f'[Ensemble] config boost {len(_cfg_boosts)}개 적용')
         else:
@@ -109,7 +132,7 @@ class EnsembleEngine:
         # 필수 속성 초기화
         self._db_path = 'database/apex_bot.db'
         try:
-            from core.market_context import MarketContextEngine
+            # [FX-2] 경로 통일: strategies.v2.context.market_context (core.market_context 제거)
             self._context_engine = MarketContextEngine()
         except Exception:
             self._context_engine = None
@@ -126,9 +149,11 @@ class EnsembleEngine:
             "Bollinger_Squeeze": BollingerSqueezeStrategy2(),
             "ATR_Channel":       ATRChannelStrategy2(),
             "OrderBlock_SMC":    OrderBlockStrategy2(),
-            "VolBreakout":       VolBreakoutStrategy2(),
             "Supertrend":        SupertrendStrategy2(),
-            "VWAP_Reversion":    VWAPReversionStrategy2(),
+            # [ST-1] VWAP_Reversion 비활성화: 손실 전략 (-₩3,158, 42% 승률)
+            # "VWAP_Reversion":    VWAPReversionStrategy2(),
+            # [ST-2] VolBreakout 비활성화: 손실 전략 (-₩3,521, 29% 승률)
+            # "VolBreakout":       VolBreakoutStrategy2(),
         }
         for name, base_w in self.BASE_WEIGHTS.items():
             self._weights[name] = StrategyWeight(
@@ -137,13 +162,20 @@ class EnsembleEngine:
                 recent_wr=self.REFERENCE_WR,
                 dynamic_weight=base_w,
             )
-        logger.info(f"[Ensemble] 8개 전략 초기화 완료")
+        logger.info(f"[Ensemble] {len(self._strategies)}개 전략 초기화 완료 (VWAP/VolBreakout 비활성화)")
 
     def _load_recent_performance(self):
-        """DB에서 최근 20거래 승률 로드 → 동적 가중치 계산"""
+        """DB에서 최근 20거래 승률 로드 → 동적 가중치 계산
+        [EN-Q1]  try/finally로 연결 누수 방지
+        [EN-C3-b] bot_state에서 인메모리 카운터 복원
+        """
+        conn = None
         try:
-            conn = sqlite3.connect(self._db_path)
-            for name in self.BASE_WEIGHTS:
+            # [EN-Q1] timeout=5: aiosqlite WAL 동시 쓰기 충돌 방어
+            conn = sqlite3.connect(self._db_path, timeout=5)
+            # [FIX-D] BASE_WEIGHTS → _weights 기준 순회
+            # → 비활성화 전략이 BASE_WEIGHTS에 잔류해도 KeyError 방지
+            for name in self._weights:
                 rows = conn.execute(
                     """
                     SELECT profit_rate FROM trade_history
@@ -164,21 +196,65 @@ class EnsembleEngine:
                         f"[Ensemble] {name:20s} WR={wr:.1%} "
                         f"→ weight={new_w:.2f}"
                     )
-            conn.close()
+
+            # [EN-C3-b] bot_state에서 인메모리 카운터 복원
+            # → 재시작 시 update_result() 누적값 유지
+            import json as _js_r
+            _restored = 0
+            # [FIX-E] BASE_WEIGHTS → _weights 기준 순회 (비활성화 전략 제외)
+            for name in self._weights:
+                try:
+                    _key = f"ensemble_counter_{name}"
+                    _row = conn.execute(
+                        "SELECT value FROM bot_state WHERE key=?",
+                        (_key,)
+                    ).fetchone()
+                    if _row:
+                        _data = _js_r.loads(_row[0])
+                        self._weights[name].signal_count = _data.get("signal_count", 0)
+                        self._weights[name].win_count    = _data.get("win_count", 0)
+                        _restored += 1
+                        logger.debug(
+                            f"[Ensemble] {name} 카운터 복원 | "
+                            f"signal={self._weights[name].signal_count} "
+                            f"win={self._weights[name].win_count}"
+                        )
+                except Exception as _ce:
+                    logger.debug(f"[Ensemble] {name} 카운터 복원 실패: {_ce}")
+            if _restored:
+                logger.info(f"[Ensemble] 인메모리 카운터 복원: {_restored}개")
+
         except Exception as e:
             logger.warning(f"[Ensemble] 성과 로드 실패: {e}")
+        finally:
+            # [EN-Q1] 예외 발생 시에도 반드시 연결 해제
+            if conn is not None:
+                try:
+                    conn.close()
+                except Exception:
+                    pass
 
     def decide(
         self,
         df: pd.DataFrame,
         market: str,
         ctx: Optional[MarketContext] = None,
+        fallback_regime: str = 'RANGING',  # [EN-M3] engine_buy에서 GlobalRegime 주입
     ) -> EnsembleDecision:
         """메인 진입 결정 함수"""
         try:
             if ctx is None:
                 ctx = (self._context_engine.analyze(df, market)
                    if self._context_engine is not None else None)
+
+            # [EN-M3] ctx 여전히 None이면 fallback_regime 사용
+            _regime_str = (
+                getattr(ctx, 'regime', fallback_regime)
+                if ctx is not None else fallback_regime
+            )
+            # enum → str 변환 보호
+            if hasattr(_regime_str, 'value'):
+                _regime_str = _regime_str.value
 
             signals: Dict[str, Signal] = {}
 
@@ -204,7 +280,7 @@ class EnsembleEngine:
                 )
 
             # 동적 가중치 합산
-            regime_boosts = self.REGIME_BOOSTS.get(getattr(ctx, 'regime', 'RANGING'), {})
+            regime_boosts = self.REGIME_BOOSTS.get(_regime_str, {})
             total_score   = 0.0
             total_weight  = 0.0
             best_name     = ""
@@ -236,7 +312,7 @@ class EnsembleEngine:
             should_enter = normalized >= self.ENTRY_THRESHOLD
 
             reasoning = (
-                f"레짐={getattr(ctx, 'regime', 'RANGING')} | "
+                f"레짐={_regime_str} | "
                 f"신호={len(signals)}개 | "
                 f"점수={normalized:.3f} | "
                 f"주도전략={best_name}"
@@ -259,7 +335,7 @@ class EnsembleEngine:
                 position_size_mult=size_mult,
                 signals_fired=list(signals.keys()),
                 dominant_strategy=best_name,
-                regime=getattr(ctx, 'regime', 'RANGING'),
+                regime=_regime_str,
                 reasoning=reasoning,
             )
 
@@ -277,22 +353,63 @@ class EnsembleEngine:
             )
 
     def update_result(self, strategy_name: str, profit_rate: float):
-        """거래 결과 반영 → 동적 가중치 실시간 업데이트"""
+        """
+        거래 결과 반영 → 동적 가중치 실시간 업데이트 [EN-M2]
+        - 임계 5→3건으로 완화 (재시작 빈번한 환경 대응)
+        - DB 최신 성과와 인메모리 성과 가중 평균으로 안정화
+        - 가중치 클램핑: base_weight × 0.5 ~ base_weight × 2.0
+        """
         if strategy_name not in self._weights:
             return
         w = self._weights[strategy_name]
         w.signal_count += 1
         if profit_rate > 0:
             w.win_count += 1
-        if w.signal_count >= 5:
-            new_wr    = w.win_count / w.signal_count
-            perf_mult = new_wr / self.REFERENCE_WR
-            new_w     = w.base_weight * perf_mult
-            w.recent_wr      = new_wr
-            w.dynamic_weight = round(max(0.1, min(new_w, 3.0)), 3)
+
+        # [EN-M2] 임계 3건으로 완화
+        # [EN-C3-a] 카운터를 bot_state 테이블에 영속화
+        # → 재시작 시 _load_recent_performance()에서 복원
+        # timeout=5: aiosqlite WAL 동시 쓰기 충돌 방어
+        try:
+            import json as _js_u
+            _key = f"ensemble_counter_{strategy_name}"
+            _val = _js_u.dumps({
+                "signal_count": w.signal_count,
+                "win_count":    w.win_count,
+            })
+            _conn_u = sqlite3.connect(self._db_path, timeout=5)
+            _conn_u.execute(
+                """
+                INSERT INTO bot_state(key, value, updated_at)
+                VALUES(?, ?, datetime('now','localtime'))
+                ON CONFLICT(key) DO UPDATE
+                SET value=excluded.value,
+                    updated_at=excluded.updated_at
+                """,
+                (_key, _val)
+            )
+            _conn_u.commit()
+            _conn_u.close()
+        except Exception as _ue:
+            logger.debug(f"[Ensemble] 카운터 저장 실패: {_ue}")
+
+        if w.signal_count >= 3:
+            mem_wr    = w.win_count / w.signal_count
+            # DB 최근 승률과 인메모리 승률 가중 평균 (DB 70%, 메모리 30%)
+            # → 재시작 직후 소수 거래로 인한 급격한 가중치 변동 방지
+            blended_wr = w.recent_wr * 0.7 + mem_wr * 0.3
+            perf_mult  = blended_wr / self.REFERENCE_WR
+            new_w      = w.base_weight * perf_mult
+            # 클램핑: base × 0.5 ~ base × 2.0
+            clamped_w  = round(
+                max(w.base_weight * 0.5, min(new_w, w.base_weight * 2.0)), 3
+            )
+            w.recent_wr      = blended_wr
+            w.dynamic_weight = clamped_w
             logger.info(
                 f"[Ensemble] 가중치 업데이트 | {strategy_name} | "
-                f"WR={new_wr:.1%} → weight={new_w:.2f}"
+                f"DB_WR={w.recent_wr:.1%} MEM_WR={mem_wr:.1%} "
+                f"blended={blended_wr:.1%} → weight={clamped_w:.2f}"
             )
 
     def get_weight_summary(self) -> str:

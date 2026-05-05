@@ -40,9 +40,9 @@ class TradingConfig:
     min_order_amount: int = 5000
     fee_rate: float = 0.0005
     slippage_rate: float = 0.001
-    max_positions: int = 15
+    max_positions: int = 5
     max_dynamic_coins: int = 20  # [FIX] SCR-FASTTRACK 동적 감시 종목 한도
-    max_position_ratio: float = 0.20
+    max_position_ratio: float = 0.17
 
 
 @dataclass
@@ -55,16 +55,17 @@ class RiskConfig:
     atr_target_multiplier: float = 4.0
     trailing_stop_activation: float = 0.020
     trailing_stop_distance: float = 0.015
-    daily_loss_limit: float = 0.05
+    daily_loss_limit: float = 0.03
     total_drawdown_limit: float = 0.15
     monthly_loss_limit: float = 0.15
     consecutive_loss_limit: int = 5
-    buy_signal_threshold: float = 0.45
+    buy_signal_threshold: float = 0.55
     sell_signal_threshold: float = 0.55
     # Phase 8 추가
     regime_bear_max_positions: int = 0       # BEAR 레짐 최대 포지션
     regime_bear_watch_max_ratio: float = 0.5 # BEAR_WATCH 포지션 비율
     surge_min_score: float = 0.35            # [FIX] 0.60->0.35 (score 0~1 scale)            # Surge 최소 점수
+    # [ST-5] surge_size_ratio: 현재 미참조 (dead code)
     surge_size_ratio: float = 0.70           # Surge 포지션 크기 비율
 
 
@@ -95,10 +96,11 @@ class MLConfig:
 @dataclass
 class StrategyConfig:
     """? ?"""
+    # [ST-5] enabled_strategies: 앙상블 엔진 미참조 (dead code)
+    # 실제 전략 제어 → strategies/v2/ensemble_engine.py BASE_WEIGHTS
     enabled_strategies: List[str] = field(default_factory=lambda: [
         # Phase9 백테스트 결과 기반 최적화
         # 유효 전략 (rsi_divergence +6.3%/년, mean_reversion +5.3%/년)
-        "RSI_Divergence",     # ★ 최고 성과: 승률 67.4%, 샤프 0.26
         "Williams_R",         # RSI 계열 유지
         "MACD_Cross",         # 보조 (macd_momentum 중립)
         "Bollinger_Squeeze",  # mean_reversion 계열
@@ -107,6 +109,8 @@ class StrategyConfig:
         # "Smart_Money",      # Phase9: order_block_smc 성과 부진 (-16.1%/년)
         "Ichimoku_Cloud"      # 추세 보조
     ])
+    # [ST-5] signal_weight: 앙상블 엔진 미참조 (dead code)
+    # 실제 가중치 → strategies/v2/ensemble_engine.py dynamic_weight
     signal_weight: dict = field(default_factory=lambda: {
         "ML": 0.50,           # Phase9: ML 비중 상향 (val_acc=76.7%)
         "Technical": 0.30,    # rsi_divergence + mean_reversion 중심
@@ -192,6 +196,13 @@ class Settings:
         )
         return self
 
+    @property
+    def STRATEGY_SL_RATIO(self) -> dict:
+        """모듈 레벨 STRATEGY_SL_RATIO를 인스턴스 속성으로 노출"""
+        import config.settings as _mod
+        return getattr(_mod, 'STRATEGY_SL_RATIO', {"DEFAULT": 0.017})
+
+
 
 _settings: Optional[Settings] = None
 
@@ -201,3 +212,19 @@ def get_settings() -> Settings:
     if _settings is None:
         _settings = Settings().validate()
     return _settings
+# ── [PHASE2-D] 전략별 SL/TP 비율 상수 ───────────────────────────
+# 각 전략의 stop_loss = entry_price * (1 - SL_RATIO)
+# 값을 바꾸면 모든 전략에 즉시 반영됨
+STRATEGY_SL_RATIO = {
+    "Bollinger_Squeeze": 0.020,   # -2.0%
+    "OrderBlock_SMC":    0.015,   # -1.5%
+    "VWAP_Reversion":    0.015,   # -1.5%
+    "DEFAULT":           0.017,   # -1.7% (기본값)
+}
+STRATEGY_TP_RATIO = {
+    "Bollinger_Squeeze": 0.040,   # +4.0%
+    "OrderBlock_SMC":    0.050,   # +5.0%
+    "VWAP_Reversion":    0.050,   # +5.0%
+    "DEFAULT":           0.045,   # +4.5% (기본값)
+}
+# ──────────────────────────────────────────────────────────────

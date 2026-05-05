@@ -106,6 +106,18 @@ class EngineDBMixin:
                         market=mkt, entry_price=_price,
                         initial_stop=_sl, atr=0.0,
                     )
+                    # ★ [FIX] SmartWallet transactions 등록
+                    # record_buy 없으면 bot_qty=0 → SELL 영구 거부
+                    try:
+                        _coin = mkt.replace("KRW-", "")
+                        self._wallet.record_buy(
+                            symbol=_coin,
+                            qty=_volume,
+                            price=_price,
+                        )
+                        logger.debug(f"[RESTORE-SW] {mkt} SmartWallet 등록 완료 | bot_qty={_volume:.4f}")
+                    except Exception as _sw_e:
+                        logger.warning(f"[RESTORE-SW] {mkt} SmartWallet 등록 실패: {_sw_e}")
                     if self.position_mgr_v2 is not None:
                         try:
                             from risk.position_manager_v2 import PositionV2
@@ -146,7 +158,7 @@ class EngineDBMixin:
                     total_invested += _amount_krw
                     _held_h = (time.time() - _entry_time) / 3600
                     logger.info(
-                        f"포지션 복원 | {mkt} | 진입가={_price:,.0f} | "
+                        f"포지션 복원 | {mkt} | 진입가={_price if _price >= 1 else f'{_price:.8f}'.rstrip('0')} | "
                         f"보유={_held_h:.1f}h | SL={_sl:,.1f} | TP={_tp:,.1f} | {_strategy}"
                     )
 
@@ -165,8 +177,142 @@ class EngineDBMixin:
                     self.adapter.sync_paper_balance(_krw_cash, _open_pos)
                 except Exception as _sync_e:
                     logger.debug(f"잔고 동기화 오류: {_sync_e}")
+
+                # ★ [FIX] 복원 성공 후에도 업비트 실잔고와 수량 교차검증
+                # 중복매수 등으로 DB수량 != 실수량인 경우 DB를 실잔고로 보정
+                try:
+                    import uuid as _uuid2, jwt as _jwt2, requests as _req2
+                    _s2 = self.settings
+                    _ak2 = (getattr(getattr(_s2,'api',None),'access_key',None)
+                            or getattr(_s2,'access_key',None))
+                    _sk2 = (getattr(getattr(_s2,'api',None),'secret_key',None)
+                            or getattr(_s2,'secret_key',None))
+                    if _ak2 and _sk2:
+                        _pl2   = {'access_key': _ak2, 'nonce': str(_uuid2.uuid4())}
+                        _tok2  = _jwt2.encode(_pl2, _sk2, algorithm='HS256')
+                        if isinstance(_tok2, bytes):
+                            _tok2 = _tok2.decode('utf-8')
+                        _bal2  = _req2.get(
+                            'https://api.upbit.com/v1/accounts',
+                            headers={'Authorization': f'Bearer {_tok2}'}, timeout=10
+                        ).json()
+                        _bal_map = {
+                            b['currency']: float(b.get('balance',0)) + float(b.get('locked',0))
+                            for b in _bal2 if b.get('currency') != 'KRW'
+                        }
+                        PROTECTED2 = getattr(self.settings,'protected_coins',['XRP'])
+                        import aiosqlite as _aio2x
+                        async with _aio2x.connect(str(self.db_manager.db_path)) as _dbx:
+                            for _mkt2, _pos2 in list(self.portfolio.open_positions.items()):
+                                _coin2    = _mkt2.replace('KRW-','')
+                                if _coin2 in PROTECTED2:
+                                    continue
+                                _real_vol = _bal_map.get(_coin2, 0.0)
+                                _db_vol   = _pos2.volume
+                                # 수량 차이가 1% 이상이면 보정
+                                if _real_vol > 0.0001 and abs(_real_vol - _db_vol) / max(_real_vol, 0.0001) > 0.01:
+                                    logger.warning(
+                                        f"[CROSS-CHECK] {_mkt2} 수량 불일치 "
+                                        f"DB={_db_vol:.4f} vs 실잔고={_real_vol:.4f} → 실잔고로 보정"
+                                    )
+                                    _pos2.volume = _real_vol
+                                    await _dbx.execute(
+                                        "UPDATE positions SET volume=? WHERE market=?",
+                                        (_real_vol, _mkt2)
+                                    )
+                            await _dbx.commit()
+                except Exception as _cc_e:
+                    logger.debug(f"교차검증 오류: {_cc_e}")
+
             else:
-                logger.info("복원할 포지션 없음 (신규 시작)")
+                # ★ [FIX] DB 복원 실패 시 업비트 실잔고 자동 동기화
+                logger.info("[RESTORE] DB 포지션 없음 → 업비트 실잔고 자동 동기화 시도")
+                try:
+                    import uuid as _uuid3, jwt as _jwt3, requests as _req3
+                    import aiosqlite as _aio3x
+                    import time as _time3
+
+                    PROTECTED3 = getattr(self.settings,'protected_coins',['XRP'])
+                    _s3  = self.settings
+                    _ak3 = (getattr(getattr(_s3,'api',None),'access_key',None)
+                            or getattr(_s3,'access_key',None))
+                    _sk3 = (getattr(getattr(_s3,'api',None),'secret_key',None)
+                            or getattr(_s3,'secret_key',None))
+
+                    if _ak3 and _sk3:
+                        _pl3  = {'access_key': _ak3, 'nonce': str(_uuid3.uuid4())}
+                        _tok3 = _jwt3.encode(_pl3, _sk3, algorithm='HS256')
+                        if isinstance(_tok3, bytes):
+                            _tok3 = _tok3.decode('utf-8')
+                        _bal3 = _req3.get(
+                            'https://api.upbit.com/v1/accounts',
+                            headers={'Authorization': f'Bearer {_tok3}'}, timeout=10
+                        ).json()
+
+                        _now3    = _time3.time()
+                        _now3iso = datetime.now().isoformat()
+                        _synced3 = 0
+
+                        async with _aio3x.connect(str(self.db_manager.db_path)) as _db3x:
+                            for _item3 in _bal3:
+                                _coin3 = _item3.get('currency','')
+                                if _coin3 == 'KRW':
+                                    continue
+                                if _coin3 in PROTECTED3:
+                                    logger.info(f"[AUTO-SYNC] {_coin3} 보호코인 → 스킵")
+                                    continue
+                                _vol3 = float(_item3.get('balance',0)) + float(_item3.get('locked',0))
+                                _avg3 = float(_item3.get('avg_buy_price',0))
+                                _mkt3 = f'KRW-{_coin3}'
+                                if _vol3 < 0.0001 or _avg3 <= 0:
+                                    continue
+                                if _vol3 * _avg3 < 1000:
+                                    continue
+                                _amt3 = _vol3 * _avg3
+                                _sl3  = round(_avg3 * 0.978, 8)
+                                _tp3  = round(_avg3 * 1.047, 8)
+
+                                await _db3x.execute("""
+                                    INSERT OR REPLACE INTO positions
+                                    (market, entry_price, volume, amount_krw,
+                                     stop_loss, take_profit, strategy,
+                                     entry_time, pyramid_count, partial_exited,
+                                     breakeven_set, max_price, updated_at)
+                                    VALUES (?,?,?,?,?,?,?,?,0,0,0,?,?)
+                                """, (_mkt3, _avg3, _vol3, _amt3,
+                                      _sl3, _tp3, 'Auto_Sync',
+                                      _now3, _avg3, _now3iso))
+
+                                if not self.portfolio.is_position_open(_mkt3):
+                                    self.portfolio.open_position(
+                                        market=_mkt3, entry_price=_avg3,
+                                        volume=_vol3, amount_krw=_amt3,
+                                        strategy='Auto_Sync',
+                                        stop_loss=_sl3, take_profit=_tp3,
+                                        entry_time=_now3,
+                                    )
+                                    self.trailing_stop.add_position(
+                                        market=_mkt3, entry_price=_avg3,
+                                        initial_stop=_sl3, atr=0.0,
+                                    )
+                                logger.info(
+                                    f"[AUTO-SYNC] {_mkt3} | avg={_avg3:.4f} | "
+                                    f"vol={_vol3:.4f} | SL={_sl3:.4f} | TP={_tp3:.4f}"
+                                )
+                                _synced3 += 1
+
+                            await _db3x.commit()
+
+                        if _synced3:
+                            logger.info(f"[AUTO-SYNC] {_synced3}개 자동 동기화 완료")
+                        else:
+                            logger.info("[AUTO-SYNC] 동기화할 잔고 없음 (신규 시작)")
+                    else:
+                        logger.warning("[AUTO-SYNC] API 키 없음 → 스킵")
+                except Exception as _as_e:
+                    import traceback as _tb3
+                    logger.warning(f"[AUTO-SYNC] 실패: {_as_e}")
+                    logger.debug(_tb3.format_exc())
 
             # BEAR_REVERSAL 카운트 복원 [FIX-_aio2 미정의 변수 수정]
             try:

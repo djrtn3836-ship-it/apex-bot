@@ -213,7 +213,7 @@ class TestStrategies:
             assert isinstance(result, StrategySignal)
             assert 0 <= result.strength <= 1
             assert 0 <= result.confidence <= 1
-            assert result.signal_type in [SignalType.BUY, SignalType.SELL, SignalType.NEUTRAL]
+            assert result.signal_type in [SignalType.BUY, SignalType.SELL, SignalType.HOLD]
 
     def test_bollinger_squeeze(self, sample_ohlcv):
         from strategies.mean_reversion.bollinger_squeeze import BollingerSqueezeStrategy
@@ -243,31 +243,31 @@ class TestStrategies:
 # ════════════════════════════════════════════════════════════════
 #  6. 포지션 사이저 (risk.position_sizer)
 # ════════════════════════════════════════════════════════════════
-class TestPositionSizer:
+class TestKellyPositionSizer:
     def test_size_within_capital(self):
-        from risk.position_sizer import PositionSizer
-        ps = PositionSizer()
+        from risk.position_sizer import KellyPositionSizer
+        ps = KellyPositionSizer()
         capital = 1_000_000
-        size = ps.calculate(capital=capital, entry_price=50_000_000, atr=500_000)
+        size = ps.calculate(total_capital=capital, strategy="default", confidence=0.5)
         assert 0 < size <= capital
 
     def test_max_position_pct(self):
-        from risk.position_sizer import PositionSizer
-        ps = PositionSizer()
+        from risk.position_sizer import KellyPositionSizer
+        ps = KellyPositionSizer()
         capital = 10_000_000
-        size = ps.calculate(capital=capital, entry_price=50_000_000, atr=100_000)
+        size = ps.calculate(total_capital=capital, strategy="default", confidence=0.5)
         # 최대 자본의 20%
         assert size <= capital * 0.20 + 1  # +1 float rounding
 
     def test_zero_atr_safe(self):
-        from risk.position_sizer import PositionSizer
-        ps = PositionSizer()
-        # ATR=0이면 최소값 사용해야 함 (ZeroDivisionError 없어야)
+        from risk.position_sizer import KellyPositionSizer
+        ps = KellyPositionSizer()
+        # confidence=0 최솟값 테스트 (ZeroDivisionError 없어야)
         try:
-            size = ps.calculate(capital=1_000_000, entry_price=50_000_000, atr=0)
+            size = ps.calculate(total_capital=1_000_000, strategy="default", confidence=0.0)
             assert size >= 0
         except ZeroDivisionError:
-            pytest.fail("ATR=0에서 ZeroDivisionError 발생")
+            pytest.fail("confidence=0에서 ZeroDivisionError 발생")
 
 
 # ════════════════════════════════════════════════════════════════
@@ -310,15 +310,12 @@ class TestSignalCombiner:
         combiner = SignalCombiner(paper_settings)
         signals = [
             StrategySignal(strategy_name="test1", market="KRW-BTC", signal=SignalType.BUY,
-                           score=0.8, confidence=0.7, entry_price=50_000_000,
                            stop_loss=47_000_000, take_profit=53_000_000, reason="test",
                            timeframe="60", timestamp=pd.Timestamp.now()),
             StrategySignal(strategy_name="test2", market="KRW-BTC", signal=SignalType.BUY,
-                           score=0.6, confidence=0.8, entry_price=50_000_000,
                            stop_loss=47_000_000, take_profit=53_000_000, reason="test",
                            timeframe="60", timestamp=pd.Timestamp.now()),
             StrategySignal(strategy_name="test3", market="KRW-BTC", signal=SignalType.BUY,
-                           score=0.7, confidence=0.75, entry_price=50_000_000,
                            stop_loss=47_000_000, take_profit=53_000_000, reason="test",
                            timeframe="60", timestamp=pd.Timestamp.now()),
         ]
@@ -332,11 +329,9 @@ class TestSignalCombiner:
         combiner = SignalCombiner(paper_settings)
         signals = [
             StrategySignal(strategy_name="t1", market="KRW-BTC", signal=SignalType.BUY,
-                           score=0.5, confidence=0.5, entry_price=50_000_000,
                            stop_loss=47_000_000, take_profit=53_000_000, reason="test",
                            timeframe="60", timestamp=pd.Timestamp.now()),
             StrategySignal(strategy_name="t2", market="KRW-BTC", signal=SignalType.SELL,
-                           score=0.5, confidence=0.5, entry_price=50_000_000,
                            stop_loss=47_000_000, take_profit=53_000_000, reason="test",
                            timeframe="60", timestamp=pd.Timestamp.now()),
         ]
@@ -378,7 +373,6 @@ class TestPortfolioManager:
         pm.set_initial_capital(10_000_000)
         pm.open_position(
             market="KRW-BTC",
-            entry_price=50_000_000,
             volume=0.01,
             amount_krw=500_000,
             strategy="test",

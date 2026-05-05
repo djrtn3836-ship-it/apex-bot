@@ -1,4 +1,4 @@
-﻿import asyncio, sqlite3, sys, os, re, inspect
+import asyncio, sqlite3, sys, os, re, inspect
 from datetime import datetime, timedelta
 sys.path.insert(0, ".")
 

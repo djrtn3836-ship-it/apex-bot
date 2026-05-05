@@ -7,6 +7,15 @@ from loguru import logger
 from strategies.base_strategy import BaseStrategy, Signal, SignalType, safe_float, safe_last, safe_rolling_mean, safe_rolling_std, safe_div, kst_now
 from strategies.v2.context.market_context import MarketContextEngine, MarketContext
 
+# [PHASE2-D] settings SL 참조
+try:
+    from config.settings import Settings as _SettingsClass; _SETTINGS = _SettingsClass()
+except Exception:
+    class _SettingsClass:
+        STRATEGY_SL_RATIO = {"DEFAULT": 0.017}
+        STRATEGY_TP_RATIO = {"DEFAULT": 0.045}
+    _SETTINGS = _SettingsClass()
+
 
 @dataclass
 class OrderBlock:
@@ -75,10 +84,11 @@ class OrderBlockStrategy2(BaseStrategy):
 
     def _detect_order_blocks(self, df: pd.DataFrame, ctx: MarketContext) -> List[OrderBlock]:
         obs: List[OrderBlock] = []
-        close  = df["close"].values
-        high   = df["high"].values
-        low    = df["low"].values
-        volume = df["volume"].values
+        close    = df["close"].values
+        high     = df["high"].values
+        low      = df["low"].values
+        volume   = df["volume"].values
+        open_arr = df["open"].values  # [BUG-REAL-4 FIX]
 
         avg_vol = np.mean(volume[-20:]) if len(volume) >= 20 else np.mean(volume)
         atr     = self._calc_atr(high, low, close, 14)
@@ -86,7 +96,7 @@ class OrderBlockStrategy2(BaseStrategy):
         for i in range(3, len(df) - 1):
             # 충격 이동 감지 (다음 캔들이 ATR * 배수 이상 이동)
             # 현재 봉 자체 이동폭 (고가-저가) + 전봉 대비 변화폭 중 큰 값
-            body_move = abs(close[i] - open_[i]) if 'open_' in dir() else abs(high[i] - low[i])
+            body_move = abs(close[i] - open_arr[i])  # [BUG-REAL-4 FIX]
             gap_move  = abs(close[i] - close[i-1]) if i > 0 else 0
             next_move = max(body_move, gap_move)
             if next_move < atr * self.IMPULSE_ATR_MULT:
@@ -195,7 +205,7 @@ class OrderBlockStrategy2(BaseStrategy):
             market         = market,
             score          = confidence * 2.0 - 1.0,
             entry_price    = safe_last(df["close"]),
-            stop_loss      = safe_last(df["close"]) * 0.985,
+            stop_loss      = safe_last(df["close"]) * (1 - _SETTINGS.STRATEGY_SL_RATIO.get("OrderBlock_SMC", 0.017)),
             take_profit    = safe_last(df["close"]) * 1.045,
             reason         = f"{self.NAME} v2 신호",
             timeframe      = "1h",

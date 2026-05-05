@@ -40,8 +40,9 @@ class PartialExitState:
                 tp_range = self.entry_price * 0.05
             self.levels = [
                 PartialExitLevel(
-                    profit_pct=(self.entry_price * 1 + tp_range * 0.5 - self.entry_price)
-                               / self.entry_price,
+                    # PE-1: 수식 패턴 통일 (수치 동일, Step2/3과 일관성)
+                    # 원본: (entry_price*1 + tp_range*0.5 - entry_price)/entry_price
+                    profit_pct=tp_range * 0.5 / self.entry_price,
                     exit_ratio=0.40,  # [FIX] 25%→40% 초반 수익 확보 강화
                 ),
                 PartialExitLevel(
@@ -132,7 +133,7 @@ class PartialExitManager:
                 exit_volume = min(exit_volume, state.remaining_volume)
                 # 코인별 소수점 내림 (찌꺼기 방지)
                 try:
-                    from core.engine import _floor_vol as _fv
+                    from core.engine_utils import _floor_vol as _fv  # [S-C1 FIX]
                     exit_volume = _fv(market, exit_volume)
                 except Exception:
                     exit_volume = round(exit_volume, 4)

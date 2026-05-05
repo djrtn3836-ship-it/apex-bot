@@ -354,7 +354,12 @@ class EngineScheduleMixin:
         daily_pnl = self.portfolio.get_daily_pnl(total)
         report    = {
             **stats,
-            "date":           now_kst().strftime("%Y-%m-%d"),
+            "date":           # [ES-1 FIX] now_kst() 미정의 → datetime.now(KST) 직접 사용
+            __import__("datetime").datetime.now(
+                __import__("datetime").timezone(
+                    __import__("datetime").timedelta(hours=9)
+                )
+            ).strftime("%Y-%m-%d"),
             "daily_pnl":      daily_pnl,
             "total_assets":   total,
             "open_positions": self.portfolio.position_count,

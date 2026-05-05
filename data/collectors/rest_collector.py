@@ -226,8 +226,10 @@ class RestCollector:
             if PYUPBIT_OK:
                 try:
                     market_str = ",".join(markets)
+                    # [RC-1 FIX] get_tickers_krw_ticker 존재하지 않음
+                    # pyupbit.get_current_price() 로 대체
                     result = await asyncio.get_event_loop().run_in_executor(
-                        None, pyupbit.get_tickers_krw_ticker, market_str
+                        None, pyupbit.get_current_price, markets
                     )
                     return result
                 except Exception as _e:

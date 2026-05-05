@@ -27,6 +27,13 @@ class CombinedSignal:
     confidence: float
     agreement_rate: float
     contributing_strategies: List[str] = field(default_factory=list)
+
+    # ── strategy_name 하위호환 property ──────────────────────
+    @property
+    def strategy_name(self) -> str:
+        """contributing_strategies[0] 반환 (하위호환용)"""
+        return self.contributing_strategies[0] if self.contributing_strategies else ""
+
     reasons: List[str] = field(default_factory=list)
     metadata: Dict = field(default_factory=dict)
     ml_signal: Optional[str] = None
@@ -62,7 +69,8 @@ class SignalCombiner:
     STRATEGY_WEIGHTS = {
         # ── 모멘텀 전략 ──────────────────────────────────────
         # MACD_Cross: 백테스트 +2.2% → 1.8 상향
-        "Vol_Breakout":     0.6,  # [FIX] 단독손실 전략 낮은 가중치
+        "Vol_Breakout":     0.2,  # [BUG-REAL-5 FIX] VolBreakout과 통일
+        "VolBreakout":      0.2,  # v2 앙상블에서 사용하는 키명
         "MACD_Cross":        1.8,
         # RSI_Divergence: 백테스트 -10.0% → 0.0 완전 차단
         "RSI_Divergence":    0.0,
@@ -70,7 +78,7 @@ class SignalCombiner:
         "Supertrend":        1.3,
         # ── 평균회귀 전략 ─────────────────────────────────────
         "Bollinger_Squeeze": 1.4,  # [FIX] 급등포착 상향 1.0->1.4
-        "VWAP_Reversion":    0.7,  # [FIX] 단독손실 하향 1.2->0.7
+        # [ST-1] "VWAP_Reversion": 0.7,  # 비활성화: -₩3,158
         # ── 변동성 전략 ──────────────────────────────────────
         # VolBreakout: 백테스트 -2.7% → 0.4로 하향
         "VolBreakout":       0.4,
@@ -115,8 +123,8 @@ class SignalCombiner:
 
     def __init__(self, settings=None):
         self.settings = settings or get_settings()
-        self.buy_threshold  = min(self.settings.risk.buy_signal_threshold, 0.35)  # [FIX] 완화
-        self.sell_threshold = max(self.settings.risk.sell_signal_threshold, -0.35)  # [FIX] 완화
+        self.buy_threshold  = self.settings.risk.buy_signal_threshold  # BUG-1 FIX: min(0.35) 제거
+        self.sell_threshold = -self.settings.risk.sell_signal_threshold  # BUG-1 FIX: max(-0.35) 제거
         self.min_agreement  = 0.20  # 단일 전략 신호도 허용
 
     # ── 신호 결합 ────────────────────────────────────────────────

@@ -154,7 +154,10 @@ async def run_live_trading():
     print("  :  !")
     print("     .")
     print(" " * 20)
-    confirm = input("\n계속하시겠습니까? (yes 입력): ")
+    # [FIX] APEX_LIVE_CONFIRM 환경변수로 자동 확인
+    import os as _os
+    _auto = _os.getenv("APEX_LIVE_CONFIRM", "").lower()
+    confirm = _auto if _auto == "yes" else input("\n계속하시겠습니까? (yes 입력): ")
     if confirm.lower() != "yes":
         print(".")
         sys.exit(0)

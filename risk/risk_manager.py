@@ -1,8 +1,11 @@
 """
-risk/risk_manager.py  -  Phase 8 개선
+risk/risk_manager.py  -  Phase 8 개선  +  BUG-REAL-1-C 수정
   - GlobalRegime 연동 (BEAR/BEAR_WATCH 시 리스크 축소)
   - 4단계 서킷브레이커 (L1 경고 / L2 드로다운 / L3 급락 / L4 연속손실)
   - 일일 손실 한도 강화
+  - [BUG-REAL-1-C] record_trade_result: profit_rate 저장 추가
+  - [BUG-REAL-1-C] get_kelly_params: 실제 pnl 기반 동적 avg_win/avg_loss
+  - [BUG-REAL-1-C] _calc_recent_win_rate: dict/bool 두 형식 호환
 """
 from __future__ import annotations
 import time
@@ -25,7 +28,7 @@ class RiskManager:
         self._pause_reason   = ""
         self._pause_level    = 0
         self._consecutive_losses = 0
-        self._trade_results  = []   # True=win / False=loss
+        self._trade_results  = []   # {"win": bool, "pnl": float} 형식
         self._daily_loss     = 0.0
         self._daily_reset_ts = time.time()
 
@@ -47,13 +50,13 @@ class RiskManager:
 
         min_size = getattr(self.risk_cfg, "min_position_size", 5000) if self.risk_cfg else 5000
         if available_capital < min_size:
-            return False, f"가용 자본 부족 (₩{available_capital:,.0f})"
+            return False, f"가용 자본 부족 (\u20a9{available_capital:,.0f})"
 
         # GlobalRegime 연동: BEAR 시 추가 차단
         if global_regime is not None:
             regime_val = getattr(global_regime, "value", str(global_regime))
             if regime_val == "BEAR":
-                return False, f"BEAR 레짐 매수 차단"
+                return False, "BEAR 레짐 매수 차단"
             if regime_val == "BEAR_WATCH" and current_positions >= max(1, max_pos // 2):
                 return False, f"BEAR_WATCH 레짐 포지션 제한 ({current_positions}/{max_pos//2})"
 
@@ -116,8 +119,10 @@ class RiskManager:
             return True
         return False
 
-    def record_trade_result(self, is_win: bool):
-        self._trade_results.append(is_win)
+    # ── [BUG-REAL-1-C 수정] record_trade_result ─────────────────────
+    def record_trade_result(self, is_win: bool, profit_rate: float = 0.0):
+        """거래 결과 기록 — profit_rate(소수, 예: 0.032 = +3.2%)를 함께 저장"""
+        self._trade_results.append({"win": is_win, "pnl": float(profit_rate)})
         if len(self._trade_results) > 100:
             self._trade_results.pop(0)
         if is_win:
@@ -125,24 +130,53 @@ class RiskManager:
         else:
             self._consecutive_losses += 1
 
+    # ── [BUG-REAL-1-C 수정] get_kelly_params ────────────────────────
     def get_kelly_params(self) -> Dict:
+        """동적 Kelly 계산 — 실제 거래 pnl 기반 avg_win / avg_loss 산출"""
         wr = self._calc_recent_win_rate()
-        avg_win  = 0.03
-        avg_loss = 0.02
+
+        # 기본값 (거래 이력 부족 시 보수적 고정값)
+        avg_win  = 0.020   # 기본 2%
+        avg_loss = 0.015   # 기본 1.5%
+
+        # 실제 pnl 데이터가 있으면 동적 계산
         if len(self._trade_results) >= 10:
-            wins  = [r for r in self._trade_results if r]
-            losses= [r for r in self._trade_results if not r]
-            avg_win  = 0.03 if not wins  else 0.03
-            avg_loss = 0.02 if not losses else 0.02
-        kelly = (wr * avg_win - (1 - wr) * avg_loss) / avg_win if avg_win > 0 else 0.1
+            try:
+                if isinstance(self._trade_results[0], dict):
+                    wins_pnl = [abs(r["pnl"]) for r in self._trade_results
+                                if r.get("win") and r.get("pnl", 0) > 0]
+                    loss_pnl = [abs(r["pnl"]) for r in self._trade_results
+                                if not r.get("win") and r.get("pnl", 0) < 0]
+                else:
+                    # 이전 버전 호환 (bool 리스트)
+                    wins_pnl = []
+                    loss_pnl = []
+
+                if wins_pnl:
+                    avg_win  = max(0.005, min(sum(wins_pnl) / len(wins_pnl), 0.20))
+                if loss_pnl:
+                    avg_loss = max(0.005, min(sum(loss_pnl) / len(loss_pnl), 0.20))
+            except Exception:
+                pass  # 파싱 실패 시 기본값 유지
+
+        kelly = (wr * avg_win - (1 - wr) * avg_loss) / avg_win if avg_win > 0 else 0.10
         kelly = max(0.05, min(kelly, 0.20))
         return {"win_rate": wr, "avg_win": avg_win, "avg_loss": avg_loss, "kelly": kelly}
 
+    # ── [BUG-REAL-1-C 수정] _calc_recent_win_rate ───────────────────
     def _calc_recent_win_rate(self) -> float:
+        """최근 20개 거래 승률 — dict / bool 두 형식 모두 지원"""
         if len(self._trade_results) < 5:
             return 0.55
         recent = self._trade_results[-20:]
-        return sum(recent) / len(recent)
+        try:
+            if isinstance(recent[0], dict):
+                wins = sum(1 for r in recent if r.get("win"))
+            else:
+                wins = sum(1 for r in recent if r)
+            return wins / len(recent)
+        except Exception:
+            return 0.55
 
     async def _trigger_circuit_breaker(self, level: int, duration: float, reason: str):
         if self._pause_level >= level and self._is_paused():
@@ -151,7 +185,7 @@ class RiskManager:
         self._pause_reason = reason
         self._pause_level  = level
         hours = duration / 3600
-        logger.warning(f"[CircuitBreaker L{level}] {reason} → {hours:.0f}시간 중단")
+        logger.warning(f"[CircuitBreaker L{level}] {reason} \u2192 {hours:.0f}시간 중단")
 
     def _is_paused(self) -> bool:
         if self._paused_until > time.time():

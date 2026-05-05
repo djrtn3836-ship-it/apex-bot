@@ -14,23 +14,6 @@ core/engine_buy.py
 from __future__ import annotations
 import time
 
-# [FIX] Upbit 수량 소수점 자리수 기본값 (동적 조회 실패 시 fallback)
-_UPBIT_VOL_PREC: dict = {}
-
-def _floor_vol(market: str, volume: float) -> float:
-    """Upbit 수량 소수점 자리수 처리 (전역 dict 불필요 버전)"""
-    # 코인별 소수점 자리수 기본값
-    _PREC_MAP = {
-        "KRW-BTC": 8, "KRW-ETH": 8, "KRW-XRP": 2,
-        "KRW-SOL": 4, "KRW-ADA": 2, "KRW-DOGE": 2,
-        "KRW-AVAX": 4, "KRW-DOT": 2, "KRW-LINK": 4,
-        "KRW-ATOM": 4,
-    }
-    prec = _PREC_MAP.get(market, 4)
-    factor = 10 ** prec
-    return int(volume * factor) / factor
-
-
 from datetime import datetime
 from execution.executor import OrderExecutor, ExecutionRequest, OrderSide
 from utils.logger import setup_logger, log_trade, log_signal, log_risk
@@ -52,7 +35,45 @@ class EngineBuyMixin:
         "KRW-TUSD", "KRW-USDP", "KRW-FDUSD", "KRW-PYUSD", "KRW-USDS",
     }
 
+
+    # ── PATCH-1: 종목별 분석 Lock (이중매수 TOCTOU 방지) ────────────────
+    def _get_analyze_lock(self, market: str):
+        """시장 분석용 종목별 asyncio.Lock 반환."""
+        import asyncio as _aio
+        if not hasattr(self, "_analyze_locks"):
+            self._analyze_locks = {}
+        if market not in self._analyze_locks:
+            self._analyze_locks[market] = _aio.Lock()
+        return self._analyze_locks[market]
+    # ────────────────────────────────────────────────────────────────────
     async def _analyze_market(self, market: str):
+        # PATCH-1: 종목별 Lock으로 동시 진입 차단
+        _lock = self._get_analyze_lock(market)
+        if _lock.locked():
+            # 이미 분석 중 → 즉시 스킵 (이중매수 방지)
+            return
+        async with _lock:
+            await self._analyze_market_inner(market)
+
+    async def _analyze_market_inner(self, market: str):
+        # [E-H1] pending_surge_queue TTL 600초 체크
+        import time as _time_mod
+        _now_ts = _time_mod.time()
+        _fresh_queue = []
+        while self._pending_surge_queue:
+            _item = self._pending_surge_queue.popleft()
+            _market_q, _score_q, _detected_at = _item
+            if _now_ts - _detected_at <= 600:
+                _fresh_queue.append(_item)
+            else:
+                logger.debug(
+                    f"[PENDING-TTL] {_market_q} 서지 신호 만료 "
+                    f"(경과 {_now_ts - _detected_at:.0f}초 > 600초) → 폐기"
+                )
+        for _item in _fresh_queue:
+            self._pending_surge_queue.append(_item)
+        # TTL 체크 완료 ─────────────────────────────────────
+
         # [MDD-L3] 서킷브레이커 활성 시 매수 전면 차단
         if getattr(self, "_circuit_breaker_active", False):
             logger.debug(f"[MDD-L3] {market} 매수 차단 (서킷브레이커 활성)")
@@ -81,10 +102,10 @@ class EngineBuyMixin:
         from signals.signal_combiner import CombinedSignal, SignalType
 
         if self.portfolio.position_count >= self.settings.trading.max_positions:
-            logger.warning(f"[ANALYZE] {market} 최대포지션 차단 ({self.portfolio.position_count}/{self.settings.trading.max_positions})")
+            logger.debug(f"[ANALYZE] {market} 최대포지션 차단 ({self.portfolio.position_count}/{self.settings.trading.max_positions})")  # PATCH-3
             return
         if self.portfolio.is_position_open(market):
-            logger.warning(f"[ANALYZE] {market} 이미포지션 보유 차단")
+            logger.debug(f"[ANALYZE] {market} 이미포지션 보유 차단")  # PATCH-3
             return
 
         last_signal = self._last_signal_time.get(market, 0)
@@ -176,72 +197,11 @@ class EngineBuyMixin:
                 _sr = _surge_info.get("reason", "")
                 # ── [SURGE 완전 독립] ML/전략 파이프라인 완전 우회 ──
                 # [PHASE2-C] SURGE 전략별 슬롯 쿼터 체크 (가장 먼저)
-                _surge_quota_p2 = getattr(self, '_strategy_quota', {}).get('SURGE_FASTENTRY', 3)
-                _surge_open_p2  = sum(
-                    1 for _pp2 in self.portfolio.open_positions.values()
-                    if 'SURGE' in str(getattr(_pp2, 'strategy', ''))
-                )
-                if _surge_open_p2 >= _surge_quota_p2:
-                    logger.debug(
-                        f'[PHASE2-SURGE-QUOTA] {market} SURGE 쿼터 초과 '
-                        f'({_surge_open_p2}/{_surge_quota_p2}) → 스킵'
-                    )
-                    return
-                # 포지션 한도 체크
-                _max_pos = getattr(self.settings.trading, "max_positions", 10)
-                _cur_pos = self.portfolio.position_count
-                if _cur_pos >= _max_pos:
-                    logger.info(
-                        f"[SURGE-FASTENTRY] {market} 포지션 한도 초과 "
-                        f"({_cur_pos}/{_max_pos}) → 스킵"
-                    )
-                    return
-                # 이미 보유 중인 종목 체크
-                if self.portfolio.has_position(market):
-                    logger.info(f"[SURGE-FASTENTRY] {market} 이미 보유 중 → 스킵")
-                    return
-                # 손절 쿨다운 체크
-                if hasattr(self, "_sl_cooldown") and market in self._sl_cooldown:
-                    import datetime as _sdt
-                    if _sdt.datetime.now() < self._sl_cooldown[market]:
-                        _rem = int((
-                            self._sl_cooldown[market] - _sdt.datetime.now()
-                        ).total_seconds() // 60)
-                        logger.info(
-                            f"[SURGE-FASTENTRY] {market} 손절쿨다운 {_rem}분 남음 → 스킵"
-                        )
-                        return
-                # price_change_15m 과열 체크 (이미 20% 이상 오른 코인 제외)
-                _pc15 = _surge_info.get("price_change_5m", 0.0)
-                if abs(_pc15) > 0.20:
-                    logger.info(
-                        f"[SURGE-FASTENTRY] {market} 5분 변동 "
-                        f"{_pc15*100:.1f}% 과열 → 스킵"
-                    )
-                    return
-                logger.info(
-                    f"[SURGE-FASTENTRY] {market} | {_sg}급 score={_ss:.3f} | "
-                    f"ML/전략 완전 우회 → 즉시 진입 | {_sr}"
-                )
-                try:
-                    from signals.signal_combiner import CombinedSignal
-                    from strategies.base_strategy import SignalType
-                    df_surge = df_1h.copy()
-                    if "atr" not in df_surge.columns:
-                        _hl = df_surge["high"] - df_surge["low"]
-                        df_surge["atr"] = _hl.rolling(14).mean()
-                    _surge_signal = CombinedSignal(
-                        market=market,
-                        signal_type=SignalType.BUY,
-                        score=float(_ss),
-                        confidence=float(_ss),
-                        agreement_rate=1.0,
-                        contributing_strategies=["SURGE_FASTENTRY"],
-                        reasons=[f"SURGE {_sg}급 score={_ss:.3f} | {_sr}"],
-                    )
-                    await self._execute_buy(market, _surge_signal, df_surge)
-                except Exception as _sfe:
-                    logger.warning(f"[SURGE-FASTENTRY] {market} 오류: {_sfe}")
+                # ── [PHASE2] SURGE_FASTENTRY 완전 비활성화 ──────────────────
+                # 누적 손실 -41.02% (326 trades, WR 46%) → 즉시 차단
+                # [PHASE2] SURGE_FASTENTRY 영구 비활성화
+                # 사유: 누적 손실 -41.02% (326 trades, WR 46%)
+                logger.debug(f"[SURGE-DISABLED] {market} → 스킵")
                 return
 
             try:
@@ -354,10 +314,11 @@ class EngineBuyMixin:
                 )
                 self._bear_reversal_markets.add(market)
             else:
-                self.bear_reversal_markets = getattr(
+                # [QUALITY-2 FIX] 속성명 _bear_reversal_markets로 통일
+                self._bear_reversal_markets = getattr(
                     self, "_bear_reversal_markets", set()
                 )
-                self.bear_reversal_markets.discard(market)
+                self._bear_reversal_markets.discard(market)
 
             is_dumping, dump_reason = self.volume_spike.is_dumping(df_processed, market)
             _is_bear_rev = market in getattr(self, "_bear_reversal_markets", set())
@@ -532,7 +493,7 @@ class EngineBuyMixin:
             news_score, news_boost = self.news_analyzer.get_signal_boost(market)
             if abs(news_boost) > 0.3:
                 original_score = combined.score
-                combined.score = combined.score - news_boost
+                combined.score = combined.score + news_boost  # EB-7: 부정=음수이므로 +가 맞음
                 logger.info(
                     f"   ({market}): "
                     f"{original_score:.2f} → {combined.score:.2f} "
@@ -729,8 +690,14 @@ class EngineBuyMixin:
                     # ── 쿨다운 체크 끝 ──────────────────────────────────────────
                     # V2 앙상블 레이어 검증
                     if getattr(self, '_v2_layer', None) is not None:
+                        # [EN-M3-j] GlobalRegime 값을 fallback으로 전달
+                        _gr       = getattr(self, '_global_regime', None)
+                        _regime_fb = (
+                            _gr.value if hasattr(_gr, 'value') else str(_gr)
+                        ) if _gr is not None else 'RANGING'
                         _v2_ok, _v2_conf, _v2_size = self._v2_layer.check(
-                            df_processed, market, combined.confidence
+                            df_processed, market, combined.confidence,
+                            fallback_regime=_regime_fb,
                         )
                         if not _v2_ok:
                             logger.info(f"[V2Layer] {market} 진입 차단")
@@ -761,27 +728,27 @@ class EngineBuyMixin:
     def _get_preferred_strategies(self, market: str) -> list:
         BEAR_PREFERRED = {
             "KRW-BTC":  ["MACD_Cross",       "Supertrend"],
-            "KRW-ETH":  ["Bollinger_Squeeze", "VWAP_Reversion"],
-            "KRW-XRP":  ["Bollinger_Squeeze", "VWAP_Reversion"],
-            "KRW-SOL":  ["VWAP_Reversion",    "Bollinger_Squeeze"],
-            "KRW-ADA":  ["Bollinger_Squeeze", "VWAP_Reversion"],
+            "KRW-ETH":  ["Bollinger_Squeeze"],  # [ST-3] VWAP_Reversion 제거
+            "KRW-XRP":  ["Bollinger_Squeeze"],  # [ST-3] VWAP_Reversion 제거
+            "KRW-SOL":  ["Bollinger_Squeeze"],  # [ST-3] VWAP_Reversion 제거
+            "KRW-ADA":  ["Bollinger_Squeeze"],  # [ST-1] VWAP_Reversion 제거
             "KRW-DOGE": ["Bollinger_Squeeze", "MACD_Cross"],
-            "KRW-DOT":  ["Bollinger_Squeeze", "VWAP_Reversion"],
-            "KRW-LINK": ["VWAP_Reversion",    "Bollinger_Squeeze"],
-            "KRW-AVAX": ["VWAP_Reversion",    "Bollinger_Squeeze"],
-            "KRW-ATOM": ["Bollinger_Squeeze",  "VWAP_Reversion"],
+            "KRW-DOT":  ["Bollinger_Squeeze"],  # [ST-1] VWAP_Reversion 제거
+            "KRW-LINK": ["Bollinger_Squeeze"],  # [ST-1] VWAP_Reversion 제거
+            "KRW-AVAX": ["Bollinger_Squeeze"],  # [ST-1] VWAP_Reversion 제거
+            "KRW-ATOM": ["Bollinger_Squeeze"],  # [ST-1] VWAP_Reversion 제거
         }
         BULL_PREFERRED = {
             "KRW-BTC":  ["MACD_Cross",       "Supertrend"],
-            "KRW-ETH":  ["Supertrend",        "VWAP_Reversion"],
+            "KRW-ETH":  ["Supertrend"],  # [ST-1] VWAP_Reversion 제거
             "KRW-XRP":  ["Supertrend",        "MACD_Cross"],
             "KRW-SOL":  ["Supertrend",        "MACD_Cross"],
             "KRW-ADA":  ["Supertrend",        "Bollinger_Squeeze"],
             "KRW-DOGE": ["Bollinger_Squeeze", "MACD_Cross"],
-            "KRW-DOT":  ["Supertrend",        "VWAP_Reversion"],
-            "KRW-LINK": ["Supertrend",        "VWAP_Reversion"],
-            "KRW-AVAX": ["Supertrend",        "VWAP_Reversion"],
-            "KRW-ATOM": ["VWAP_Reversion",    "Supertrend"],
+            "KRW-DOT":  ["Supertrend"],  # [ST-1] VWAP_Reversion 제거
+            "KRW-LINK": ["Supertrend"],  # [ST-1] VWAP_Reversion 제거
+            "KRW-AVAX": ["Supertrend"],  # [ST-1] VWAP_Reversion 제거
+            "KRW-ATOM": ["Supertrend"],  # [ST-1] VWAP_Reversion 제거
         }
         is_bull   = market not in getattr(self, "_bear_reversal_markets", set())
         preferred = (BULL_PREFERRED if is_bull else BEAR_PREFERRED).get(
@@ -837,7 +804,7 @@ class EngineBuyMixin:
         _regime_now = getattr(self, "_last_regime_cache", {}).get(market, None)
         _adx_now    = getattr(self, "_adx_cache", {}).get(market, 0)
 
-        # [LIVE-SAFE] 실거래 초기 30일 Vol_Breakout 완전 차단
+        # [ST-4] Vol_Breakout 영구 차단: DB -₩3,521, 29% 승률
         import os as _os
         from datetime import datetime as _dtnow, timedelta as _td
         _live_start_str = _os.getenv("LIVE_START_DATE", "")
@@ -859,7 +826,7 @@ class EngineBuyMixin:
 
         _filtered = {}
         for name, strategy in selected.items():
-            # [LIVE-SAFE] 실거래 초기 30일 Vol_Breakout 완전 차단
+            # [ST-4] Vol_Breakout 영구 차단: DB -₩3,521, 29% 승률
             if name in ("Vol_Breakout", "VolBreakout", "volatility_break"):
                 if _vol_breakout_live_blocked:
                     logger.info(
@@ -874,26 +841,59 @@ class EngineBuyMixin:
             # ML_Ensemble: 누적 거래 30건 미만이면 등록만 하고 나중에 크기 50% 축소
 
             # [REGIME-MATRIX] 레짐별 전략 허용 매트릭스
-            _regime_str = str(_regime_now).upper() if _regime_now else 'RANGING'
+            # [C-4 FIX] MarketRegime.value 정규화
+            # 실제 반환값: TRENDING_UP, TRENDING_DOWN, RANGING,
+            #              VOLATILE, BEAR_REVERSAL, UNKNOWN
+            _regime_val = (
+                _regime_now.value
+                if hasattr(_regime_now, 'value')
+                else str(_regime_now or 'UNKNOWN')
+            )
             _REGIME_MATRIX = {
-                # 전략명: {레짐: 허용여부}
-                'MACD_Cross':        {'TRENDING_UP': True,  'RANGING': False, 'VOLATILE': False, 'TRENDING_DOWN': False},
-                'Supertrend':        {'TRENDING_UP': True,  'RANGING': False, 'VOLATILE': False, 'TRENDING_DOWN': False},
-                'VWAP_Reversion':    {'TRENDING_UP': True,  'RANGING': True,  'VOLATILE': False, 'TRENDING_DOWN': False},
-                'RSI_Divergence':    {'TRENDING_UP': True,  'RANGING': True,  'VOLATILE': True,  'TRENDING_DOWN': True},
-                'Bollinger_Squeeze': {'TRENDING_UP': True,  'RANGING': True,  'VOLATILE': True,  'TRENDING_DOWN': False},
-                'ATR_Channel':       {'TRENDING_UP': True,  'RANGING': True,  'VOLATILE': True,  'TRENDING_DOWN': False},
-                'OrderBlock_SMC':    {'TRENDING_UP': True,  'RANGING': True,  'VOLATILE': False, 'TRENDING_DOWN': False},
-                'VolBreakout':       {'TRENDING_UP': True,  'RANGING': False, 'VOLATILE': False, 'TRENDING_DOWN': False},
+                'MACD_Cross':        {
+                    'TRENDING_UP': True,  'RANGING': False,
+                    'VOLATILE':    False, 'TRENDING_DOWN': False,
+                    'BEAR_REVERSAL': False, 'UNKNOWN': True,
+                },
+                'Supertrend':        {
+                    'TRENDING_UP': True,  'RANGING': False,
+                    'VOLATILE':    False, 'TRENDING_DOWN': False,
+                    'BEAR_REVERSAL': False, 'UNKNOWN': True,
+                },
+                'VWAP_Reversion':    {
+                    'TRENDING_UP': True,  'RANGING': True,
+                    'VOLATILE':    False, 'TRENDING_DOWN': False,
+                    'BEAR_REVERSAL': True,  'UNKNOWN': True,
+                },
+                'RSI_Divergence':    {
+                    'TRENDING_UP': True,  'RANGING': True,
+                    'VOLATILE':    True,  'TRENDING_DOWN': True,
+                    'BEAR_REVERSAL': True,  'UNKNOWN': True,
+                },
+                'Bollinger_Squeeze': {
+                    'TRENDING_UP': True,  'RANGING': True,
+                    'VOLATILE':    True,  'TRENDING_DOWN': False,
+                    'BEAR_REVERSAL': True,  'UNKNOWN': True,
+                },
+                'ATR_Channel':       {
+                    'TRENDING_UP': True,  'RANGING': True,
+                    'VOLATILE':    True,  'TRENDING_DOWN': False,
+                    'BEAR_REVERSAL': False, 'UNKNOWN': True,
+                },
+                'OrderBlock_SMC':    {
+                    'TRENDING_UP': True,  'RANGING': True,
+                    'VOLATILE':    False, 'TRENDING_DOWN': False,
+                    'BEAR_REVERSAL': False, 'UNKNOWN': True,
+                },
+                'VolBreakout':       {
+                    'TRENDING_UP': True,  'RANGING': False,
+                    'VOLATILE':    False, 'TRENDING_DOWN': False,
+                    'BEAR_REVERSAL': False, 'UNKNOWN': False,
+                },
             }
             if name in _REGIME_MATRIX and _regime_now is not None:
-                _allowed = False
-                for _r_key, _r_val in _REGIME_MATRIX[name].items():
-                    if _r_key in _regime_str:
-                        _allowed = _r_val
-                        break
-                else:
-                    _allowed = True  # 매트릭스에 없는 레짐은 허용
+                # dict.get()으로 단순화 — 없는 레짐은 True(허용)
+                _allowed = _REGIME_MATRIX[name].get(_regime_val, True)
                 if not _allowed:
                     logger.debug(
                         f"[REGIME-MATRIX] {market} {name} 차단 "
@@ -905,7 +905,7 @@ class EngineBuyMixin:
         selected = _filtered
 
         for name, strategy in selected.items():
-            tasks.append(asyncio.get_event_loop().run_in_executor(
+            tasks.append(asyncio.get_running_loop().run_in_executor(
                 None, strategy.analyze, market, df, {}
             ))
         results = await asyncio.gather(*tasks, return_exceptions=True)
@@ -1049,6 +1049,13 @@ class EngineBuyMixin:
 
     async def _execute_buy(self, market: str, signal: CombinedSignal, df):
         # [FIX-DUP] 중복 매수 방지 — Race Condition 완전 차단
+        # ── [PHASE2] 저성과 전략 진입 차단 ─────────────────────
+        _BLOCKED = {"Vol_Breakout", "unknown", ""}
+        _sig_strat = getattr(signal, "strategy_name", "") or ""
+        if not _sig_strat or _sig_strat in _BLOCKED:
+            logger.debug(f"[BLOCKED] {market} 전략={_sig_strat!r} 차단됨 → 스킵")
+            return
+        # ────────────────────────────────────────────────────────
         if not hasattr(self, '_buying_markets'):
             self._buying_markets = set()
         if market in self._buying_markets:
@@ -1109,11 +1116,15 @@ class EngineBuyMixin:
                     hasattr(signal, "contributing_strategies") and
                     "SURGE_FASTENTRY" in (signal.contributing_strategies or [])
                 )
-                if (_ml_sig_b == "SELL" and _ml_conf_b >= 0.65
+                # [ML-VETO v2] PPO 동의 시 임계값 추가 강화
+                _ppo_pred_veto = self._ppo_predictions.get(market, {}) if hasattr(self, "_ppo_predictions") else {}
+                _ppo_sig_veto  = str(_ppo_pred_veto.get("action", "HOLD")).upper() if _ppo_pred_veto else "HOLD"
+                _veto_thr = 0.55 if _ppo_sig_veto == "SELL" else 0.60
+                if (_ml_sig_b == "SELL" and _ml_conf_b >= _veto_thr
                         and not _is_bear_rev_b and not _is_surge_signal):
-                    # [FIX] SURGE 진입 시 ML-SELL 차단 우회
                     logger.warning(
-                        f"[ML-BLOCK] {market}: ML=SELL({_ml_conf_b:.2f}) → BUY 차단"
+                        f"[ML-VETO] {market}: ML=SELL({_ml_conf_b:.2f}) "
+                        f"PPO={_ppo_sig_veto} thr={_veto_thr:.2f} → BUY 차단"
                     )
                     self._buying_markets.discard(market)
                     return
@@ -1121,24 +1132,43 @@ class EngineBuyMixin:
                     logger.info(
                         f"[ML-BLOCK-BYPASS] {market}: SURGE 진입 → ML=SELL 차단 우회"
                     )
-            # [FIX A-2] Sell Cooldown 체크 (10분 재매수 방지)
-            if not hasattr(self, "_sell_cooldown"):
-                self._sell_cooldown = {}
-            _cd_val = self._sell_cooldown.get(market)
-            if _cd_val is not None:
-                if isinstance(_cd_val, (int, float)):
-                    _cd_val = datetime.fromtimestamp(_cd_val)
-                    self._sell_cooldown[market] = _cd_val
-                _cd_elapsed = (datetime.now() - _cd_val).total_seconds()
-                if _cd_elapsed < 1200:  # [FIX] 1200초 통일
-                    logger.info(
-                        f'[COOLDOWN] {market}: 매도 후 {int(_cd_elapsed)}초 경과 → '
-                        f'재매수 대기 ({int(1200 - _cd_elapsed)}초 남음)'
-                    )
-                    self._buying_markets.discard(market)
-                    return
+            # EB-5: _sell_cooldown L2 중복 제거 (메서드 초입 L1에서 이미 처리)
+            # L1 체크: 메서드 상단 _cd_last 블록에서 완료됨
 
             _symbol    = market.replace("KRW-", "")
+
+            # [ML-FRESH] 매수 직전 ML 신선도 검증 – 5분 초과 시 재추론
+            if not hasattr(self, "_ml_pred_times"):
+                self._ml_pred_times = {}
+            _ml_age = time.time() - self._ml_pred_times.get(market, 0)
+            if _ml_age > 300:  # 5분 초과
+                try:
+                    _fresh_ml = await self._get_ml_prediction(market, df)
+                    if _fresh_ml:
+                        if not hasattr(self, "_ml_predictions"):
+                            self._ml_predictions = {}
+                        self._ml_predictions[market] = _fresh_ml
+                        self._ml_pred_times[market]  = time.time()
+                        _ml_sig_fresh  = _fresh_ml.get("signal", "HOLD")
+                        _ml_conf_fresh = float(_fresh_ml.get("confidence", 0))
+                        _veto_thr_f    = 0.60
+                        if (_ml_sig_fresh == "SELL"
+                                and _ml_conf_fresh >= _veto_thr_f
+                                and market not in getattr(self, "_bear_reversal_markets", set())):
+                            logger.warning(
+                                f"[ML-FRESH-VETO] {market}: "
+                                f"재추론 ML=SELL({_ml_conf_fresh:.2f}) → BUY 최종 차단"
+                            )
+                            self._buying_markets.discard(market)
+                            return
+                        logger.debug(
+                            f"[ML-FRESH] {market}: 재추론 완료 "
+                            f"ML={_ml_sig_fresh}({_ml_conf_fresh:.2f}) "
+                            f"(경과={_ml_age:.0f}s)"
+                        )
+                except Exception as _mf_e:
+                    logger.debug(f"[ML-FRESH] {market} 재추론 실패: {_mf_e}")
+
             _can_buy, _buy_note = self._wallet.can_buy(_symbol)
             if not _can_buy:
                 logger.warning(f" SmartWallet  : {_buy_note}")
@@ -1147,6 +1177,15 @@ class EngineBuyMixin:
             logger.info(f" SmartWallet: {_buy_note}")
 
             krw = await self.adapter.get_balance("KRW")
+            # EB-1: 잔고가 MIN_ORDER_KRW 미만이면 진입 차단 (소액 잔여금 주문 방지)
+            _min_krw_eb1 = getattr(self.position_sizer, "MIN_ORDER_KRW", 5_000)
+            if krw < _min_krw_eb1:
+                logger.warning(
+                    f"[EB-1] {market} KRW 잔고 ₩{krw:,.0f} < "
+                    f"최소 ₩{_min_krw_eb1:,} → 매수 취소 (잔여금 보호)"
+                )
+                self._buying_markets.discard(market)
+                return
             can_buy, reason = await self.risk_manager.can_open_position(
                 market, krw, self.portfolio.position_count,
                 global_regime=getattr(self, "_global_regime", None),
@@ -1225,46 +1264,33 @@ class EngineBuyMixin:
                 if _is_surge_kelly
                 else getattr(signal, "ml_confidence", 0.5)
             )
-            position_size  = self.position_sizer.calculate(
-                total_capital=krw,
-                strategy=_strategy_name,
-                market=market,
-                confidence=_ml_conf,
-                global_regime=getattr(self, "_global_regime", None),  # [PHASE3]
+            # [v2.1] consec_loss + atr_ratio 전달 → position_sizer 내부 통합 처리
+            _consec_loss_ps = getattr(self, "_consecutive_loss_count", 0)
+            try:
+                _atr_val_ps  = float(df["atr"].iloc[-1]) if "atr" in df.columns else 0
+                _atr_base_ps = float(df["close"].iloc[-1]) * 0.02
+                _atr_ratio_ps = (_atr_val_ps / _atr_base_ps
+                                 if _atr_base_ps > 0 and _atr_val_ps > 0
+                                 else 1.0)
+            except Exception:
+                _atr_ratio_ps = 1.0
+            _is_bear_rev_ps = getattr(signal, "bear_reversal", False)
+
+            position_size = self.position_sizer.calculate(
+                total_capital    = krw,
+                strategy         = _strategy_name,
+                market           = market,
+                confidence       = _ml_conf,
+                global_regime    = getattr(self, "_global_regime", None),
+                consec_loss      = _consec_loss_ps,   # [v2.1] MDD-L2 이관
+                atr_ratio        = _atr_ratio_ps,     # [v2.1] ATR 축소 이관
+                is_bear_reversal = _is_bear_rev_ps,   # [v2.1] BR 축소 이관
             )
 
-            # [MDD-L2] 연속손실 / ATR 변동성 기반 동적 포지션 축소
-            _consec_loss = getattr(self, "_consecutive_loss_count", 0)
-            if _consec_loss >= 3:
-                _before = position_size
-                position_size *= 0.5
-                logger.info(
-                    f"[MDD-L2] 연속손실 {_consec_loss}건 → 포지션 50% 축소 "
-                    f"({market}): ₩{_before:,.0f} → ₩{position_size:,.0f}"
-                )
-            # ATR 고변동성 시 포지션 추가 축소 (ATR > 기준값 1.5배)
-            try:
-                _atr_now = float(df["atr"].iloc[-1]) if "atr" in df.columns else 0
-                _atr_base = float(df["close"].iloc[-1]) * 0.02
-                if _atr_now > 0 and _atr_now > _atr_base * 1.5:
-                    _before2 = position_size
-                    position_size *= 0.7
-                    logger.debug(
-                        f"[MDD-L2] ATR 고변동성 ({market}) "
-                        f"ATR={_atr_now:.1f} > 기준={_atr_base:.1f}×1.5 "
-                        f"→ 30% 축소: ₩{_before2:,.0f} → ₩{position_size:,.0f}"
-                    )
-            except Exception as _e:
-                import logging as _lg
-                _lg.getLogger("engine_buy").debug(f"[WARN] engine_buy 오류 무시: {_e}")
-                pass
+            # [v2.1] MDD-L2 + ATR 축소 → position_sizer.calculate() 내부로 이관
+            # consec_loss / atr_ratio 파라미터로 전달됨 (위 calculate 호출 참조)
 
-            if getattr(signal, "bear_reversal", False):
-                position_size *= 0.5
-                logger.info(
-                    f" BEAR_REVERSAL  50%  ({market}): "
-                    f"₩{position_size*2:,.0f} → ₩{position_size:,.0f}"
-                )
+            # [v2.1] BEAR_REVERSAL 50% 축소 → position_sizer 내부로 이관
 
             # [FIX-RATIO] SURGE 신호는 confidence=score로 생성됨
             if _is_surge_kelly:
@@ -1284,13 +1310,55 @@ class EngineBuyMixin:
                 _buy_ratio  = 0.50
                 _buy_reason = f"약한신호({_combined_score:.2f}) 50%매수"
 
-            # [OPT] 시간대 배율 적용
-            if '_time_size_mult' in dir():
-                position_size = position_size * _time_size_mult
-                if _time_size_mult != 1.0:
-                    logger.debug(f'[TIME-SIZE] {market} {_now_hour}시 배율={_time_size_mult}× → ₩{position_size:,.0f}')
-            _original_size = position_size
-            position_size  = max(position_size * _buy_ratio, 20_000)
+            # [EB-2] 시간대 배율: dir() 오용 수정 → _execute_buy 내 직접 계산
+            from datetime import datetime as _dt_ts, timezone, timedelta as _td_ts
+            _KST_TS = timezone(_td_ts(hours=9))
+            _now_hour_exec = _dt_ts.now(_KST_TS).hour
+            if 12 <= _now_hour_exec < 18:
+                _time_size_mult_exec = 1.20
+            elif 0 <= _now_hour_exec < 6:
+                _time_size_mult_exec = 0.70
+            else:
+                _time_size_mult_exec = 1.00
+            if _time_size_mult_exec != 1.0:
+                _before_ts = position_size
+                position_size *= _time_size_mult_exec
+                logger.debug(
+                    f'[TIME-SIZE] {market} {_now_hour_exec}시 '
+                    f'배율={_time_size_mult_exec}× | '
+                    f'₩{_before_ts:,.0f} → ₩{position_size:,.0f}'
+                )
+            # EB-4: position_sizer 0.0 반환 시 즉시 차단
+            if position_size <= 0:
+                logger.warning(
+                    f"[EB-4] {market} position_sizer 반환 ₩0 → 주문 스킵"
+                )
+                self._buying_markets.discard(market)
+                return
+            _original_size     = position_size
+            _min_entry_krw_eb3 = getattr(
+                self.position_sizer, "MIN_ORDER_KRW", 5_000
+            )
+            _after_ratio = position_size * _buy_ratio
+
+            # [v2.1] EB-3 구제 로직: buy_ratio 후 MIN_ORDER_KRW 미만이면
+            # buy_ratio 포기하고 position_size 원본 사용 (자본 충분한 경우)
+            if _after_ratio < _min_entry_krw_eb3:
+                if position_size >= _min_entry_krw_eb3:
+                    logger.info(
+                        f"[EB-3-RESCUE] {market} buy_ratio 포기 | "
+                        f"ratio후 ₩{_after_ratio:,.0f} → 원본 ₩{position_size:,.0f}"
+                    )
+                    _after_ratio = position_size
+                else:
+                    # position_size 자체가 MIN_ORDER_KRW 미만 → 정상 차단
+                    logger.warning(
+                        f"[EB-3] {market} ₩{_after_ratio:,.0f} "
+                        f"< 최소 ₩{_min_entry_krw_eb3:,} → 주문 스킵"
+                    )
+                    self._buying_markets.discard(market)
+                    return
+            position_size = _after_ratio
             logger.info(
                 f"   ({market}): {_buy_reason} | "
                 f"₩{_original_size:,.0f} → ₩{position_size:,.0f}"
@@ -1413,6 +1481,15 @@ class EngineBuyMixin:
                     "BUY", market, result.executed_price,
                     position_size, req.reason
                 )
+                # [CB-FIX] 매수 후 KRW 캐시 차감
+                try:
+                    self._cached_krw = max(
+                        0.0,
+                        getattr(self, "_cached_krw", 0.0) - float(position_size)
+                    )
+                    logger.debug(f"[CB] BUY 후 _cached_krw={self._cached_krw:,.0f}")
+                except Exception:
+                    pass
                 await self.telegram.notify_buy(
                     market, result.executed_price, position_size,
                     req.reason, req.strategy_name

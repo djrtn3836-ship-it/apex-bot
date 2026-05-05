@@ -3,42 +3,41 @@ core/engine_utils.py
 ────────────────────
 엔진 헬퍼 유틸리티 함수 모음
 - _floor_vol       : 수량 내림 처리
-- _ceil_vol        : 수량 올림 처리  
+- _ceil_vol        : 수량 올림 처리
 - calc_position_size : 포지션 크기 계산
 - calc_exit_plan   : SL/TP 계획 계산
 - _find_free_port  : 포트 탐색
+
+변경 이력:
+    [M-4] _PREC_MAP 모듈 레벨 상수화 (매 호출마다 dict 생성 제거)
 """
 from __future__ import annotations
 import math, socket
 from typing import TYPE_CHECKING
 
+# ── [M-4] Upbit 수량 소수점 자리수 — 모듈 레벨 상수 ────────────
+_PREC_MAP: dict[str, int] = {
+    "KRW-BTC":  8, "KRW-ETH":  8, "KRW-XRP":  2,
+    "KRW-SOL":  4, "KRW-ADA":  2, "KRW-DOGE": 2,
+    "KRW-AVAX": 4, "KRW-DOT":  2, "KRW-LINK": 4,
+    "KRW-ATOM": 4, "KRW-BEAM": 2, "KRW-RED":  2,
+    "KRW-BLAST":2, "KRW-COMP": 4, "KRW-DOOD": 2,
+    "KRW-POKT": 2, "KRW-INJ":  4, "KRW-AGLD": 2,
+}
+
+
 def _floor_vol(market: str, volume: float) -> float:
-    """Upbit 수량 소수점 처리 - 외부 dict 불필요 버전"""
-    _PREC_MAP = {
-        "KRW-BTC": 8, "KRW-ETH": 8, "KRW-XRP": 2,
-        "KRW-SOL": 4, "KRW-ADA": 2, "KRW-DOGE": 2,
-        "KRW-AVAX": 4, "KRW-DOT": 2, "KRW-LINK": 4,
-        "KRW-ATOM": 4,
-    }
-    prec = _PREC_MAP.get(market, 4)
+    """Upbit 수량 내림 처리 — 모듈 레벨 _PREC_MAP 사용"""
+    prec   = _PREC_MAP.get(market, 4)
     factor = 10 ** prec
     return int(volume * factor) / factor
 
 
 def _ceil_vol(market: str, vol: float) -> float:
-    """Upbit 수량 올림 처리 - 외부 dict 불필요 버전"""
-    import math as _math
-    _PREC_MAP = {
-        "KRW-BTC": 8, "KRW-ETH": 8, "KRW-XRP": 2,
-        "KRW-SOL": 4, "KRW-ADA": 2, "KRW-DOGE": 2,
-        "KRW-AVAX": 4, "KRW-DOT": 2, "KRW-LINK": 4,
-        "KRW-ATOM": 4, "KRW-BEAM": 2, "KRW-RED": 2,
-        "KRW-BLAST": 2, "KRW-COMP": 4, "KRW-DOOD": 2,
-        "KRW-POKT": 2, "KRW-INJ": 4, "KRW-AGLD": 2,
-    }
+    """Upbit 수량 올림 처리 — 모듈 레벨 _PREC_MAP 사용"""
     prec = _PREC_MAP.get(market, 4)
-    f = 10 ** prec
-    return _math.ceil(vol * f) / f
+    f    = 10 ** prec
+    return math.ceil(vol * f) / f
 
 
 MIN_POSITION_KRW  = 20_000
@@ -144,7 +143,7 @@ def _find_free_port(start_port: int = 8888) -> int:
             port += 1
     return start_port
 
-class TradingEngine:
-    """APEX BOT   v2.0.0"""
 
+class TradingEngine:
+    """APEX BOT 엔진 v2.0.0"""
     VERSION = "2.0.0"

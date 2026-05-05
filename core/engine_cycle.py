@@ -46,10 +46,10 @@ class EngineCycleMixin:
                 self.settings.risk, "daily_loss_limit", 0.05
             )
 
-            krw = (
-                self.adapter._paper_balance.get("KRW", 0)
-                if self.adapter.is_paper else 0
-            )
+            if self.adapter.is_paper:
+                krw = self.adapter._paper_balance.get("KRW", 0)
+            else:
+                krw = getattr(self, "_cached_krw", 0.0)  # [CB-FIX] LIVE: 캐시된 KRW 사용
             current = self.portfolio.get_total_value(krw)
             now     = _dt.datetime.now()
 
@@ -125,14 +125,33 @@ class EngineCycleMixin:
         if _es_abs.exists() or _es_rel.exists() or _es_cwd.exists():
             logger.warning("[LiveGuard] 🚨 EMERGENCY_STOP 감지 — 이번 사이클 전체 스킵")
             return
+        # ── ML 예측용 변수 초기화 (NameError 방지) ──────────────────────
+        _ml_df     = None
+        _ml_market = "KRW-BTC"
+        try:
+            _active_markets = list(getattr(self, "_surge_cache", {}).keys())
+            if not _active_markets:
+                _active_markets = list(getattr(
+                    self.portfolio, "open_positions", {}
+                ).keys())
+            if _active_markets:
+                _ml_market = _active_markets[0]
+        except Exception:
+            pass
+        try:
+            _ml_df = self.cache_manager.get_ohlcv(_ml_market, "1h")
+        except Exception:
+            pass
+        # ── ML 초기화 끝 ────────────────────────────────────────────────
+
         # [MDD-L3] 포트폴리오 서킷브레이커
         try:
             from datetime import datetime as _dt
-            _today = _dt.now().strftime("%Y-%m-%d")
+            _today          = _dt.now().strftime("%Y-%m-%d")
             _daily_loss_key = f"_daily_loss_{_today}"
-            _daily_loss = getattr(self, _daily_loss_key, 0.0)
-            _krw_bal = getattr(self, "_krw_balance", 0)
-            _loss_limit = _krw_bal * 0.02  # 일일 2% 한도
+            _daily_loss     = getattr(self, _daily_loss_key, 0.0)
+            _krw_bal        = getattr(self, "_krw_balance", 0)
+            _loss_limit     = _krw_bal * 0.02
             if _daily_loss < -_loss_limit and _loss_limit > 0:
                 logger.warning(
                     f"[MDD-L3] 🚨 서킷브레이커 발동! "
@@ -143,71 +162,39 @@ class EngineCycleMixin:
             else:
                 self._circuit_breaker_active = False
             # [LiveGuard-C] 오늘 손실률 → live_guard 동기화
-            if hasattr(self, 'live_guard') and self.live_guard is not None:
+            if hasattr(self, "live_guard") and self.live_guard is not None:
                 try:
-                    _krw_now = getattr(self, '_krw_balance', 1) or 1
+                    _krw_now = getattr(self, "_krw_balance", 1) or 1
                     self.live_guard._today_loss_pct = _daily_loss / _krw_now
                 except Exception:
                     pass
-            if _ml_df is None or len(_ml_df) < 10:
-                try:
-                    _ml_df = self.cache_manager.get_candles(_ml_market, "1d")
-                except Exception as _e:
-                    import logging as _lg
-                    _lg.getLogger("engine_cycle").debug(f"[WARN] engine_cycle 오류 무시: {_e}")
-                    pass
-            if _ml_df is None or len(_ml_df) < 10:
-                for _attr in ["_df_cache", "_candle_cache", "_ohlcv_cache"]:
-                    _cache = getattr(self, _attr, None)
-                    if _cache and isinstance(_cache, dict):
-                        _ml_df = (
-                            _cache.get(f"{_ml_market}-1h")
-                            or _cache.get(_ml_market)
-                        )
-                        if _ml_df is not None:
-                            break
-            if _ml_df is not None and len(_ml_df) >= 50:
-                _ml_result = await self._get_ml_prediction(_ml_market, _ml_df)
-                if _ml_result:
-                    from monitoring.dashboard import dashboard_state
-                    _sig  = _ml_result.get("signal",     "HOLD")
-                    _conf = _ml_result.get("confidence", 0.0)
-                    _bp   = _ml_result.get("buy_prob",   0.0)
-                    _sp   = _ml_result.get("sell_prob",  0.0)
-                    dashboard_state.signals["ml_prediction"] = {
-                        "signal":     _sig,
-                        "confidence": round(float(_conf), 3),
-                        "buy_prob":   round(float(_bp),   3),
-                        "sell_prob":  round(float(_sp),   3),
-                        "market":     _ml_market,
-                    }
-                    dashboard_state.signals["ml_predictions"] = {
-                        _ml_market: dashboard_state.signals["ml_prediction"]
-                    }
         except Exception as _e:
-            import logging as _lg
-            _lg.getLogger("engine_cycle").debug(f"[WARN] engine_cycle 오류 무시: {_e}")
-            pass
+            logger.debug(f"[MDD-L3] 서킷브레이커 체크 오류: {_e}")
+
+        # [C-1 FIX] ML 대시보드 업데이트는 engine_ml.py의
+        # _get_ml_prediction()이 호출될 때마다 자동 처리됨
+        # → 이 위치의 중복 dead code 제거 완료
 
         # ── APEX 핵심 사이클 (자동 삽입 fix_cycle_core) ─────────────
+
         # 1) 기존 포지션 청산 체크 (SL/TP/트레일링/M4)
         try:
             await self._check_position_exits()
         except Exception as _ce:
-            logger.debug(f"[cycle] _check_position_exits 오류: {_ce}")
+            logger.warning(f"[cycle] _check_position_exits 오류: {_ce}", exc_info=True)
 
         # 2) 시간 기반 강제청산 (72h / 48h / 24h)
         try:
             await self._check_time_based_exits()
         except Exception as _ce:
-            logger.debug(f"[cycle] _check_time_based_exits 오류: {_ce}")
+            logger.warning(f"[cycle] _check_time_based_exits 오류: {_ce}", exc_info=True)
 
         # 3) 기존 포지션 재평가 (ML 신호 기반 익절/손절)
         try:
             for _om in list(self.portfolio.open_positions.keys()):
                 await self._analyze_existing_position(_om)
         except Exception as _ce:
-            logger.debug(f"[cycle] _analyze_existing_position 오류: {_ce}")
+            logger.warning(f"[cycle] _analyze_existing_position 오류: {_ce}", exc_info=True)
 
         # ── [PENDING-QUEUE] 대기열 처리 + 교체매매 ────────────────
         try:
@@ -238,7 +225,7 @@ class EngineCycleMixin:
                             import asyncio as _pq_aio
                             await _pq_aio.wait_for(self._analyze_market(_pq_market), timeout=8.0)
                         except Exception as _pq_e:
-                            logger.debug(f'[PENDING-QUEUE] {_pq_market} 매수 실패: {_pq_e}')
+                            logger.warning(f'[PENDING-QUEUE] {_pq_market} 매수 실패: {_pq_e}', exc_info=True)
                     elif _pq_score >= _REPLACE_SCORE:
                         # 슬롯 없음 + 고score → 교체매매 검토
                         _worst_m   = None
@@ -271,9 +258,9 @@ class EngineCycleMixin:
                                 import asyncio as _rp_aio
                                 await _rp_aio.wait_for(self._analyze_market(_pq_market), timeout=8.0)
                             except Exception as _rp_e:
-                                logger.debug(f'[REPLACE] 교체매매 실패: {_rp_e}')
+                                logger.warning(f'[REPLACE] 교체매매 실패: {_rp_e}', exc_info=True)
         except Exception as _pq_err:
-            logger.debug(f'[PENDING-QUEUE] 처리 오류: {_pq_err}')
+            logger.warning(f'[PENDING-QUEUE] 처리 오류: {_pq_err}', exc_info=True)
         # ── 대기열 처리 끝 ──────────────────────────────────────────
 
         # 4) 신규 매수 스캔 (서킷브레이커 비활성 시만, 5개씩 배치)
@@ -343,16 +330,17 @@ class EngineCycleMixin:
                     )
                     await _aio.sleep(0.1)  # 배치 간 CPU 양보
             except Exception as _ce:
-                logger.debug(f"[cycle] buy_scan 오류: {_ce}")
+                logger.warning(f"[cycle] buy_scan 오류: {_ce}", exc_info=True)
 
-        # 5) 동적 마켓 스캐너 (급등 코인 감지) — 최대 20초
+        # 5) 동적 마켓 스캐너 (급등 코인 감지) — 최대 60초
+        # [BUG-SC-3 FIX] 주석 수정: 20초 → 60초 (25코인×REST 호출 기준)
         try:
             import asyncio as _aio2
             await _aio2.wait_for(self._market_scanner(), timeout=60.0)
         except _aio2.TimeoutError:
             logger.debug("[cycle] _market_scanner 타임아웃(20s) 스킵")
         except Exception as _ce:
-            logger.debug(f"[cycle] _market_scanner 오류: {_ce}")
+            logger.warning(f"[cycle] _market_scanner 오류: {_ce}", exc_info=True)
         # ── 핵심 사이클 끝 ──────────────────────────────────────────
 
     # ── 시간기반 강제청산 ────────────────────────────────────────
@@ -510,7 +498,9 @@ class EngineCycleMixin:
                         _sl_cap_val = 0.987 if _is_surge_a else 0.983
                         _sl_levels  = self.atr_stop.get_dynamic_levels(
                             _df_pos, entry_price, current_price, _profit_pct,
-                            is_surge=_is_surge_a
+                            market=market,
+                            is_surge=_is_surge_a,
+                            global_regime=getattr(self, "_global_regime", None),
                         )
                         basic_sl = max(_sl_levels.stop_loss, entry_price * _sl_cap_val)
                         basic_tp = _sl_levels.take_profit
@@ -759,23 +749,32 @@ class EngineCycleMixin:
                     _held_min = (_dt_hold.datetime.now() - _et).total_seconds() / 60
                 except Exception:
                     _held_min = 999
-            if _held_min < 10 and pnl_pct > -2.0:  # 30→10분으로 완화
-                logger.debug(f"  ({market}): 최소보유 미달 {_held_min:.1f}min < 10min, SELL 차단")
+            # [ML-VETO v2] 최소보유 30분 복원 + ML SELL 차단 강화
+            if _held_min < 30 and pnl_pct > -2.5:
+                logger.debug(
+                    f"  ({market}): 최소보유 미달 {_held_min:.1f}min < 30min, SELL 차단"
+                )
             elif (
-                (signal == "SELL" and confidence >= 0.65 and pnl_pct >= 0.5) or   # ML익절 최소 +0.5%
-                (signal == "SELL" and confidence >= 0.65 and pnl_pct <= -1.5) or  # ML손절 -1.5%
-                (confidence >= 0.65 and pnl_pct >= 1.5) or                        # 강한 수익 익절
-                (confidence >= 0.65 and pnl_pct <= -1.5) or                       # RR 개선: 임계값 -2.0 → -1.5
-                (pnl_pct >= 3.0) or                                                # 3% 무조건 익절
-                (pnl_pct <= -2.0 and (confidence >= 0.50 or _held_min >= 720))  # ATR SL 상한 일치, 12h+ 보유 시 confidence 완화
-                (pnl_pct >= self._time_based_tp_threshold(market))                 # 시간 기반 익절
+                # ML 익절: 30분 이상 보유 + SELL 신호 + 최소 +0.5% 수익
+                (signal == "SELL" and confidence >= 0.65
+                    and pnl_pct >= 0.5 and _held_min >= 30) or
+                # 강한 수익 익절: 30분 이상 + 1.5% 이상
+                (confidence >= 0.65 and pnl_pct >= 1.5 and _held_min >= 30) or
+                # ML 손절: 60분 이상 보유 후에만 허용 (매수 직후 차단)
+                (confidence >= 0.65 and pnl_pct <= -1.5 and _held_min >= 60) or
+                # 무조건 익절: 3% 이상
+                (pnl_pct >= 3.0) or
+                # 장기 보유 손절: 12h+ 이후 -2% 이상
+                (pnl_pct <= -2.0 and (confidence >= 0.50 or _held_min >= 720)) or
+                # 시간 기반 익절
+                (pnl_pct >= self._time_based_tp_threshold(market))
             ):
+                _ml_reason = f"ML익절_{pnl_pct:.1f}%" if pnl_pct >= 0 else f"ML손절_{pnl_pct:.1f}%"
                 logger.info(
-                    f" ML   | {market} | "
-                    f"={confidence:.2f} | ={pnl_pct:+.2f}%"
+                    f" ML 청산 | {market} | confidence={confidence:.2f} | pnl={pnl_pct:+.2f}% | reason={_ml_reason}"
                 )
                 await self._execute_sell(
-                    market, f"ML익절_{pnl_pct:.1f}%", current_price
+                    market, _ml_reason, current_price
                 )
                 return
 
@@ -836,7 +835,7 @@ class EngineCycleMixin:
         from strategies.momentum.rsi_divergence import RSIDivergenceStrategy
         from strategies.momentum.supertrend import SupertrendStrategy
         from strategies.mean_reversion.bollinger_squeeze import BollingerSqueezeStrategy
-        from strategies.mean_reversion.vwap_reversion import VWAPReversionStrategy
+        # [ST-1] from strategies.mean_reversion.vwap_reversion import VWAPReversionStrategy  # 비활성화: -₩3,158
         # VolBreakout 전략 비활성화 — 백테스트 승률 29%, 기대값 -0.270%
         # from strategies.volatility.vol_breakout import VolBreakoutStrategy
         from strategies.volatility.atr_channel import ATRChannelStrategy
@@ -844,8 +843,10 @@ class EngineCycleMixin:
 
         strategies = [
             MACDCrossStrategy(), RSIDivergenceStrategy(), SupertrendStrategy(),
-            BollingerSqueezeStrategy(), VWAPReversionStrategy(),
-            ATRChannelStrategy(), OrderBlockStrategy(),  # VolBreakoutStrategy 제거 (승률 미달)
+            BollingerSqueezeStrategy(),
+            ATRChannelStrategy(), OrderBlockStrategy(),
+            # [ST-1] VWAPReversionStrategy() 제거: -₩3,158, 승률 42% (2026-05-03)
+            # [ST-2] VolBreakoutStrategy() 제거: -₩3,521, 승률 29% (이전 패치)
         ]
         for s in strategies:
             self._strategies[s.NAME] = s
@@ -870,17 +871,19 @@ class EngineCycleMixin:
                         self._global_regime = _new_regime
                         _gr_str_p2 = str(getattr(_new_regime, 'value', _new_regime)).upper()
                         # 전략 가중치 테이블
+                        # [BUG-SC-2 FIX] SURGE_FASTENTRY 레짐별 가중치/쿼터 재조정
+                        # 근거: SURGE_FASTENTRY 327건 승률46% EV-0.126% → MDD 76% 원인
                         _REGIME_WEIGHTS_P2 = {
-                            'BULL':       {'SURGE_FASTENTRY': 1.4, 'OrderBlock_SMC': 1.2, 'MACD_Cross': 1.0, 'Bollinger_Squeeze': 0.9, 'ML_Ensemble': 1.0},
-                            'RECOVERY':   {'SURGE_FASTENTRY': 1.0, 'OrderBlock_SMC': 1.3, 'MACD_Cross': 1.1, 'Bollinger_Squeeze': 1.2, 'ML_Ensemble': 1.1},
-                            'BEAR_WATCH': {'SURGE_FASTENTRY': 0.7, 'OrderBlock_SMC': 1.5, 'MACD_Cross': 0.9, 'Bollinger_Squeeze': 1.8, 'ML_Ensemble': 1.3},
+                            'BULL':       {'SURGE_FASTENTRY': 1.2, 'OrderBlock_SMC': 1.2, 'MACD_Cross': 1.0, 'Bollinger_Squeeze': 0.9, 'ML_Ensemble': 1.0},
+                            'RECOVERY':   {'SURGE_FASTENTRY': 0.5, 'OrderBlock_SMC': 1.3, 'MACD_Cross': 1.1, 'Bollinger_Squeeze': 1.2, 'ML_Ensemble': 1.1},
+                            'BEAR_WATCH': {'SURGE_FASTENTRY': 0.0, 'OrderBlock_SMC': 1.5, 'MACD_Cross': 0.9, 'Bollinger_Squeeze': 1.8, 'ML_Ensemble': 1.3},
                             'BEAR':       {'SURGE_FASTENTRY': 0.0, 'OrderBlock_SMC': 1.2, 'MACD_Cross': 0.8, 'Bollinger_Squeeze': 1.5, 'ML_Ensemble': 1.0},
                         }
                         # 슬롯 쿼터 테이블 (합계 > max_positions → 전략 간 자연 경쟁 유도)
                         _QUOTA_MAP_P2 = {
-                            'BULL':       {'SURGE_FASTENTRY': 6, 'OrderBlock_SMC': 4, 'MACD_Cross': 3, 'Bollinger_Squeeze': 3, 'ML_Ensemble': 2},
-                            'RECOVERY':   {'SURGE_FASTENTRY': 4, 'OrderBlock_SMC': 4, 'MACD_Cross': 3, 'Bollinger_Squeeze': 4, 'ML_Ensemble': 3},
-                            'BEAR_WATCH': {'SURGE_FASTENTRY': 3, 'OrderBlock_SMC': 5, 'MACD_Cross': 2, 'Bollinger_Squeeze': 5, 'ML_Ensemble': 3},
+                            'BULL':       {'SURGE_FASTENTRY': 4, 'OrderBlock_SMC': 4, 'MACD_Cross': 3, 'Bollinger_Squeeze': 3, 'ML_Ensemble': 2},
+                            'RECOVERY':   {'SURGE_FASTENTRY': 1, 'OrderBlock_SMC': 4, 'MACD_Cross': 3, 'Bollinger_Squeeze': 4, 'ML_Ensemble': 3},
+                            'BEAR_WATCH': {'SURGE_FASTENTRY': 0, 'OrderBlock_SMC': 5, 'MACD_Cross': 2, 'Bollinger_Squeeze': 5, 'ML_Ensemble': 3},
                             'BEAR':       {'SURGE_FASTENTRY': 0, 'OrderBlock_SMC': 6, 'MACD_Cross': 2, 'Bollinger_Squeeze': 5, 'ML_Ensemble': 3},
                         }
                         _w = _REGIME_WEIGHTS_P2.get(_gr_str_p2, _REGIME_WEIGHTS_P2['BEAR_WATCH'])

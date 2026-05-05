@@ -193,6 +193,44 @@ class UpbitAdapter:
         if self.is_paper:
             return await self._paper_sell(market, price, volume, "market")
 
+        # ── PATCH-2: 실잔고 기반 수량 교정 (dust 완전 청산) ──────────────
+        try:
+            coin = market.split("-")[1] if "-" in market else market
+            raw_balances = self._upbit.get_balances() or []
+            real_vol = next(
+                (
+                    float(b.get("balance", 0)) + float(b.get("locked", 0))
+                    for b in raw_balances
+                    if b.get("currency") == coin
+                ),
+                0.0,
+            )
+            if real_vol > 1e-10:
+                diff_ratio = abs(real_vol - volume) / max(volume, 1e-9)
+                if diff_ratio < 0.005:
+                    # 0.5% 이내 → dust 포함 실잔고로 교정
+                    logger.debug(
+                        f"[SELL-REAL] {market} DB={volume:.8f} "
+                        f"실잔고={real_vol:.8f} diff={diff_ratio*100:.4f}% → 실잔고 사용"
+                    )
+                    volume = real_vol
+                elif diff_ratio < 0.05:
+                    # 0.5~5% → 경고 후 실잔고 사용
+                    logger.warning(
+                        f"[SELL-REAL] {market} DB={volume:.8f} "
+                        f"실잔고={real_vol:.8f} diff={diff_ratio*100:.2f}% (비정상) → 실잔고 사용"
+                    )
+                    volume = real_vol
+                else:
+                    # 5% 초과 → DB 수량 유지, 수동 확인 필요
+                    logger.error(
+                        f"[SELL-REAL] {market} DB/실잔고 차이 {diff_ratio*100:.1f}% 초과 "
+                        f"— DB 수량 유지 (수동 확인 필요)"
+                    )
+        except Exception as _real_e:
+            logger.debug(f"[SELL-REAL] 실잔고 조회 실패 ({_real_e}) — DB 수량 사용")
+        # ── PATCH-2 끝 ───────────────────────────────────────────────────
+
         try:
             result = self._upbit.sell_market_order(market, volume)
             if result and "uuid" in result:
@@ -243,10 +281,13 @@ class UpbitAdapter:
                 orders = [o for o in orders if o["market"] == market]
             return orders
         try:
-            result = (
-                self._upbit.get_order(market, state="wait") if market else []
-            )
-            return result or []
+            # EX-1: pyupbit.get_order() 첫 인자는 UUID
+            # market을 넣으면 API 오류 → 전체 조회 후 파이썬 필터링
+            # 호출처: executor.py cancel_all_orders() L296
+            result = self._upbit.get_order(state="wait") or []
+            if market:
+                result = [o for o in result if o.get("market") == market]
+            return result
         except Exception as e:
             logger.error(f"   : {e}")
             return []
@@ -392,10 +433,14 @@ class UpbitAdapter:
                 raw = self._upbit.get_balances()
                 if not raw or not isinstance(raw, list):
                     return []
+                # PATCH-5: balance + locked 합산 (미체결 주문 수량 포함)
                 return [
                     {
                         "currency":      b.get("currency", ""),
-                        "balance":       str(b.get("balance", 0)),
+                        "balance":       str(
+                            float(b.get("balance", 0))
+                            + float(b.get("locked", 0))
+                        ),
                         "avg_buy_price": str(b.get("avg_buy_price", 0)),
                         "current_price": 0,
                     }

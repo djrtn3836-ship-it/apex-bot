@@ -107,13 +107,6 @@ from utils.cpu_optimizer import (
 from monitoring.paper_report import generate_paper_report
 import math as _math
 
-# ── 볼륨 정밀도 테이블 ────────────────────────────────────────
-_UPBIT_VOL_PREC = {
-    "KRW-BTC": 8, "KRW-ETH": 8, "KRW-SOL": 4, "KRW-XRP": 4,
-    "KRW-ADA": 2, "KRW-DOGE": 2, "KRW-DOT": 4, "KRW-LINK": 4,
-    "KRW-AVAX": 4, "KRW-ATOM": 4, "KRW-BORA": 0, "KRW-SUI": 4,
-}
-
 # ── Mixin 임포트 ──────────────────────────────────────────────
 from core.engine_utils import _floor_vol, _ceil_vol, calc_position_size, calc_exit_plan, _find_free_port
 from core.engine_cycle import EngineCycleMixin
@@ -122,7 +115,7 @@ from core.engine_sell import EngineSellMixin
 from core.engine_ml import EngineMLMixin
 from core.engine_db import EngineDBMixin
 from core.engine_schedule import EngineScheduleMixin
-from core.surge_detector import SurgeDetector  # [S5]
+from core.surge_detector import SurgeDetector, SurgeConfig  # [S5]
 
 
 class TradingEngine(
@@ -154,14 +147,19 @@ class TradingEngine(
 
         self.ws_collector      = None
         self._ws_bg_tasks: set = set()   # [S1] WS Task GC 방지용 강한참조
-        self._surge_detector  = SurgeDetector()      # [S5] 사전 초기화
+        # [S-C1] settings.risk.surge_min_score 를 SurgeConfig 로 주입
+        _surge_cfg = SurgeConfig(
+            threshold_a=self.settings.risk.surge_min_score,
+            threshold_c=self.settings.risk.surge_min_score,
+        )
+        self._surge_detector = SurgeDetector(config=_surge_cfg)  # [S5] 사전 초기화
         self.rest_collector    = RestCollector()
         self.candle_processor  = CandleProcessor()
         self.db_manager        = DatabaseManager()
         self.cache_manager     = CacheManager()
 
         self.adapter        = UpbitAdapter()
-        self.executor       = OrderExecutor(self.adapter)
+        self.executor       = OrderExecutor(self.adapter, db_manager=self.db_manager)
         self.risk_manager   = RiskManager()
         self.position_sizer = KellyPositionSizer()
         self.trailing_stop  = TrailingStopManager()
@@ -309,11 +307,12 @@ class TradingEngine(
         try:
             self.state_machine.transition(BotState.INITIALIZING)
             await self.db_manager.initialize()
-            self.executor.db_manager = self.db_manager
+            # [PHASE1] executor.db_manager 생성자에서 직접 주입으로 변경
 
             await self.adapter.initialize()
             krw_balance = await self.adapter.get_balance("KRW")
             self.portfolio.set_initial_capital(krw_balance)
+            self._cached_krw = float(krw_balance)  # [CB-FIX] Circuit Breaker KRW 캐시 초기화
             logger.info(f"  : ₩{krw_balance:,.0f}")
 
             await self._restore_positions_from_db()
@@ -362,6 +361,8 @@ class TradingEngine(
             self.state_machine.transition(BotState.RUNNING)
             await update_dashboard({"type": "status", "status": "RUNNING"})
 
+            # [E-C2] max_dynamic_coins 캐싱 — 클로저 진입 전 1회 읽기
+            _dm_max_cached = self.settings.trading.max_dynamic_coins
             async def _on_ws_message(data):
                 msg_type = data.get("ty", data.get("type", ""))
                 market   = data.get("cd", data.get("code", ""))
@@ -377,11 +378,11 @@ class TradingEngine(
                             _scr_val = float(_scr)
                             _fm_ref  = list(getattr(self, 'markets', []))
                             _dm_ref  = getattr(self, '_dynamic_markets', [])
-                            _dm_max  = 20  # [FIX] TradingConfig.max_dynamic_coins 대체
+            
                             if (_scr_val >= 0.05
                                     and market not in _fm_ref
                                     and market not in _dm_ref
-                                    and len(_dm_ref) < _dm_max):
+                                    and len(_dm_ref) < _dm_max_cached):  # [E-C2]
                                 _dm_ref.append(market)
                                 _grade = 'V2(10%+)' if _scr_val >= 0.10 else 'V1(5%+)'
                                 logger.info(
@@ -475,17 +476,54 @@ class TradingEngine(
         logger.info(" APEX BOT  ")
 
 
-    def pause(self):
+    def pause(self, from_telegram: bool = False):
+        """신규 매수 일시 중단.
+        Args:
+            from_telegram: True면 텔레그램 명령어에서 호출된 것이므로
+                           중복 알림 방지를 위해 notify_risk 스킵.
+        """
         self.state_machine.transition(BotState.PAUSED)
         log_risk("PAUSE", "신규 거래 일시 중단")
-        asyncio.create_task(
-            self.telegram.notify_risk("PAUSE", "신규 거래 일시 중단")
-        )
+        # [T-3] 텔레그램 명령어 호출 시 중복 알림 방지
+        if not from_telegram:
+            try:
+                loop = asyncio.get_running_loop()
+                task = loop.create_task(
+                    self.telegram.notify_risk("PAUSE", "신규 거래 일시 중단")
+                )
+                self._ws_bg_tasks.add(task)
+                task.add_done_callback(self._ws_bg_tasks.discard)
+            except RuntimeError:
+                # [E-H3] 루프 없음은 셧다운/테스트 타이밍 — 동작 무해, 로그만 남김
+                logger.warning("pause(): 이벤트 루프 없음 — 텔레그램 알림 생략")
+            except Exception as _e:
+                # [BUG-4] telegram None 등 예상치 못한 예외 침묵 방지
+                logger.warning(f"pause() 알림 전송 실패: {_e}")
 
-
-    def resume(self):
+    def resume(self, from_telegram: bool = False):
+        """일시 중단 해제.
+        Args:
+            from_telegram: True면 텔레그램 명령어에서 호출된 것이므로
+                           중복 알림 방지를 위해 notify_risk 스킵.
+        """
         self.state_machine.transition(BotState.RUNNING)
-        logger.info("  ")
+        logger.info("봇 재개됨")
+        # [T-3/BUG-1] Telegram 명령어 호출 시 중복 알림 방지
+        # pause()와 동일한 from_telegram 가드 패턴 적용
+        if not from_telegram:
+            try:
+                loop = asyncio.get_running_loop()
+                task = loop.create_task(
+                    self.telegram.notify_risk("RESUME", "신규 거래 재개됨")
+                )
+                self._ws_bg_tasks.add(task)
+                task.add_done_callback(self._ws_bg_tasks.discard)
+            except RuntimeError:
+                # [E-H3/BUG-3] 루프 없음은 셧다운/테스트 타이밍 — 동작 무해
+                logger.warning("resume(): 이벤트 루프 없음 — 텔레그램 알림 생략")
+            except Exception as _e:
+                # [BUG-5] telegram None 등 예상치 못한 예외 침묵 방지
+                logger.warning(f"resume() 알림 전송 실패: {_e}")
 
     # ── 외부 데이터 초기화 ───────────────────────────────────────
 

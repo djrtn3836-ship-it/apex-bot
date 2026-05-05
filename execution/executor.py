@@ -152,7 +152,13 @@ class OrderExecutor:
 
     # ── 시장가 주문 ───────────────────────────────────────────────
     async def _execute_market(self, req: ExecutionRequest) -> ExecutionResult:
-        """_execute_market 실행"""
+        """_execute_market 실행
+        [FIX] Upbit 시장가 주문은 접수 즉시 응답하므로
+              _wait_for_fill로 체결 완료 후 결과를 읽어야 함
+              - 접수 응답의 price = 주문금액(KRW), 코인 단가 아님
+              - 접수 응답의 executed_volume = 0 (체결 전)
+              - 접수 응답의 avg_price = "0" (체결 전)
+        """
         result = ExecutionResult(request=req, status=OrderStatus.SUBMITTED)
 
         if req.side == OrderSide.BUY:
@@ -166,36 +172,51 @@ class OrderExecutor:
             return result
 
         result.order_uuid = order.get("uuid", "")
-        result.status = OrderStatus.FILLED
-        result.executed_volume = float(order.get("executed_volume", 0))
-        result.fee = float(order.get("fee", order.get("paid_fee", 0)))
 
-        # [FIX] Upbit 시장가 주문은 "price" 대신 "avg_price" 또는 trades 평균 사용
-        _price = (
-            order.get("avg_price")           # 시장가 체결 평균가
-            or order.get("price")             # 지정가 체결가
-            or order.get("executed_price")    # 폴백1
-        )
-        if _price:
-            result.executed_price = float(_price)
-        else:
-            # trades 배열에서 가중평균가 계산
-            _trades = order.get("trades", [])
+        # ── 체결 완료 대기 (지정가와 동일하게 처리) ──────────────────
+        filled = await self._wait_for_fill(result.order_uuid)
+
+        if filled:
+            result.status = OrderStatus.FILLED
+            result.executed_volume = float(filled.get("executed_volume", 0))
+            result.fee = float(filled.get("fee", filled.get("paid_fee", 0)))
+
+            # 체결가 추출: trades 가중평균 → avg_price → 현재가+슬리피지
+            # ※ filled["price"] = 주문금액(KRW), 절대 사용 금지
+            _trades = filled.get("trades", [])
             if _trades:
                 _total_vol = sum(float(t.get("volume", 0)) for t in _trades)
                 if _total_vol > 0:
+                    # 수량도 trades에서 합산 (executed_volume 필드가 0인 경우 대비)
+                    result.executed_volume = _total_vol
                     result.executed_price = sum(
                         float(t.get("price", 0)) * float(t.get("volume", 0))
                         for t in _trades
                     ) / _total_vol
-            # 최후 수단: 현재가 + 슬리피지
-            if result.executed_price == 0 and result.executed_volume > 0:
+
+            if result.executed_price == 0:
+                _avg = filled.get("avg_price") or filled.get("executed_price")
+                if _avg and float(_avg) > 0:
+                    result.executed_price = float(_avg)
+
+            if result.executed_price == 0:
                 current_price = await self.adapter.get_current_price(req.market)
                 if current_price:
                     slippage = self.settings.trading.slippage_rate
-                    result.executed_price = current_price * (1 + slippage if req.side == OrderSide.BUY else 1 - slippage)
+                    result.executed_price = current_price * (
+                        1 + slippage if req.side == OrderSide.BUY else 1 - slippage
+                    )
+        else:
+            # 타임아웃: 부분체결 또는 미체결 → 현재가로 추정
+            logger.warning(f"[MARKET] {req.market} 체결 확인 타임아웃 → 현재가 추정")
+            result.status = OrderStatus.PARTIAL
+            current_price = await self.adapter.get_current_price(req.market)
+            if current_price:
+                result.executed_price = current_price
+            result.executed_volume = float(order.get("executed_volume", 0))
 
         return result
+
 
     # ── 체결 확인 루프 ────────────────────────────────────────────
     async def _wait_for_fill(self, order_uuid: str) -> Optional[Dict]:
@@ -209,13 +230,28 @@ class OrderExecutor:
                 continue
             last_order = order
             state = order.get("state", "")
+            exec_vol = float(order.get("executed_volume", 0))
+
             if state == "done":
                 return order
             elif state in ("cancel", "cancelled"):
-                return None
+                # [FIX] Upbit 시장가 주문은 완전 체결 후 state=cancel 반환
+                # executed_volume > 0 이면 실제로 체결된 것
+                if exec_vol > 0:
+                    logger.info(
+                        f"[FILL-OK] {order_uuid[:8]} "
+                        f"state=cancel 이지만 체결 완료 "
+                        f"(executed_volume={exec_vol:.6f})"
+                    )
+                    return order
+                else:
+                    logger.warning(
+                        f"[FILL-CANCEL] {order_uuid[:8]} "
+                        f"state=cancel + executed_volume=0 → 진짜 취소"
+                    )
+                    return None
             # 부분체결(wait) 상태 처리 - 체결된 수량이 있으면 기록
             elif state == "wait":
-                exec_vol = float(order.get("executed_volume", 0))
                 if exec_vol > 0:
                     logger.debug(
                         f"[PARTIAL] {order_uuid[:8]} "

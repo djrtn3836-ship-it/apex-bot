@@ -38,28 +38,33 @@ class V2EnsembleLayer:
         """config boost 값 반환"""
         try:
             from config.strategy_config_loader import get_boost
-            hour = datetime.now(pytz.timezone("Asia/Seoul")).hour
+            from datetime import datetime as _dt_boost  # [FX-3] 누락 import 추가
+            import pytz as _pytz_boost                  # [FX-3] 누락 import 추가
+            hour = _dt_boost.now(_pytz_boost.timezone("Asia/Seoul")).hour
             return get_boost(strategy_name, hour)
         except Exception as _e:
-            return 1.0
+            return 1.0  # fallback: boost 미적용
 
     def check(
         self,
         df: "pd.DataFrame",
         market: str,
         v1_confidence: float = 0.0,
+        fallback_regime: str = "RANGING",  # [EN-M3] engine_buy에서 GlobalRegime 주입
     ) -> "tuple[bool, float, float]":
         """
         v1 신호와 v2 앙상블 신호를 결합해 최종 진입 여부 반환
         Returns:
             (should_enter, final_confidence, size_multiplier)
         """
-        import logging as _log
-        _logger = _log.getLogger("v2_layer")
+        # [EN-M3-i] loguru logger 사용 (import logging 제거)
+        from loguru import logger as _logger
 
         # ── 시간필터: config 기반 전략별 허용 시간대 체크 ──
         try:
-            blocked = [n for n in self._strategies if not self._time_filter_pass(n)]
+            # [FX-4] self._strategies → self._ensemble._strategies (올바른 참조)
+            _strat_names = list(getattr(self._ensemble, '_strategies', {}).keys())
+            blocked = [n for n in _strat_names if not self._time_filter_pass(n)]
             if blocked:
                 _logger.debug(f"[V2Layer] 시간필터 차단 전략: {blocked}")
         except Exception:
@@ -69,7 +74,7 @@ class V2EnsembleLayer:
             return True, v1_confidence, 1.0
 
         try:
-            decision = self._ensemble.decide(df, market)
+            decision = self._ensemble.decide(df, market, fallback_regime=fallback_regime)
             if decision is None:
                 return True, v1_confidence, 1.0
 
@@ -77,7 +82,13 @@ class V2EnsembleLayer:
             combined_conf = v1_confidence * 0.4 + decision.confidence * 0.6
             size_mult = decision.position_size_mult * boost
 
-            if decision.should_enter and combined_conf >= 0.45:
+            # [FX-5] 0.45 하드코딩 → settings.buy_signal_threshold 연동
+            try:
+                from config.settings import get_settings as _gs
+                _v2_conf_thr = getattr(_gs().trading, 'buy_signal_threshold', 0.45)
+            except Exception:
+                _v2_conf_thr = 0.45
+            if decision.should_enter and combined_conf >= _v2_conf_thr:
                 _logger.info(
                     f"[V2Layer] {market} v1+v2 합의 "
                     f"v1={v1_confidence:.2f} v2={decision.confidence:.2f} "

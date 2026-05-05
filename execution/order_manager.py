@@ -284,6 +284,9 @@ class OrderManager:
             return True
 
         try:
+            # [OM-1 경고] rest_client(RestCollector)에는 place_order() 없음
+            # 실거래 전환 시 UpbitAdapter.buy_market_order/sell_market_order 로 교체 필요
+            # 현재 OrderManager는 페이퍼 모드 전용 경로로만 사용됨
             result = await self.rest_client.place_order(
                 market=order.market,
                 side=order.side.value,

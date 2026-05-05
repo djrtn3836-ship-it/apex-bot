@@ -1,3 +1,4 @@
+from datetime import datetime
 """
 core/engine_ml.py
 ─────────────────────────────────────────────────────────────
@@ -61,9 +62,9 @@ class EngineMLMixin:
                         "inference_ms":    round(result.get("inference_ms",    0), 2),
                         "updated_at":      datetime.now().strftime("%H:%M:%S"),
                 }
-                if dashboard_state is not None:
-                    dashboard_state.signals["ml_predictions"][market] = _ml_pred_data
-                    dashboard_state.signals["ml_prediction"]           = _ml_pred_data
+                # [ML-1 FIX] 단순 덮어쓰기 제거 — 위 상세 dict가 우선
+                # 이전: _ml_pred_data로 hold_prob/inference_ms 등 소실
+                # dashboard_state.signals["ml_predictions"][market] = _ml_pred_data
                     dashboard_state.signals["ml_last_updated"] = (
                         datetime.now().isoformat()
                 )
@@ -93,6 +94,12 @@ class EngineMLMixin:
                     f"코인당 {elapsed/len(results):.1f}ms"
                 )
                 try:
+                    # [ML-2 FIX] dashboard_state 로컬 import 추가
+                    try:
+                        from monitoring.dashboard import dashboard_state
+                        from datetime import datetime
+                    except Exception:
+                        dashboard_state = None
                     if dashboard_state is not None:
                         if "ml_predictions" not in dashboard_state.signals:
                             dashboard_state.signals["ml_predictions"] = {}

@@ -320,10 +320,18 @@ class DatabaseManager:
             return False
 
     async def delete_state(self, key: str) -> None:
-        """bot_state 테이블에서 key 삭제"""
-        async with aiosqlite.connect(self.db_path) as db:
-            await db.execute("DELETE FROM bot_state WHERE key = ?", (key,))
-            await db.commit()
+        """bot_state 테이블에서 key 삭제
+        [DB-1 FIX] 새 연결 대신 self._conn 사용 — WAL 동시 쓰기 SQLITE_BUSY 방지"""
+        if not self._conn:
+            return
+        try:
+            async with self._lock:
+                await self._conn.execute(
+                    "DELETE FROM bot_state WHERE key = ?", (key,)
+                )
+                await self._conn.commit()
+        except Exception as e:
+            logger.error(f"delete_state 오류 [{key}]: {e}")
 
     async def get_state(self, key: str) -> str | None:
         """bot_state  key"""
@@ -458,7 +466,7 @@ class DatabaseManager:
                 rows = await cur.fetchall()
             for side, vol in rows:
                 if side == "BUY":
-                    buy_vol = vol
+                    buy_vol += vol  # [DB-2 FIX] 누적 합산 (이전: 마지막 BUY만 사용)
                 elif side in ("SELL", "PARTIAL_SELL"):
                     sell_vol += vol
             if buy_vol > 0:

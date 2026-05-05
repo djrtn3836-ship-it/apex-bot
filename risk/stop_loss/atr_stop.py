@@ -197,13 +197,20 @@ class ATRStopLoss:
         current_price: float,
         profit_pct: float,
         market: str = "",
-        is_surge: bool = False,  # [FIX-IS-SURGE]
+        is_surge: bool = False,
+        global_regime=None,
+        local_regime=None,
     ) -> StopLevels:
-        """SL  
-        +3%: (BEP) 
-        +5%: +2%  
-        +10%: +5%"""
-        levels = self.calculate(df, entry_price, market, is_surge=is_surge)  # [FIX-IS-SURGE]
+        """추적 SL 계산 - 수익 구간별 SL 상향 조정
+        +3%: 손익분기점 BEP
+        +5%: +2% 보호
+        +10%: +5% 보호"""
+        levels = self.calculate(
+            df, entry_price, market=market,
+            is_surge=is_surge,
+            global_regime=global_regime,
+            local_regime=local_regime,
+        )
 
         if profit_pct >= 0.10:
             new_sl = entry_price * 1.05

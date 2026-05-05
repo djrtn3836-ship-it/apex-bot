@@ -64,7 +64,7 @@ class MACDCrossStrategy2(BaseStrategy):
             if state is None:
                 return None
 
-            return self._evaluate(state, ctx, market)
+            return self._evaluate(state, ctx, market, df=df)
 
         except Exception as e:
             logger.warning(f"[MACD2.0] {market} 오류: {e}")
@@ -110,7 +110,8 @@ class MACDCrossStrategy2(BaseStrategy):
             return None
 
     def _evaluate(
-        self, state: MACDState, ctx: MarketContext, market: str
+        self, state: MACDState, ctx: MarketContext, market: str,
+        df: "pd.DataFrame" = None
     ) -> Optional[Signal]:
         # 골든 크로스: 히스토그램 음→양 전환
         golden_cross = state.hist > 0 > state.hist_prev
@@ -154,15 +155,16 @@ class MACDCrossStrategy2(BaseStrategy):
             f"레짐={ctx.regime} | 신뢰도={confidence:.2f}"
         )
 
+        _close = safe_last(df["close"]) if df is not None and len(df) > 0 else 0.0
         return Signal(
             signal=SignalType.BUY,
             confidence=confidence,
             strategy_name=self.NAME,
             market         = market,
             score          = confidence * 2.0 - 1.0,
-            entry_price    = safe_last(df["close"]),
-            stop_loss      = safe_last(df["close"]) * 0.978,
-            take_profit    = safe_last(df["close"]) * 1.044,
+            entry_price    = _close,
+            stop_loss      = _close * 0.978 if _close > 0 else 0.0,
+            take_profit    = _close * 1.044 if _close > 0 else 0.0,
             reason         = f"{self.NAME} v2 신호",
             timeframe      = "1h",
             timestamp      = kst_now(),

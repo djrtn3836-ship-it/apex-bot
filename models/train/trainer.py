@@ -59,29 +59,77 @@ class ModelTrainer:
 
     # ── 레이블 생성 ───────────────────────────────────────────────
     def create_labels(self, df: pd.DataFrame, horizon: int = 5,
-                      threshold: float = 0.015) -> np.ndarray:
+                      threshold: float = None) -> np.ndarray:
         """
-        미래 N봉 후 가격 방향 레이블 생성
+        BUG-5 FIX: 동적 임계값 기반 레이블 생성
+        - 고정 1.5% 대신 ATR 기반 동적 임계값 사용
+        - 목표 클래스 분포: BUY 25% / HOLD 50% / SELL 25%
 
         Args:
             horizon: 예측 기간 (봉 수)
-            threshold: BUY/SELL 판단 임계값 (기본 1.5%)
+            threshold: None이면 ATR 기반 자동 계산
 
         Returns:
             labels: (N,) array | 0=BUY, 1=HOLD, 2=SELL
         """
         close = df["close"].values
-        n = len(close)
+        n     = len(close)
         labels = np.ones(n, dtype=int)  # 기본 HOLD
 
+        # ATR 기반 동적 임계값 계산
+        if threshold is None:
+            if "atr" in df.columns:
+                atr_mean = float(df["atr"].mean())
+                atr_pct  = atr_mean / (float(df["close"].mean()) + 1e-9)
+                threshold = max(atr_pct * horizon * 0.5, 0.008)  # 최소 0.8%
+            else:
+                # ATR 직접 계산
+                if "high" in df.columns and "low" in df.columns:
+                    hl  = df["high"].values - df["low"].values
+                    atr_raw = np.mean(hl[-50:]) if len(hl) >= 50 else np.mean(hl)
+                    atr_pct = atr_raw / (np.mean(close[-50:]) + 1e-9)
+                    threshold = max(atr_pct * horizon * 0.5, 0.008)
+                else:
+                    threshold = 0.012  # fallback
+
+            # 클래스 분포 목표: BUY/SELL 각 25% → 분위수 기반 조정
+            future_returns = []
+            for i in range(n - horizon):
+                fr = (close[i + horizon] - close[i]) / (close[i] + 1e-9)
+                future_returns.append(fr)
+            if len(future_returns) > 10:
+                arr = np.array(future_returns)
+                # 상/하위 25% 기준으로 임계값 재설정
+                threshold_up   = float(np.percentile(arr, 75))
+                threshold_down = float(np.percentile(arr, 25))
+                threshold_up   = max(threshold_up,   0.005)
+                threshold_down = min(threshold_down, -0.005)
+                logger.info(
+                    f"[Label] 동적 임계값: BUY>{threshold_up*100:.2f}% "
+                    f"SELL<{threshold_down*100:.2f}% (horizon={horizon})"
+                )
+                for i in range(n - horizon):
+                    fr = (close[i + horizon] - close[i]) / (close[i] + 1e-9)
+                    if fr > threshold_up:
+                        labels[i] = 0   # BUY
+                    elif fr < threshold_down:
+                        labels[i] = 2   # SELL
+                return labels
+
         for i in range(n - horizon):
-            future_return = (close[i + horizon] - close[i]) / close[i]
+            future_return = (close[i + horizon] - close[i]) / (close[i] + 1e-9)
             if future_return > threshold:
                 labels[i] = 0   # BUY
             elif future_return < -threshold:
                 labels[i] = 2   # SELL
-            # else: HOLD (1)
 
+        buy_cnt  = int(np.sum(labels == 0))
+        sell_cnt = int(np.sum(labels == 2))
+        hold_cnt = int(np.sum(labels == 1))
+        logger.info(
+            f"[Label] 분포: BUY={buy_cnt} HOLD={hold_cnt} SELL={sell_cnt} "
+            f"(threshold={threshold*100:.2f}%)"
+        )
         return labels
 
     # ── 피처 추출 ─────────────────────────────────────────────────
@@ -209,7 +257,10 @@ class ModelTrainer:
         scheduler = optim.lr_scheduler.CosineAnnealingLR(
             optimizer, T_max=self.ml_cfg.epochs, eta_min=1e-6
         )
-        criterion = nn.CrossEntropyLoss(weight=weight_tensor)
+        # [TR-1 FIX] EnsembleModel은 이미 softmax 확률 반환
+        # CrossEntropyLoss는 logit 입력을 가정 → 이중 softmax 발생
+        # NLLLoss + log()로 변경 (수학적 동치, softmax 중복 방지)
+        criterion = nn.NLLLoss(weight=weight_tensor)
 
         # AMP (자동 혼합 정밀도) - RTX 5060 Tensor Core
         scaler = torch.amp.GradScaler(enabled=(self.device == "cuda"))
@@ -235,7 +286,8 @@ class ModelTrainer:
                 with torch.amp.autocast(device_type="cuda" if self.device == "cuda" else "cpu",
                                          enabled=(self.device == "cuda")):
                     proba, _ = model(batch_X)
-                    loss = criterion(proba, batch_y)
+                    # [TR-1 FIX] NLLLoss: log(softmax_prob) 입력
+                    loss = criterion(torch.log(proba + 1e-10), batch_y)
 
                 scaler.scale(loss).backward()
                 scaler.unscale_(optimizer)
@@ -259,7 +311,8 @@ class ModelTrainer:
                     with torch.amp.autocast(device_type="cuda" if self.device == "cuda" else "cpu",
                                              enabled=(self.device == "cuda")):
                         proba, _ = model(batch_X)
-                        loss = criterion(proba, batch_y)
+                        # [TR-1 FIX] NLLLoss: log(softmax_prob) 입력
+                        loss = criterion(torch.log(proba + 1e-10), batch_y)
 
                     val_losses.append(loss.item())
                     val_preds.extend(proba.argmax(1).cpu().numpy())

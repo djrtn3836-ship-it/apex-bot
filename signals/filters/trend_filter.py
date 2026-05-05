@@ -92,6 +92,9 @@ class TrendFilter:
                 "ema200":  ema200,
                 "reason":  f"일봉 EMA200 위 (+{diff_pct:.1f}%) → 매수 허용",
             }
+        # [TF-1 설계의도] EMA200 하회 -60% 미만인 경우만 차단
+        # 실거래에서 -60% 이하는 사실상 불가능 → BEAR_REVERSAL 예외는
+        # 실제로는 이 elif 분기에서 already allowed=True로 처리됨
         elif diff_pct > -60.0:
             return {
                 "allowed": True,

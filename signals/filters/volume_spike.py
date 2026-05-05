@@ -98,7 +98,9 @@ class VolumeSpikeDetector:
                 else:
                     direction = "NEUTRAL"
 
-                strength = min((ratio - self._threshold) / (self.EXTREME_THRESHOLD - self._threshold), 1.0)
+                # [VS-1 FIX] threshold >= EXTREME_THRESHOLD 설정 시 분모 0 방어
+                _denom = max(self.EXTREME_THRESHOLD - self._threshold, 1e-9)
+                strength = min((ratio - self._threshold) / _denom, 1.0)
 
                 spike = VolumeSpike(
                     market=market,

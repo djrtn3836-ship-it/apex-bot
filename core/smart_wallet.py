@@ -55,9 +55,12 @@ class BotTransaction:
     timestamp: float = field(default_factory=time.time)
     sold_qty : float = 0.0           # 이 TX에서 얼마나 팔렸는지
 
+    _QTY_EPSILON: float = 1e-06  # 업비트 최소거래단위 기준 부동소수점 오차 흡수
+
     @property
     def remaining_qty(self) -> float:
-        return max(0.0, self.qty - self.sold_qty)
+        val = self.qty - self.sold_qty
+        return 0.0 if val < self._QTY_EPSILON else val
 
 
 @dataclass
@@ -88,7 +91,7 @@ class CoinWallet:
 
     @property
     def bot_avg_price(self) -> float:
-        txs = [tx for tx in self.transactions if tx.remaining_qty > 0]
+        txs = [tx for tx in self.transactions if tx.remaining_qty > 1e-06]
         if not txs:
             return 0.0
         total_qty = sum(tx.remaining_qty for tx in txs)
@@ -115,8 +118,8 @@ class CoinWallet:
 
     # ── 짜투리 상태 자동 업그레이드 ──────────────────────────────
     def refresh_dust_state(self, current_price: float):
-        if self.dust_qty < 1e-10:
-            return
+        if self.dust_qty < 1e-06:
+            return  # 1e-06 미만 = 부동소수점 오차 → 무시
         val  = self.dust_qty * current_price
         days = (time.time() - self.dust_since) / 86400
 
@@ -171,7 +174,7 @@ class SmartSellDecider:
         hold_qty = wallet.hold_qty
 
         # ── HOLD 단독 → 차단 ──────────────────────────────────
-        if wallet.is_hold and bot_qty < 1e-10:
+        if wallet.is_hold and bot_qty < 1e-06:
             return {
                 "ok": False, "qty": 0.0,
                 "strategy": "HOLD_BLOCK",
@@ -180,27 +183,50 @@ class SmartSellDecider:
             }
 
         # ── BOT 수량 없음 → 매도 불가 ─────────────────────────
-        if bot_qty < 1e-10:
+        if bot_qty < 1e-06:
             return {
                 "ok": False, "qty": 0.0,
                 "strategy": "NO_BOT_QTY",
-                "note": "BOT 보유 수량 없음",
+                "note": "BOT 보유 수량 없음 (1e-06 미만 오차 포함)",
                 "includes_dust": False,
             }
 
         # ── 짜투리 합산 여부 결정 ─────────────────────────────
+        # 설계 원칙 (total_sellable_qty 와 일치):
+        #   bot_qty > 0 AND 합산 ≥ ₩5,000  → dust 금액 무관 포함
+        #   bot_qty > 0 AND 합산 < ₩5,000  → dust 제외 (API 오류 방지)
+        #   bot_qty = 0 AND dust_val ≥ ₩500 → 독립 매도
+        #   bot_qty = 0 AND dust_val < ₩500 → 방치 (재매수 시 자동 합산)
         include_dust = False
         dust_note    = ""
 
-        if dust_qty > 1e-10:
-            dust_val = dust_qty * current_price
-            if dust_val < UPBIT_DEAD_KRW:
-                dust_note    = f"짜투리 ₩{dust_val:,.0f} 사망잔고 → 제외"
-                include_dust = False
-            else:
+        if dust_qty > 1e-06:
+            dust_val     = dust_qty * current_price
+            combined_val = (bot_qty + dust_qty) * current_price
+
+            if bot_qty > 1e-06 and combined_val >= UPBIT_MIN_KRW:
+                # 봇 포지션 있음 + 합산 ≥ ₩5,000 → dust 금액 무관 포함
                 include_dust = True
                 dust_note    = (
-                    f"짜투리 {dust_qty:.8f}개(₩{dust_val:,.0f}) 합산 ✅"
+                    f"BOT 합산: dust {dust_qty:.8f}개(₩{dust_val:,.0f}) 포함 ✅"
+                )
+            elif bot_qty > 1e-06:
+                # 봇 포지션 있지만 합산 < ₩5,000 → API 오류 방지
+                dust_note = (
+                    f"합산 ₩{combined_val:,.0f} < ₩{UPBIT_MIN_KRW:,} "
+                    f"→ dust 제외 (재매수 시 재시도)"
+                )
+            elif dust_val >= UPBIT_DEAD_KRW:
+                # 봇 포지션 없음, dust 단독 ₩500 이상 → 독립 매도
+                include_dust = True
+                dust_note    = (
+                    f"dust 단독 {dust_qty:.8f}개(₩{dust_val:,.0f}) 합산 ✅"
+                )
+            else:
+                # 봇 포지션 없음, dust 사망잔고 → 방치
+                dust_note = (
+                    f"dust ₩{dust_val:,.0f} 사망잔고 "
+                    f"→ 봇 재매수 시 자동 합산 예정"
                 )
 
         # ── 신호 강도별 청산 전략 ─────────────────────────────
@@ -237,7 +263,7 @@ class SmartSellDecider:
         value_krw = qty * current_price
         if value_krw < UPBIT_MIN_KRW:
             # 부족하면 dust 강제 합산해서 채우기 시도
-            if dust_qty > 1e-10 and not include_dust:
+            if dust_qty > 1e-06 and not include_dust:
                 qty          += dust_qty
                 include_dust  = True
                 value_krw     = qty * current_price
@@ -337,13 +363,41 @@ class SmartWalletManager:
                 actual   = qty
                 drift    = abs(actual - expected)
                 if drift > 1e-6:
-                    logger.warning(
-                        f"  {sym}:    | "
-                        f"={expected:.8f} ={actual:.8f} "
-                        f"={drift:.8f} →  "
-                    )
-                    # 차이를 DUST layer 에 흡수
-                    wallet.dust_qty = max(0.0, wallet.dust_qty + (actual - expected))
+                    _drift_val = actual - expected
+                    if _drift_val > 0:
+                        # [SW-B1] 실잔고 > DB 기록 → 초과분을 DUST로 흡수
+                        wallet.dust_qty = max(0.0, wallet.dust_qty + _drift_val)
+                        logger.warning(
+                            f"드리프트 흡수 {sym}: +{_drift_val:.8f} "
+                            f"→ DUST 증가 (외부 유입 추정)"
+                        )
+                    else:
+                        # [SW-B1] 실잔고 < DB 기록 → BOT TX FIFO 차감
+                        _reduce = abs(_drift_val)
+                        _before = wallet.bot_qty
+                        for tx in reversed(wallet.transactions):
+                            if _reduce < 1e-10:
+                                break
+                            _use = min(_reduce, tx.remaining_qty)
+                            tx.sold_qty += _use
+                            _reduce     -= _use
+                        # 완전 소진된 TX 정리
+                        wallet.transactions = [
+                            tx for tx in wallet.transactions
+                            if tx.remaining_qty > 1e-10
+                        ]
+                        if _reduce > 1e-10:
+                            # BOT 수량으로도 커버 안 됨 → 경고만
+                            logger.warning(
+                                f"드리프트 보정 한계 {sym}: "
+                                f"미처리 {_reduce:.8f} 남음"
+                            )
+                        else:
+                            logger.warning(
+                                f"드리프트 보정 {sym}: "
+                                f"BOT {_before:.8f}→{wallet.bot_qty:.8f} "
+                                f"(실잔고 기준 FIFO 차감)"
+                            )
                 continue
 
             # 신규 지갑 생성
@@ -409,7 +463,7 @@ class SmartWalletManager:
         wallet.transactions.append(tx)
 
         # DUST → 합산 대기 상태 확정
-        if wallet.dust_qty > 1e-10:
+        if wallet.dust_qty > 1e-06:
             wallet.dust_state = DustState.PENDING
             logger.info(
                 f" {symbol}:  {wallet.dust_qty:.8f} "
@@ -494,21 +548,23 @@ class SmartWalletManager:
             )
 
         # BOT 트랜잭션 FIFO 역순 차감
+        _EPS = 1e-06  # 업비트 최소단위 기준 부동소수점 오차 흡수
         for tx in reversed(wallet.transactions):
-            if remaining < 1e-10:
+            if remaining < _EPS:
+                remaining = 0.0
                 break
             use            = min(remaining, tx.remaining_qty)
             tx.sold_qty   += use
-            remaining     -= use
+            remaining      = round(remaining - use, 8)
 
-        # 완전 소진된 TX 제거
+        # 완전 소진된 TX 제거 (1e-06 미만 = 부동소수점 오차 처리)
         wallet.transactions = [
             tx for tx in wallet.transactions
-            if tx.remaining_qty > 1e-10
+            if tx.remaining_qty > 1e-06
         ]
 
-        # 지갑 완전 청산
-        if wallet.bot_qty < 1e-10 and wallet.dust_qty < 1e-10:
+        # 지갑 완전 청산 (1e-06 미만 = 부동소수점 오차로 간주 → 완전 청산)
+        if wallet.bot_qty < 1e-06 and wallet.dust_qty < 1e-06:
             self._wallets.pop(symbol, None)
             logger.info(f"  {symbol}:   ")
         else:
@@ -542,7 +598,7 @@ class SmartWalletManager:
                 "days"      : (time.time() - w.dust_since) / 86400,
             }
             for w in self._wallets.values()
-            if w.dust_state == DustState.ORPHAN and w.dust_qty > 1e-10
+            if w.dust_state == DustState.ORPHAN and w.dust_qty > 1e-06
         ]
 
     def print_status(self, current_prices: dict[str, float] | None = None):
@@ -557,8 +613,9 @@ class SmartWalletManager:
                 f"  {sym:>8} | "
                 f"HOLD={w.hold_qty:.6f} | "
                 f"DUST={w.dust_qty:.6f}[{w.dust_state.value}] | "
-                f"BOT={w.bot_qty:.6f}(TX:{len(w.transactions)}개) | "
-                + (f"평가≈₩{val:,.0f}" if val else "")
+                f"BOT={w.bot_qty:.6f}(TX:{len(w.transactions)}개)"
+                + (f" | 평가≈₩{val:,.0f}" if val else "")
+                # BOT>0 = 봇 매수 포지션 정상, HOLD=0 은 설계상 정상
             )
         orphans = self.get_orphan_report()
         if orphans:

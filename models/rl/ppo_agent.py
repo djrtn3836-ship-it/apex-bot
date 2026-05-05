@@ -114,7 +114,8 @@ if GYM_AVAILABLE:
                 "rsi", "macd", "macd_signal", "macd_hist",
                 "bb_upper", "bb_mid", "bb_lower", "bb_pct",
                 "atr", "adx", "cci", "mfi",
-                "ema_5", "ema_20", "ema_60", "sma_20",
+                # [PP-1 FIX] candle_processor는 ema{p} (언더스코어 없음) 저장
+                "ema5", "ema20", "ema50", "sma20",
                 "stoch_k", "stoch_d", "williams_r",
                 "obv", "vwap", "momentum_10",
             ]

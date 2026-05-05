@@ -150,6 +150,26 @@ class PPOOnlineTrainer:
             self._rollback()
             return False
 
+    def _save_buffer(self):
+        """[POT-1 FIX] buffer 파일 저장 — 재시작 복원용
+        이전: 미구현으로 10건마다 AttributeError 발생
+        """
+        try:
+            import json as _json
+            save_path = Path("models/saved/ppo/experience_buffer.json")
+            save_path.parent.mkdir(parents=True, exist_ok=True)
+            serializable = [
+                {k: v.tolist() if hasattr(v, "tolist") else v
+                 for k, v in exp.items() if k != "features"}
+                for exp in self._buffer[-50:]
+            ]
+            save_path.write_text(
+                _json.dumps(serializable, ensure_ascii=False),
+                encoding="utf-8"
+            )
+        except Exception as _e:
+            logger.debug(f"[PPOOnline] buffer 저장 실패 (무시): {_e}")
+
     def _rollback(self):
         if self.BACKUP_PATH.exists():
             import shutil

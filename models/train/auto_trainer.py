@@ -163,6 +163,17 @@ class AutoTrainer:
             # ── 결과 파싱 ─────────────────────────────────────
             output  = stdout.decode(errors="replace")
             new_acc = self._parse_val_acc(output)
+            # [AT-2 FIX] train_result.json 우선 참조 (stdout 파싱보다 정확)
+            try:
+                _tr = Path("models/saved/train_result.json")
+                if _tr.exists():
+                    _res = json.loads(_tr.read_text(encoding="utf-8"))
+                    _json_acc = float(_res.get("best_val_acc",
+                                     _res.get("val_acc", 0.0)))
+                    if _json_acc > 0:
+                        new_acc = _json_acc
+            except Exception as _je:
+                logger.debug(f"[AutoTrainer] train_result.json 파싱 실패: {_je}")
             logger.info(f"[AutoTrainer] 학습 완료 — val_acc={new_acc:.4f}")
 
             # ── 성능 비교: 하락 시 롤백 ───────────────────────

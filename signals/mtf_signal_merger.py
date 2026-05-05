@@ -1,5 +1,13 @@
 """Apex Bot -     (M3)
-6 TF"""
+6 TF
+
+수정 이력:
+  [MTF-1] ema_20/ema_50/ema_200 → ema20/ema50/ema200
+          candle_processor.py 컬럼명 기준으로 통일
+          (수정 전: 항상 NEUTRAL 고착 → 매수 과도 억제)
+  [MTF-2] f-string 중첩 따옴표 → 변수 분리
+          (수정 전: Python 3.11 이하 SyntaxError 위험)
+"""
 import pandas as pd
 import numpy as np
 from dataclasses import dataclass, field
@@ -58,7 +66,7 @@ class MTFSignalMerger:
 
     def analyze(self, tf_dataframes: Dict[str, pd.DataFrame]) -> MTFResult:
         """tf_dataframes: {"1d": df_daily, "4h": df_4h, ...}
-         df  close, ema_20, ema_50, ema_200, rsi"""
+         df  close, ema20, ema50, ema200, rsi"""
         tf_signals = []
 
         for tf, df in tf_dataframes.items():
@@ -79,43 +87,47 @@ class MTFSignalMerger:
         return self._merge(tf_signals)
 
     def _analyze_single_tf(self, tf: str, df: pd.DataFrame) -> TFSignal:
-        last    = df.iloc[-1]
-        close   = float(last.get("close", 0))
-        ema20   = float(last.get("ema_20",  close))
-        ema50   = float(last.get("ema_50",  close))
-        ema200  = float(last.get("ema_200", close))
-        rsi     = float(last.get("rsi",     50))
-        weight  = self.weights.get(tf, 0.1)
+        last   = df.iloc[-1]
+        close  = float(last.get("close", 0))
+
+        # [MTF-1 FIX] candle_processor.py 기준 컬럼명으로 통일
+        # 이전: ema_20, ema_50, ema_200 (언더스코어) → 항상 close fallback → NEUTRAL 고착
+        # 수정: ema20, ema50, ema200 (언더스코어 없음)
+        ema20  = float(last.get("ema20",  close))
+        ema50  = float(last.get("ema50",  close))
+        ema200 = float(last.get("ema200", close))
+        rsi    = float(last.get("rsi",    50))
+        weight = self.weights.get(tf, 0.1)
 
         # 추세 방향
         if close > ema20 > ema50 > ema200:
-            direction  = TFDirection.STRONG_UP
-            ema_trend  = "UP"
-            strength   = min(1.0, (close - ema200) / ema200 * 10)
+            direction = TFDirection.STRONG_UP
+            ema_trend = "UP"
+            strength  = min(1.0, (close - ema200) / (ema200 + 1e-9) * 10)
         elif close > ema50:
-            direction  = TFDirection.UP
-            ema_trend  = "UP"
-            strength   = 0.6
+            direction = TFDirection.UP
+            ema_trend = "UP"
+            strength  = 0.6
         elif close < ema20 < ema50 < ema200:
-            direction  = TFDirection.STRONG_DOWN
-            ema_trend  = "DOWN"
-            strength   = min(1.0, (ema200 - close) / ema200 * 10)
+            direction = TFDirection.STRONG_DOWN
+            ema_trend = "DOWN"
+            strength  = min(1.0, (ema200 - close) / (ema200 + 1e-9) * 10)
         elif close < ema50:
-            direction  = TFDirection.DOWN
-            ema_trend  = "DOWN"
-            strength   = 0.6
+            direction = TFDirection.DOWN
+            ema_trend = "DOWN"
+            strength  = 0.6
         else:
-            direction  = TFDirection.NEUTRAL
-            ema_trend  = "FLAT"
-            strength   = 0.3
+            direction = TFDirection.NEUTRAL
+            ema_trend = "FLAT"
+            strength  = 0.3
 
         return TFSignal(
-            timeframe  = tf,
-            direction  = direction,
-            strength   = strength,
-            ema_trend  = ema_trend,
-            rsi        = rsi,
-            weight     = weight,
+            timeframe = tf,
+            direction = direction,
+            strength  = strength,
+            ema_trend = ema_trend,
+            rsi       = rsi,
+            weight    = weight,
         )
 
     def _merge(self, signals: List[TFSignal]) -> MTFResult:
@@ -125,29 +137,38 @@ class MTFSignalMerger:
             for s in signals
         ) / (total_weight or 1)
 
-        # ✅ 상위 TF 거부권 (1d, 4h)
-        higher_tfs   = [s for s in signals if s.timeframe in ("1d", "4h")]
-        higher_down  = any(s.direction in (TFDirection.DOWN, TFDirection.STRONG_DOWN)
-                           for s in higher_tfs)
-        higher_up    = any(s.direction in (TFDirection.UP, TFDirection.STRONG_UP)
-                           for s in higher_tfs)
+        # 상위 TF 거부권 (1d, 4h)
+        higher_tfs  = [s for s in signals if s.timeframe in ("1d", "4h")]
+        higher_down = any(
+            s.direction in (TFDirection.DOWN, TFDirection.STRONG_DOWN)
+            for s in higher_tfs
+        )
+        higher_up   = any(
+            s.direction in (TFDirection.UP, TFDirection.STRONG_UP)
+            for s in higher_tfs
+        )
 
-        # ✅ 중간 TF 합의 체크 (1h, 15m)
-        mid_tfs      = [s for s in signals if s.timeframe in ("1h", "15m")]
-        mid_up_count = sum(1 for s in mid_tfs
-                           if s.direction in (TFDirection.UP, TFDirection.STRONG_UP))
-        mid_agreement = mid_up_count >= len(mid_tfs) * 0.5 if mid_tfs else True
+        # 중간 TF 합의 체크 (1h, 15m)
+        mid_tfs       = [s for s in signals if s.timeframe in ("1h", "15m")]
+        mid_up_count  = sum(
+            1 for s in mid_tfs
+            if s.direction in (TFDirection.UP, TFDirection.STRONG_UP)
+        )
+        mid_agreement = (
+            mid_up_count >= len(mid_tfs) * 0.5
+            if mid_tfs else True
+        )
 
-        # ✅ RSI 과매도 보너스 (RSI < 35이면 매수 강화)
-        rsi_values   = [s.rsi for s in signals if s.rsi > 0]
-        avg_rsi      = sum(rsi_values) / len(rsi_values) if rsi_values else 50
-        rsi_bonus    = 0.2 if avg_rsi < 35 else (-0.1 if avg_rsi > 70 else 0)
-        score        = score + rsi_bonus
+        # RSI 과매도/과매수 보너스
+        rsi_values = [s.rsi for s in signals if s.rsi > 0]
+        avg_rsi    = sum(rsi_values) / len(rsi_values) if rsi_values else 50
+        rsi_bonus  = 0.2 if avg_rsi < 35 else (-0.1 if avg_rsi > 70 else 0)
+        score      = score + rsi_bonus
 
-        # ✅ TF 수 보너스 (더 많은 TF 동의할수록 신뢰도 상승)
-        tf_count     = len(signals)
-        tf_bonus     = min(0.15, tf_count * 0.025)
-        score        = score + (tf_bonus if score > 0 else -tf_bonus)
+        # TF 수 보너스 (더 많은 TF 동의할수록 신뢰도 상승)
+        tf_count  = len(signals)
+        tf_bonus  = min(0.15, tf_count * 0.025)
+        score     = score + (tf_bonus if score > 0 else -tf_bonus)
 
         allow_buy  = score > 0.2 and not higher_down and mid_agreement
         allow_sell = score < -0.2 and not higher_up
@@ -163,25 +184,33 @@ class MTFSignalMerger:
         else:
             final = TFDirection.NEUTRAL
 
-        dominant = max(signals, key=lambda s: s.weight * abs(s.direction.value))
+        dominant   = max(signals, key=lambda s: s.weight * abs(s.direction.value))
         tf_summary = "/".join(
             f"{s.timeframe}:{s.direction.name[:1]}" for s in signals
         )
 
-        # ✅ FIX: mtf_aligned 계산 (상위/하위 TF 방향 일치 여부)
-        # 상위(1d,4h)와 하위(1h,15m,5m) TF 방향이 같으면 True
+        # mtf_aligned 계산 (상위/하위 TF 방향 일치 여부)
         lower_tfs     = [s for s in signals if s.timeframe in ("1h", "15m", "5m", "1m")]
-        lower_up      = sum(1 for s in lower_tfs
-                            if s.direction in (TFDirection.UP, TFDirection.STRONG_UP))
-        lower_down    = sum(1 for s in lower_tfs
-                            if s.direction in (TFDirection.DOWN, TFDirection.STRONG_DOWN))
-        lower_bullish = lower_up > lower_down if lower_tfs else False
-        lower_bearish = lower_down > lower_up if lower_tfs else False
+        lower_up      = sum(
+            1 for s in lower_tfs
+            if s.direction in (TFDirection.UP, TFDirection.STRONG_UP)
+        )
+        lower_down    = sum(
+            1 for s in lower_tfs
+            if s.direction in (TFDirection.DOWN, TFDirection.STRONG_DOWN)
+        )
+        lower_bullish = lower_up   > lower_down if lower_tfs else False
+        lower_bearish = lower_down > lower_up   if lower_tfs else False
 
         mtf_aligned = (
-            (higher_up   and lower_bullish) or   # 상위 UP  + 하위 UP  → 정렬됨
-            (higher_down and lower_bearish)       # 상위 DOWN + 하위 DOWN → 정렬됨
+            (higher_up   and lower_bullish) or
+            (higher_down and lower_bearish)
         )
+
+        # [MTF-2 FIX] f-string 중첩 따옴표 제거 → 변수 분리
+        # 이전: f"BUY={"'✅'" if ...}" → Python 3.11 이하 SyntaxError
+        buy_icon  = "✅" if allow_buy  else "❌"
+        sell_icon = "✅" if allow_sell else "❌"
 
         return MTFResult(
             combined_score  = score,
@@ -195,6 +224,6 @@ class MTFSignalMerger:
                 f"MTF합산={score:.2f} | TF={tf_count}개({tf_summary}) | "
                 f"RSI={avg_rsi:.0f} | 지배TF={dominant.timeframe} | "
                 f"정렬={'✅' if mtf_aligned else '❌'} | "
-                f"BUY={"'✅'" if allow_buy else "'❌'"} SELL={"'✅'" if allow_sell else "'❌'"}"
+                f"BUY={buy_icon} SELL={sell_icon}"
             ),
         )

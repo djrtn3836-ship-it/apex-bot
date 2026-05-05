@@ -133,77 +133,14 @@ class RegimeDetector:
     def _detect_impl(
         self,
         market: str,
-        df: pd.DataFrame,
+        df,
         timeframe: str = "60",
-        fear_greed_index: Optional[int] = None,
-    ) -> MarketRegime:
-        """Args:
-            fear_greed_index:   (BEAR_REVERSAL )"""
-        if df is None or len(df) < 50:
-            return MarketRegime.UNKNOWN
+        fear_greed_index=None,
+    ):
+        """[RD-1 FIX] detect()의 완전 중복 제거 — detect()에 위임
+        이전: 74행 완전 복사본, 독립적으로 수정 시 버그 숨김 위험"""
+        return self.detect(market, df, timeframe, fear_greed_index)
 
-        try:
-            last  = df.iloc[-1]
-            close = df["close"]
-
-            # ── 기본 지표 ────────────────────────────────────
-            adx      = float(last.get("adx",      0) or 0)
-            di_plus  = float(last.get("di_plus",  0) or 0)
-            di_minus = float(last.get("di_minus", 0) or 0)
-            atr_pct  = float(last.get("atr_pct",  1) or 1)
-            bb_width = float(last.get("bb_width", 0.05) or 0.05)
-            bb_pct   = float(last.get("bb_pct",   0.5) or 0.5)
-            rsi      = float(last.get("rsi",      50)  or 50)
-            price    = float(close.iloc[-1])
-
-            hist_vol = (
-                close.pct_change().rolling(20).std().iloc[-1] * np.sqrt(365) * 100
-            )
-
-            # ── EMA 정렬 ─────────────────────────────────────
-            ema20  = float(last.get("ema20",  price) or price)
-            ema50  = float(last.get("ema50",  price) or price)
-            ema200 = float(last.get("ema200", price) or price)
-
-            ema_bull = price > ema20 > ema50 > ema200
-            ema_bear = price < ema20 < ema50 < ema200
-
-            # ── 허스트 지수 ──────────────────────────────────
-            hurst = self._calc_hurst(close.tail(100))
-
-            # ✅ Step 3: BEAR_REVERSAL 감지 (최우선 체크)
-            bear_reversal = self._check_bear_reversal(
-                rsi=rsi,
-                bb_pct=bb_pct,
-                fear_greed_index=fear_greed_index,
-                adx=adx,
-                di_minus=di_minus,
-                di_plus=di_plus,
-            )
-            if bear_reversal:
-                regime = MarketRegime.BEAR_REVERSAL
-            else:
-                regime = self._classify(
-                    adx=adx, di_plus=di_plus, di_minus=di_minus,
-                    bb_width=bb_width, atr_pct=atr_pct,
-                    historical_vol=hist_vol, hurst=hurst,
-                    ema_bull_aligned=ema_bull,
-                    ema_bear_aligned=ema_bear,
-                    price=price, ema200=ema200,
-                )
-
-            self._cache[market] = regime
-            logger.debug(
-                f"  | {market} | {regime.value} | "
-                f"ADX={adx:.1f} BB={bb_width:.3f} "
-                f"={hurst:.3f} RSI={rsi:.1f}"
-                + (f" FG={fear_greed_index}" if fear_greed_index else "")
-            )
-            return regime
-
-        except Exception as e:
-            logger.error(f"   ({market}): {e}")
-            return MarketRegime.UNKNOWN
 
     def _check_bear_reversal(
         self,
@@ -236,7 +173,8 @@ class RegimeDetector:
             reversal_signals += 1
 
         # 2개 이상 충족 시 BEAR_REVERSAL
-        return reversal_signals >= 1
+        # [RD-2 FIX] 주석 "2개 이상 충족" 과 코드 일치 (이전: >= 1 → 과도한 역발상 허용)
+        return reversal_signals >= 2
 
     def _classify(
         self,

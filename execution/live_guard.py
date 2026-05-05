@@ -191,6 +191,8 @@ class LiveGuard:
         loss_limit = getattr(self, "CONSEC_LOSS_LIMIT", 5)
         cond_a = self._consec_loss >= loss_limit  # 조건A: 유효 손실 N회
         # 조건C: 오늘 누적 손실 -2% 초과 (daily_loss는 engine에서 추적)
+        # [LG-1 설계주의] _today_loss_pct는 engine_sell.py에서 외부 주입
+        # 주입 누락 시 기본값 0.0 → cond_c=False → 일일손실 조건 비활성화됨
         cond_c = getattr(self, "_today_loss_pct", 0.0) < -0.02
         if cond_a and cond_c:
             self._rt_blocked      = True

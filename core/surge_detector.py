@@ -100,7 +100,7 @@ class SurgeConfig:
     threshold_s: float = 0.80
     threshold_a: float = 0.35  # [FIX] 0.65->0.35
     threshold_b: float = 0.25  # [FIX] 0.50->0.25
-    threshold_c: float = 0.35
+    threshold_c: float = 0.20  # SG-2: threshold_a(0.35)와 분리 → C등급 복원
 
     weight_volume: float = 0.20
     weight_taker: float = 0.18
@@ -199,10 +199,18 @@ class SurgeDetector:
                 _last_close  = float(df_1m["close"].iloc[-1])
                 _prev_close  = float(df_1m["close"].iloc[-2])
                 _pc = abs(_last_close - _prev_close) / (_prev_close + 1e-9)
-                if _pc < _SURGE_MIN_PRICE_CHANGE and _last_close > 1000:
+                # [BUG-SC-4 FIX] 가격 구간별 최소 변동폭 차등 적용
+                # 저가 코인(DOGE, ANIME 등)도 저변동 차단 적용
+                _MIN_PC_BY_PRICE = (
+                    0.003 if _last_close < 100
+                    else 0.004 if _last_close < 1000
+                    else 0.005
+                )
+                if _pc < _MIN_PC_BY_PRICE:
                     logger.debug(
-                        f"[LOW-VOL-BLOCK] {market} 가격변동 {_pc:.4%} < "
-                        f"{_SURGE_MIN_PRICE_CHANGE:.1%} → 저변동 차단"
+                        f"[LOW-VOL-BLOCK] {market} "
+                        f"가격={_last_close:.1f}원 "
+                        f"변동={_pc:.4%} < 기준={_MIN_PC_BY_PRICE:.1%} → 저변동 차단"
                     )
                     return SurgeResult(
                         market=market, score=0.0,
@@ -504,7 +512,7 @@ class SurgeDetector:
                         (self.cfg.decoupling_strong - self.cfg.decoupling_min) * 0.4
             else:
                 score = min(0.8 + (decoupling - self.cfg.decoupling_strong) * 5, 0.95)
-            if btc_5m > 0.01:
+            if btc_5m > 0.02:  # [S-H2] 1%→2% 완화 (RECOVERY 레짐 억제 방지)
                 score *= 0.5
             return round(score, 4), round(decoupling, 4)
         except Exception:
@@ -619,27 +627,40 @@ class SurgeDetector:
                 return True
             return False
         except Exception as _e:
-            import logging as _lg
-            _lg.getLogger("surge_detector").debug(f"[WARN] surge_detector 오류 무시: {_e}")
+
+            logger.debug(f"[WARN] surge_detector 오류 무시: {_e}")
             return False
 
     # ══════════════════════════════════════════════════════════
     # 시간대 가중치 (KST)
     # ══════════════════════════════════════════════════════════
     def _time_weight(self) -> float:
+        """
+        시간대별 가중치 (KST 기준)
+        [S-M1 수정] 실매매 데이터 기반 황금시간대 반영
+          활성  : 06~12시 (실측 황금시간대, +20%)
+          활성  : 14~16시, 22~02시 (글로벌 변동성 구간, +20%)
+          패널티: 04~06시 (새벽 극저유동성, -15%)
+          중립  : 나머지 (±0%)
+        """
         try:
-            hour = datetime.now().hour
+            # SG-1: KST 명시 (datetime.now()는 로컬 시간 → 서버 UTC 이식 오류 방지)
+            from datetime import timezone as _tz, timedelta as _td
+            _kst = _tz(_td(hours=9))
+            hour = datetime.now(_kst).hour
+            # 황금시간대: 06~12시 (실매매 누적 +19,019원 / 175건)
+            if 6 <= hour < 12:
+                return self.cfg.time_active_boost          # 1.20
+            # 글로벌 변동성: 14~16시(한국 마감), 22~02시(미국 개장)
             if (14 <= hour < 16) or (22 <= hour < 24) or (0 <= hour < 2):
-                return self.cfg.time_active_boost
-            elif 4 <= hour < 8:
-                return self.cfg.time_inactive_penalty
+                return self.cfg.time_active_boost          # 1.20
+            # 극저유동성 새벽: 04~06시만 패널티 (06~08시는 황금시간대 포함으로 중립)
+            if 4 <= hour < 6:
+                return self.cfg.time_inactive_penalty      # 0.85
             return 1.0
         except Exception:
             return 1.0
 
-    # ══════════════════════════════════════════════════════════
-    # MTF 정렬: 5분봉 + 15분봉 EMA20 동시 확인
-    # ══════════════════════════════════════════════════════════
     def _check_mtf(self, df_5m, df_15m) -> bool:
         try:
             if df_5m is None or len(df_5m) < 20:
@@ -654,8 +675,8 @@ class SurgeDetector:
             tf15 = float(c15.iloc[-1]) > float(e15.iloc[-1])
             return tf5 and tf15
         except Exception as _e:
-            import logging as _lg
-            _lg.getLogger("surge_detector").debug(f"[WARN] surge_detector 오류 무시: {_e}")
+
+            logger.debug(f"[WARN] surge_detector 오류 무시: {_e}")
             return False
 
     # ══════════════════════════════════════════════════════════
@@ -671,8 +692,8 @@ class SurgeDetector:
                 obv.append(obv[-1] + (v if c > p else (-v if c < p else 0)))
             return obv
         except Exception as _e:
-            import logging as _lg
-            _lg.getLogger("surge_detector").debug(f"[WARN] surge_detector 오류 무시: {_e}")
+
+            logger.debug(f"[WARN] surge_detector 오류 무시: {_e}")
             return None
 
     def _calc_rsi(self, closes, period: int = 14) -> Optional[float]:
@@ -686,8 +707,8 @@ class SurgeDetector:
                 return 100.0
             return float(100 - 100 / (1 + gain / loss))
         except Exception as _e:
-            import logging as _lg
-            _lg.getLogger("surge_detector").debug(f"[WARN] surge_detector 오류 무시: {_e}")
+
+            logger.debug(f"[WARN] surge_detector 오류 무시: {_e}")
             return None
 
     def _calc_macd(self, closes, fast=12, slow=26, signal=9):
