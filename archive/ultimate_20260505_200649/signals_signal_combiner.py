@@ -98,10 +98,7 @@ class SignalCombiner:
 
     def __init__(self, settings=None):
         self.settings       = settings or get_settings()
-        # [U4-PATCH] buy_threshold: risk 설정(0.55) 대신 조정값 0.42 사용
-        # 근거: weighted_strength = score×weight×confidence (단일전략 ≈0.50~0.65)
-        _raw_thr = self.settings.risk.buy_signal_threshold  # 0.55
-        self.buy_threshold  = max(0.40, _raw_thr * 0.80)  # 0.55×0.80=0.44
+        self.buy_threshold  = self.settings.risk.buy_signal_threshold
         self.sell_threshold = -self.settings.risk.sell_signal_threshold
         self.min_agreement  = 0.20
 
@@ -200,14 +197,13 @@ class SignalCombiner:
             ):
                 return None
 
-            # [U8-PATCH] SELL confidence fallback — BUY 로직과 대칭화
-            _v1_sell_sigs = [s for s in filtered_signals if s.signal == SignalType.SELL]
-            if _v1_sell_sigs:
-                avg_confidence = sum(s.confidence for s in _v1_sell_sigs) / len(_v1_sell_sigs)
-            elif ml_confidence > 0.0:
+            avg_confidence = (
+                sum(s.confidence for s in filtered_signals
+                    if s.signal == SignalType.SELL)
+                / max(n_sell, 1)
+            )
+            if avg_confidence < 0.01 and ml_confidence > 0.0:
                 avg_confidence = ml_confidence
-            else:
-                avg_confidence = 0.0
             return CombinedSignal(
                 market=market,
                 signal_type=SignalType.SELL,

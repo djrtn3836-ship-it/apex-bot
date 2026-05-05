@@ -61,7 +61,7 @@ class MLPredictor:
     """
 
     CLASS_NAMES    = ["BUY", "HOLD", "SELL"]
-    MIN_CONFIDENCE = 0.28  # [U2-PATCH] 0.32→0.28: Temperature=1.5 이후 BUY 검출 확대
+    MIN_CONFIDENCE = 0.32  # lowered further: catch BUY/SELL at 0.40+
     TEMPERATURE    = 1.5   # [P1-PATCH] T=0.5→1.5: HOLD 편향 해제, BUY/SELL 신호 복원
     SEQ_LEN        = 60
 
@@ -196,14 +196,8 @@ class MLPredictor:
                 self._inference_times = self._inference_times[-100:]
 
             signal = self.CLASS_NAMES[signal_idx]
-            # [U3-PATCH] buy_prob 독립 임계값: HOLD 편향 완화
             if confidence < self.MIN_CONFIDENCE:
-                # buy_prob 별도 구제: softmax max가 낮아도 BUY 확률이 높으면 BUY
-                if float(proba_np[0]) >= 0.33 and signal_idx == 1:
-                    signal = "BUY"
-                    confidence = float(proba_np[0])
-                else:
-                    signal = "HOLD"
+                signal = "HOLD"
 
             result = {
                 "market":          market,

@@ -103,8 +103,7 @@ class KellyPositionSizer:
         base_amount = total_capital * kelly_f_weighted
 
         # ── Step 3: ML confidence 보정 (0.7 ~ 1.3×) ─────────────
-        # [U5-PATCH] 0.7+conf*0.6 → 0.5+conf: 선형 분포, 저신뢰도 자연 축소
-        conf_mult   = 0.5 + confidence  # 0.28→0.78, 0.55→1.05, 0.90→1.40
+        conf_mult   = 0.7 + (confidence * 0.6)
         base_amount *= conf_mult
 
         # ── Step 4: 전략 배수 ────────────────────────────────────

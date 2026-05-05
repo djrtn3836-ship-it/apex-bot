@@ -294,8 +294,8 @@ class EnsembleEngine:
 
             for name, sig in signals.items():
                 w     = self._weights[name].dynamic_weight
-                boost = regime_boosts.get(name, 1.0)  # [U1-PATCH] 0.0→1.0 기본배율
-                final_w = w * boost  # [U1-PATCH] 덧셈→곱셈: 레짐부스트를 배율로 적용
+                boost = regime_boosts.get(name, 0.0)
+                final_w = w + boost
                 score   = (sig.score * 0.4 + sig.confidence * 0.6) * final_w
                 total_score  += score
                 total_weight += final_w

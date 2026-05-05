@@ -693,10 +693,8 @@ class EngineBuyMixin:
                         _regime_fb = (
                             _gr.value if hasattr(_gr, 'value') else str(_gr)
                         ) if _gr is not None else 'RANGING'
-                        # [U7-PATCH] V2Layer 직전 최종 confidence clamp
-                        _final_v1_conf = max(0.0, min(1.0, combined.confidence))
                         _v2_ok, _v2_conf, _v2_size = self._v2_layer.check(
-                            df_processed, market, _final_v1_conf,
+                            df_processed, market, combined.confidence,
                             fallback_regime=_regime_fb,
                         )
                         if not _v2_ok:

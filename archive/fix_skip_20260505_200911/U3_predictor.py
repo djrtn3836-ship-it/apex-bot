@@ -196,14 +196,8 @@ class MLPredictor:
                 self._inference_times = self._inference_times[-100:]
 
             signal = self.CLASS_NAMES[signal_idx]
-            # [U3-PATCH] buy_prob 독립 임계값: HOLD 편향 완화
             if confidence < self.MIN_CONFIDENCE:
-                # buy_prob 별도 구제: softmax max가 낮아도 BUY 확률이 높으면 BUY
-                if float(proba_np[0]) >= 0.33 and signal_idx == 1:
-                    signal = "BUY"
-                    confidence = float(proba_np[0])
-                else:
-                    signal = "HOLD"
+                signal = "HOLD"
 
             result = {
                 "market":          market,

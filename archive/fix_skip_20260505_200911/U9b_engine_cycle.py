@@ -99,9 +99,7 @@ class EngineCycleMixin:
             try:
                 if self.state_machine.state == BotState.RUNNING:
                     with Timer("메인 루프 사이클"):
-                        _cb_result = await self._check_circuit_breaker()
-                        self._cb_main_loop_active = _cb_result  # [U9b-PATCH] _cycle과 동기화
-                        if _cb_result:
+                        if await self._check_circuit_breaker():
                             await asyncio.sleep(60)
                             continue
                         await self._cycle()

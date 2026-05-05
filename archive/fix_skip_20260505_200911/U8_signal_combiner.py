@@ -200,14 +200,13 @@ class SignalCombiner:
             ):
                 return None
 
-            # [U8-PATCH] SELL confidence fallback — BUY 로직과 대칭화
-            _v1_sell_sigs = [s for s in filtered_signals if s.signal == SignalType.SELL]
-            if _v1_sell_sigs:
-                avg_confidence = sum(s.confidence for s in _v1_sell_sigs) / len(_v1_sell_sigs)
-            elif ml_confidence > 0.0:
+            avg_confidence = (
+                sum(s.confidence for s in filtered_signals
+                    if s.signal == SignalType.SELL)
+                / max(n_sell, 1)
+            )
+            if avg_confidence < 0.01 and ml_confidence > 0.0:
                 avg_confidence = ml_confidence
-            else:
-                avg_confidence = 0.0
             return CombinedSignal(
                 market=market,
                 signal_type=SignalType.SELL,

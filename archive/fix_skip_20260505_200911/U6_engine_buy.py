@@ -693,10 +693,8 @@ class EngineBuyMixin:
                         _regime_fb = (
                             _gr.value if hasattr(_gr, 'value') else str(_gr)
                         ) if _gr is not None else 'RANGING'
-                        # [U7-PATCH] V2Layer 직전 최종 confidence clamp
-                        _final_v1_conf = max(0.0, min(1.0, combined.confidence))
                         _v2_ok, _v2_conf, _v2_size = self._v2_layer.check(
-                            df_processed, market, _final_v1_conf,
+                            df_processed, market, combined.confidence,
                             fallback_regime=_regime_fb,
                         )
                         if not _v2_ok:
@@ -728,15 +726,15 @@ class EngineBuyMixin:
     def _get_preferred_strategies(self, market: str) -> list:
         BEAR_PREFERRED = {
             "KRW-BTC":  ["MACD_Cross",       "Supertrend"],
-            "KRW-ETH":  ["Bollinger_Squeeze", "MACD_Cross", "ATR_Channel"],  # [U6-PATCH]
-            "KRW-XRP":  ["Bollinger_Squeeze", "MACD_Cross", "ATR_Channel"],  # [U6-PATCH]
-            "KRW-SOL":  ["Bollinger_Squeeze", "MACD_Cross", "Supertrend"],  # [U6-PATCH]
-            "KRW-ADA":  ["Bollinger_Squeeze", "MACD_Cross", "ATR_Channel"],  # [U6-PATCH]
+            "KRW-ETH":  ["Bollinger_Squeeze"],  # [ST-3] VWAP_Reversion 제거
+            "KRW-XRP":  ["Bollinger_Squeeze"],  # [ST-3] VWAP_Reversion 제거
+            "KRW-SOL":  ["Bollinger_Squeeze"],  # [ST-3] VWAP_Reversion 제거
+            "KRW-ADA":  ["Bollinger_Squeeze"],  # [ST-1] VWAP_Reversion 제거
             "KRW-DOGE": ["Bollinger_Squeeze", "MACD_Cross"],
-            "KRW-DOT":  ["Bollinger_Squeeze", "MACD_Cross", "ATR_Channel"],  # [U6-PATCH]
-            "KRW-LINK": ["Bollinger_Squeeze", "MACD_Cross", "ATR_Channel"],  # [U6-PATCH]
-            "KRW-AVAX": ["Bollinger_Squeeze", "MACD_Cross", "Supertrend"],  # [U6-PATCH]
-            "KRW-ATOM": ["Bollinger_Squeeze", "MACD_Cross", "ATR_Channel"],  # [U6-PATCH]
+            "KRW-DOT":  ["Bollinger_Squeeze"],  # [ST-1] VWAP_Reversion 제거
+            "KRW-LINK": ["Bollinger_Squeeze"],  # [ST-1] VWAP_Reversion 제거
+            "KRW-AVAX": ["Bollinger_Squeeze"],  # [ST-1] VWAP_Reversion 제거
+            "KRW-ATOM": ["Bollinger_Squeeze"],  # [ST-1] VWAP_Reversion 제거
         }
         BULL_PREFERRED = {
             "KRW-BTC":  ["MACD_Cross",       "Supertrend"],
