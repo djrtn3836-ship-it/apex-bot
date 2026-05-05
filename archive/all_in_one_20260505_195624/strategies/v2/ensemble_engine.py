@@ -71,27 +71,22 @@ class EnsembleEngine:
     DISABLED_STRATEGIES: set = _GLOBAL_DISABLED  # [REFACTOR] constants.py 단일 관리
 
     REFERENCE_WR:     float = 0.55
-    MIN_SIGNALS_NEEDED: int  = 1   # [P6-PATCH] 2→1: BEAR_WATCH 레짐 신호 빈도 대응
+    MIN_SIGNALS_NEEDED: int  = 2
     ENTRY_THRESHOLD:  float = 0.55
 
     # 레짐별 전략 부스트 [EN-H2] GlobalRegime 실제 enum 값과 일치하도록 수정
     # GlobalRegime: TRENDING_UP / TRENDING_DOWN / RANGING / VOLATILE
     #               BEAR_REVERSAL / RECOVERY / UNKNOWN
     REGIME_BOOSTS: Dict[str, Dict[str, float]] = {
-        # [R4-PATCH] GlobalRegime 실제 enum 값과 완전 일치 — BULL/BEAR_WATCH/BEAR 추가
-        "BULL":          {"MACD_Cross": 1.3, "Supertrend": 1.4,
-                          "OrderBlock_SMC": 1.2, "ATR_Channel": 1.1},
+        # [ST-1] VWAP_Reversion 제거, [ST-2] VolBreakout 제거
         "RANGING":       {"Bollinger_Squeeze": 1.2, "RSI_Divergence": 1.1},
         "TRENDING_UP":   {"Supertrend": 1.4, "MACD_Cross": 1.3, "ATR_Channel": 1.2,
                           "OrderBlock_SMC": 1.1},
         "TRENDING_DOWN": {"RSI_Divergence": 1.2, "Supertrend": 0.7},
         "VOLATILE":      {"OrderBlock_SMC": 1.3, "ATR_Channel": 1.2},
         "BEAR_REVERSAL": {"RSI_Divergence": 1.3, "OrderBlock_SMC": 1.2},
-        "BEAR_WATCH":    {"Bollinger_Squeeze": 1.3, "MACD_Cross": 1.1,
-                          "RSI_Divergence": 1.2},
-        "BEAR":          {"Bollinger_Squeeze": 1.4, "RSI_Divergence": 1.3},
         "RECOVERY":      {"MACD_Cross": 1.3, "OrderBlock_SMC": 1.2, "Bollinger_Squeeze": 1.1},
-        "UNKNOWN":       {},
+        "UNKNOWN":       {},  # 레짐 불명 시 boost 없음
     }
 
     @staticmethod
@@ -376,8 +371,6 @@ class EnsembleEngine:
         # [EN-C3-a] 카운터를 bot_state 테이블에 영속화
         # → 재시작 시 _load_recent_performance()에서 복원
         # timeout=5: aiosqlite WAL 동시 쓰기 충돌 방어
-        # [R5-PATCH] try/finally — SQLite 연결 누수 방지
-        _conn_u = None
         try:
             import json as _js_u
             _key = f"ensemble_counter_{strategy_name}"
@@ -397,14 +390,9 @@ class EnsembleEngine:
                 (_key, _val)
             )
             _conn_u.commit()
+            _conn_u.close()
         except Exception as _ue:
             logger.debug(f"[Ensemble] 카운터 저장 실패: {_ue}")
-        finally:
-            if _conn_u is not None:
-                try:
-                    _conn_u.close()
-                except Exception:
-                    pass
 
         if w.signal_count >= 3:
             mem_wr    = w.win_count / w.signal_count

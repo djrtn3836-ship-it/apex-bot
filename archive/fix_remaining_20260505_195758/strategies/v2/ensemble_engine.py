@@ -376,8 +376,6 @@ class EnsembleEngine:
         # [EN-C3-a] 카운터를 bot_state 테이블에 영속화
         # → 재시작 시 _load_recent_performance()에서 복원
         # timeout=5: aiosqlite WAL 동시 쓰기 충돌 방어
-        # [R5-PATCH] try/finally — SQLite 연결 누수 방지
-        _conn_u = None
         try:
             import json as _js_u
             _key = f"ensemble_counter_{strategy_name}"
@@ -397,14 +395,9 @@ class EnsembleEngine:
                 (_key, _val)
             )
             _conn_u.commit()
+            _conn_u.close()
         except Exception as _ue:
             logger.debug(f"[Ensemble] 카운터 저장 실패: {_ue}")
-        finally:
-            if _conn_u is not None:
-                try:
-                    _conn_u.close()
-                except Exception:
-                    pass
 
         if w.signal_count >= 3:
             mem_wr    = w.win_count / w.signal_count

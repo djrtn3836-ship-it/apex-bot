@@ -41,7 +41,6 @@ class CombinedSignal:
     metadata: Dict = field(default_factory=dict)
     ml_signal: Optional[str] = None
     ml_confidence: float = 0.0
-    bear_reversal: bool = False   # [R3-PATCH] engine_buy BEAR_REVERSAL 플래그
 
     def get(self, key: str, default=None):
         return getattr(self, key, default)
@@ -70,7 +69,7 @@ class SignalCombiner:
         StrategyKey.BOLLINGER_SQUEEZE: 1.4,
         StrategyKey.ATR_CHANNEL:       1.0,
         StrategyKey.ORDER_BLOCK_SMC:   0.3,   # 백테스트 -4.7% → 하향
-        StrategyKey.ML_ENSEMBLE:       1.5,   # [P2-PATCH] 3.0→1.5: 기술전략 대비 균형 복원
+        StrategyKey.ML_ENSEMBLE:       3.0,   # 핵심 전략
         StrategyKey.BEAR_REVERSAL:     2.0,
     }
 
@@ -153,10 +152,9 @@ class SignalCombiner:
             elif ml_signal == "SELL":
                 sell_score += ml_weight * ml_confidence
                 sell_strategies.append(StrategyKey.ML_ENSEMBLE)
-            elif ml_signal == "HOLD" and len(buy_strategies) >= 4 and ml_confidence >= 0.50:
-                # [R2-PATCH] 조건 강화(≥3→≥4, conf≥0.5) + 가짜 이름 제거
-                buy_score += ml_weight * ml_confidence * 0.3
-                buy_strategies.append(StrategyKey.ML_ENSEMBLE)
+            elif ml_signal == "HOLD" and len(buy_strategies) >= 3:
+                buy_score += ml_weight * ml_confidence * 0.5
+                buy_strategies.append("ML_HOLD_BOOST")
 
         total_strategies = len(filtered_signals) + (1 if ml_signal else 0)
         net_score        = buy_score - sell_score

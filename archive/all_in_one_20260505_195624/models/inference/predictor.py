@@ -62,7 +62,7 @@ class MLPredictor:
 
     CLASS_NAMES    = ["BUY", "HOLD", "SELL"]
     MIN_CONFIDENCE = 0.32  # lowered further: catch BUY/SELL at 0.40+
-    TEMPERATURE    = 1.5   # [P1-PATCH] T=0.5→1.5: HOLD 편향 해제, BUY/SELL 신호 복원
+    TEMPERATURE    = 0.5   # Temperature Scaling: 신뢰도 분포 날카롭게 (0.5 = sharp)
     SEQ_LEN        = 60
 
     def __init__(self):

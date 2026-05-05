@@ -92,7 +92,7 @@ class V2EnsembleLayer:
             # [FX-5] 0.45 하드코딩 → settings.buy_signal_threshold 연동
             try:
                 from config.settings import get_settings as _gs
-                _v2_conf_thr = getattr(_gs().risk, 'buy_signal_threshold', 0.55)  # [P8-PATCH] trading→risk
+                _v2_conf_thr = getattr(_gs().trading, 'buy_signal_threshold', 0.45)
             except Exception:
                 _v2_conf_thr = 0.45
             if decision.should_enter and combined_conf >= _v2_conf_thr:

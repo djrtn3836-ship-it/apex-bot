@@ -41,7 +41,6 @@ class CombinedSignal:
     metadata: Dict = field(default_factory=dict)
     ml_signal: Optional[str] = None
     ml_confidence: float = 0.0
-    bear_reversal: bool = False   # [R3-PATCH] engine_buy BEAR_REVERSAL 플래그
 
     def get(self, key: str, default=None):
         return getattr(self, key, default)

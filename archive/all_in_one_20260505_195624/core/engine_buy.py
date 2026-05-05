@@ -551,7 +551,9 @@ class EngineBuyMixin:
                                 if _fetched is not None and len(_fetched) >= 5:
                                     _tf_data[_tf_key] = _fetched
                             except Exception as _e:
-                                logger.debug(f"[P10-PATCH][MTF-WARN] {market} {_tf_key} 조회 실패: {_e}")
+                                import logging as _lg
+                                _lg.getLogger("engine_buy").debug(f"[WARN] engine_buy 오류 무시: {_e}")
+                                pass
 
                     if _tf_data:
                         _mtf_result = self.mtf_merger.analyze(_tf_data)

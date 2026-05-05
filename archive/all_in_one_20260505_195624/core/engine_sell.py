@@ -217,7 +217,7 @@ class EngineSellMixin:
         except Exception as e:
             logger.warning(f"[PARTIAL-SELL] DB upsert/delete 실패: {e}")
 
-        # [R1-PATCH] STEP-8 들여쓰기 수정 — 항상 실행 보장
+                # [STEP-8] partial sell 도 trade result 기록
         try:
             self.risk_manager.record_trade_result(
                 is_win=profit_rate > 0,
