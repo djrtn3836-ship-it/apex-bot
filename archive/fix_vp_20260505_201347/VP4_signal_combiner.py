@@ -94,23 +94,6 @@ class SignalCombiner:
             StrategyKey.BOLLINGER_SQUEEZE,
             StrategyKey.BEAR_REVERSAL,
         },
-        # [VP4-PATCH] GlobalRegime 키 매핑 추가
-        "BULL": {
-            StrategyKey.MACD_CROSS,
-            StrategyKey.SUPERTREND,
-            StrategyKey.BOLLINGER_SQUEEZE,
-        },
-        "RECOVERY": {
-            StrategyKey.MACD_CROSS,
-            StrategyKey.BOLLINGER_SQUEEZE,
-        },
-        "BEAR_WATCH": {
-            StrategyKey.BOLLINGER_SQUEEZE,
-            StrategyKey.ATR_CHANNEL,
-        },
-        "BEAR": {
-            StrategyKey.BOLLINGER_SQUEEZE,
-        },
     }
 
     def __init__(self, settings=None):

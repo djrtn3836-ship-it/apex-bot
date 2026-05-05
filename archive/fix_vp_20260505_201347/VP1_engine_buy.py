@@ -242,16 +242,7 @@ class EngineBuyMixin:
                     _surge_score = 0.0
                     if hasattr(self, '_market_change_rates'):
                         _surge_score = self._market_change_rates.get(market, 0.0) * 100
-                    # [VP1-PATCH] GlobalRegime 기반 RR 임계값 동적 조정
-                    _gr_vp = str(getattr(getattr(self, "_global_regime", None), "value",
-                                 getattr(self, "_global_regime", "UNKNOWN") or "UNKNOWN")).upper()
-                    _rr_thr = {
-                        "BULL":       -0.60,  # BULL: 완화 (단기 저항 근접 허용)
-                        "RECOVERY":   -0.45,  # 회복: 중간
-                        "BEAR_WATCH": -0.30,  # 약세경계: 기존값 유지
-                        "BEAR":       -0.20,  # 약세: 엄격
-                    }.get(_gr_vp, -0.30)
-                    if _rr < _rr_thr and _sup > 0 and _res > 0 and _surge_score < 30.0:
+                    if _rr < -0.3 and _sup > 0 and _res > 0 and _surge_score < 30.0:
                         logger.info(
                             f'[VolumeProfile] ({market}): '
                             f'RR={_rr:.2f} 저항={_res:,.0f} 지지={_sup:,.0f} → 차단'
@@ -310,14 +301,9 @@ class EngineBuyMixin:
                 f"FG={getattr(self.fear_greed,'index',50)}"
             )
 
-            # [VP3-PATCH] GlobalRegime=BULL/RECOVERY 시 개별 TRENDING_DOWN 차단 완화
-            _gr_vp3 = str(getattr(getattr(self, "_global_regime", None), "value",
-                          getattr(self, "_global_regime", "UNKNOWN") or "UNKNOWN")).upper()
-            if regime == MarketRegime.TRENDING_DOWN and _gr_vp3 not in ("BULL", "RECOVERY"):
+            if regime == MarketRegime.TRENDING_DOWN:
                 logger.info(f'[ANALYZE] {market} TRENDING_DOWN 차단 (regime={regime})')
                 return
-            elif regime == MarketRegime.TRENDING_DOWN and _gr_vp3 in ("BULL", "RECOVERY"):
-                logger.info(f"[VP3] {market} TRENDING_DOWN이나 GlobalRegime={_gr_vp3} → 차단 완화, 계속 분석")
             if regime == MarketRegime.BEAR_REVERSAL:
                 logger.info(
                     f" BEAR_REVERSAL  ({market}) → "
@@ -347,12 +333,6 @@ class EngineBuyMixin:
                 )
 
             signals  = await self._run_strategies(market, df_processed)
-            # [VP2-PATCH] 전략 신호 상세 디버그
-            if signals:
-                for _dbg_s in signals:
-                    logger.debug(f"[STRATEGY-SIG] {market} | {_dbg_s.strategy_name} | {_dbg_s.signal.name} | score={_dbg_s.score:.3f} conf={_dbg_s.confidence:.3f}")
-            else:
-                logger.info(f"[STRATEGY-NONE] {market} 전략 신호 0개 — df_processed 행수={len(df_processed) if df_processed is not None else 0}")
             ml_pred  = await self._get_ml_prediction(market, df_processed)
             ppo_pred = await self._get_ppo_prediction(market, df_processed)
 

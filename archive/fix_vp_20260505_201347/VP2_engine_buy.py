@@ -310,14 +310,9 @@ class EngineBuyMixin:
                 f"FG={getattr(self.fear_greed,'index',50)}"
             )
 
-            # [VP3-PATCH] GlobalRegime=BULL/RECOVERY 시 개별 TRENDING_DOWN 차단 완화
-            _gr_vp3 = str(getattr(getattr(self, "_global_regime", None), "value",
-                          getattr(self, "_global_regime", "UNKNOWN") or "UNKNOWN")).upper()
-            if regime == MarketRegime.TRENDING_DOWN and _gr_vp3 not in ("BULL", "RECOVERY"):
+            if regime == MarketRegime.TRENDING_DOWN:
                 logger.info(f'[ANALYZE] {market} TRENDING_DOWN 차단 (regime={regime})')
                 return
-            elif regime == MarketRegime.TRENDING_DOWN and _gr_vp3 in ("BULL", "RECOVERY"):
-                logger.info(f"[VP3] {market} TRENDING_DOWN이나 GlobalRegime={_gr_vp3} → 차단 완화, 계속 분석")
             if regime == MarketRegime.BEAR_REVERSAL:
                 logger.info(
                     f" BEAR_REVERSAL  ({market}) → "
@@ -347,12 +342,6 @@ class EngineBuyMixin:
                 )
 
             signals  = await self._run_strategies(market, df_processed)
-            # [VP2-PATCH] 전략 신호 상세 디버그
-            if signals:
-                for _dbg_s in signals:
-                    logger.debug(f"[STRATEGY-SIG] {market} | {_dbg_s.strategy_name} | {_dbg_s.signal.name} | score={_dbg_s.score:.3f} conf={_dbg_s.confidence:.3f}")
-            else:
-                logger.info(f"[STRATEGY-NONE] {market} 전략 신호 0개 — df_processed 행수={len(df_processed) if df_processed is not None else 0}")
             ml_pred  = await self._get_ml_prediction(market, df_processed)
             ppo_pred = await self._get_ppo_prediction(market, df_processed)
 

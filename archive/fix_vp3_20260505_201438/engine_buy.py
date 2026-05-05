@@ -310,14 +310,9 @@ class EngineBuyMixin:
                 f"FG={getattr(self.fear_greed,'index',50)}"
             )
 
-            # [VP3-PATCH] GlobalRegime=BULL/RECOVERY 시 개별 TRENDING_DOWN 차단 완화
-            _gr_vp3 = str(getattr(getattr(self, "_global_regime", None), "value",
-                          getattr(self, "_global_regime", "UNKNOWN") or "UNKNOWN")).upper()
-            if regime == MarketRegime.TRENDING_DOWN and _gr_vp3 not in ("BULL", "RECOVERY"):
+            if regime == MarketRegime.TRENDING_DOWN:
                 logger.info(f'[ANALYZE] {market} TRENDING_DOWN 차단 (regime={regime})')
                 return
-            elif regime == MarketRegime.TRENDING_DOWN and _gr_vp3 in ("BULL", "RECOVERY"):
-                logger.info(f"[VP3] {market} TRENDING_DOWN이나 GlobalRegime={_gr_vp3} → 차단 완화, 계속 분석")
             if regime == MarketRegime.BEAR_REVERSAL:
                 logger.info(
                     f" BEAR_REVERSAL  ({market}) → "
