@@ -344,7 +344,10 @@ class TradingEngine(
                 logger.warning(' Dashboard   (  ): ' + str(_dash_err))
                 logger.warning('  Dashboard   Bot  ')
 
-            await self.telegram.initialize(engine_ref=self)
+            try:  # FIX-G
+                await self.telegram.initialize(engine_ref=self)
+            except Exception as _tg_e:
+                self.logger.warning(f"[FIX-G] Telegram 초기화 실패(무시): {_tg_e}")
 
             self._register_schedules()
 
