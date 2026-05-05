@@ -1,3 +1,4 @@
+from __future__ import annotations
 from datetime import datetime
 """
 core/engine_ml.py
@@ -14,7 +15,6 @@ ML / PPO 예측 및 모델 관련 Mixin
     _run_auto_retrain         : ML 앙상블 자동 재훈련
 ─────────────────────────────────────────────────────────────
 """
-from __future__ import annotations
 import time
 from utils.gpu_utils import setup_gpu, maybe_compile, log_gpu_status, clear_gpu_cache
 from typing import Optional
