@@ -78,12 +78,12 @@ class RSIDivergenceStrategy2(BaseStrategy):
 
             # RSI 50 레벨 필터
             # 매수: RSI가 50 위에서 되돌림 후 반등 (40~55 구간)
-            if not (30 <= rsi_now <= 62):  # [BUG-D FIX] 38~58 → 30~62 (과매도 구간 포함)
+            if not (38 <= rsi_now <= 58):
                 return None
 
             regime_bonus = 0.2 if ctx.regime in ("TRENDING_UP", "RANGING") else 0.0
             score_bonus  = (score - self.MIN_SCORE) * 0.15
-            rsi_bonus    = max(0, (60 - rsi_now) / 100)  # [BUG-D FIX] 기준점 55 → 60
+            rsi_bonus    = max(0, (55 - rsi_now) / 100)
 
             confidence = min(
                 0.40

@@ -47,7 +47,7 @@ class BollingerSqueezeStrategy2(BaseStrategy):
     # 진입 조건
     MAX_BARS_AFTER_BREAK = 3      # 폭발 후 최대 진입 가능 캔들
     MIN_SQUEEZE_BARS     = 3      # 최소 압축 지속 캔들
-    MIN_DELTA_FLOW       = 0.0    # [BUG-B FIX] 아래 _evaluate 에서 정규화 비율로 판단
+    MIN_DELTA_FLOW       = 0.0    # 최소 델타 오더플로우
     MIN_CONFIDENCE       = 0.45
 
     def _default_params(self) -> dict:
@@ -164,12 +164,7 @@ class BollingerSqueezeStrategy2(BaseStrategy):
             return None
 
         # 방향성 필터: 델타 오더플로우 양수 + 모멘텀 양수
-        # [BUG-B FIX] 절대값 0 비교 대신 거래량 대비 비율 최소치(1%) 적용
-        #   delta_flow / (avg_vol * bars_squeezed) >= 0.01 이상이어야 유효 신호
-        _avg_vol = float(df["volume"].iloc[-20:].mean()) if len(df) >= 20 else 1.0
-        _denom   = max(_avg_vol * max(state.bars_squeezed, 1), 1.0)
-        _delta_ratio = state.delta_flow / _denom
-        if _delta_ratio <= 0.01:   # 1% 미만이면 방향성 불분명
+        if state.delta_flow <= self.MIN_DELTA_FLOW:
             return None
         if state.momentum <= 0:
             return None
@@ -179,7 +174,7 @@ class BollingerSqueezeStrategy2(BaseStrategy):
             return None
 
         squeeze_bonus = min(state.bars_squeezed / 20, 0.2)
-        delta_bonus   = min(abs(_delta_ratio) * 2, 0.15)  # [BUG-B FIX] 정규화 비율 기준
+        delta_bonus   = min(abs(state.delta_flow) / 1e8, 0.15)
         regime_bonus  = 0.15 if ctx.regime in ("RANGING", "VOLATILE") else 0.05
         timing_bonus  = (self.MAX_BARS_AFTER_BREAK - state.bars_since_break) * 0.05
 

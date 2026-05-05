@@ -38,8 +38,8 @@ class MACDCrossStrategy2(BaseStrategy):
     PARAMS_MEDIUM = {"fast": 8,  "slow": 21, "sig": 5}   # 중간
     PARAMS_LOW    = {"fast": 12, "slow": 26, "sig": 9}   # 저변동성
 
-    MIN_ACCELERATION  = -0.00005  # [BUG-C FIX] 약간 음수 허용 (크로스 직후 음수 구간 포함)
-    MIN_VOLUME_RANK   = 0.20    # [BUG-C FIX] 0.30 → 0.20 완화
+    MIN_ACCELERATION  = 0.0     # 히스토그램 가속도 최소값
+    MIN_VOLUME_RANK   = 0.30    # 최소 거래량 순위
     MIN_CONFIDENCE    = 0.45
 
     def _default_params(self) -> dict:

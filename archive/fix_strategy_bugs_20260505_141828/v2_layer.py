@@ -98,18 +98,7 @@ class V2EnsembleLayer:
             elif not decision.should_enter and decision.confidence >= 0.65:
                 _logger.info(f"[V2Layer] {market} v2 거부 conf={decision.confidence:.2f}")
                 return False, combined_conf, 1.0
-            elif not decision.should_enter and decision.confidence >= _v2_conf_thr:
-                # [BUG-E FIX] v2가 신뢰도 0.45 이상으로 거부 → v1도 차단
-                _logger.info(
-                    f"[V2Layer] {market} v2 신뢰거부 conf={decision.confidence:.2f} "
-                    f"(thr={_v2_conf_thr:.2f}) → 진입 차단"
-                )
-                return False, combined_conf, 1.0
             else:
-                # v2 신호 부족(신뢰도 낮음) → v1 신호 통과 허용 (데이터 부족 시 폴백)
-                _logger.debug(
-                    f"[V2Layer] {market} v2 미결정 conf={decision.confidence:.2f} → v1 폴백"
-                )
                 return True, v1_confidence, 1.0
 
         except Exception as _e:
