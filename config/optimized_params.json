@@ -1,5 +1,5 @@
 {
-  "updated_at": "2026-05-04T02:00:14.247251",
+  "updated_at": "2026-05-05T21:07:27.945488",
   "in_sample_days": 90,
   "out_sample_days": 30,
   "strategies": {
@@ -27,12 +27,12 @@
         "ob_lookback": 13,
         "fvg_min_size": 0.0030878822792644355
       },
-      "weight_boost": 0.0,
-      "oos_sharpe": 0.0,
+      "weight_boost": 0.9091,
+      "oos_sharpe": 1.56,
       "oos_win_rate": 50.0,
       "oos_pnl_pct": 0.0,
-      "is_active": false,
-      "updated_at": "2026-05-04T02:00:04.318477"
+      "is_active": true,
+      "updated_at": "2026-05-05T21:07:27.945488"
     },
     "RSI_Divergence": {
       "params": {
@@ -58,12 +58,12 @@
         "ob_lookback": 23,
         "fvg_min_size": 0.008436480462164383
       },
-      "weight_boost": 0.0,
-      "oos_sharpe": 0.0,
+      "weight_boost": 0.9091,
+      "oos_sharpe": 0.8,
       "oos_win_rate": 50.0,
       "oos_pnl_pct": 0.0,
-      "is_active": false,
-      "updated_at": "2026-05-04T02:00:04.892455"
+      "is_active": true,
+      "updated_at": "2026-05-05T21:07:27.945488"
     },
     "Supertrend": {
       "params": {
@@ -89,12 +89,12 @@
         "ob_lookback": 13,
         "fvg_min_size": 0.0067041906609261025
       },
-      "weight_boost": 0.0,
-      "oos_sharpe": 0.0,
+      "weight_boost": 0.9091,
+      "oos_sharpe": 0.7,
       "oos_win_rate": 50.0,
       "oos_pnl_pct": 0.0,
-      "is_active": false,
-      "updated_at": "2026-05-04T02:00:06.822386"
+      "is_active": true,
+      "updated_at": "2026-05-05T21:07:27.945488"
     },
     "Bollinger_Squeeze": {
       "params": {
@@ -120,12 +120,12 @@
         "ob_lookback": 25,
         "fvg_min_size": 0.005517822868981001
       },
-      "weight_boost": 0.0,
-      "oos_sharpe": 0.0,
+      "weight_boost": 0.9091,
+      "oos_sharpe": 3.92,
       "oos_win_rate": 50.0,
       "oos_pnl_pct": 0.0,
-      "is_active": false,
-      "updated_at": "2026-05-04T02:00:07.505287"
+      "is_active": true,
+      "updated_at": "2026-05-05T21:07:27.945488"
     },
     "VWAP_Reversion": {
       "params": {
@@ -213,12 +213,12 @@
         "ob_lookback": 15,
         "fvg_min_size": 0.009969371976754435
       },
-      "weight_boost": 0.0,
-      "oos_sharpe": 0.0,
+      "weight_boost": 0.9091,
+      "oos_sharpe": 0.9,
       "oos_win_rate": 50.0,
       "oos_pnl_pct": 0.0,
-      "is_active": false,
-      "updated_at": "2026-05-04T02:00:13.601229"
+      "is_active": true,
+      "updated_at": "2026-05-05T21:07:27.945488"
     },
     "OrderBlock_SMC": {
       "params": {
@@ -244,12 +244,12 @@
         "ob_lookback": 30,
         "fvg_min_size": 0.009133349169500034
       },
-      "weight_boost": 0.0,
-      "oos_sharpe": 0.0,
+      "weight_boost": 0.9091,
+      "oos_sharpe": -1.26,
       "oos_win_rate": 50.0,
       "oos_pnl_pct": 0.0,
-      "is_active": false,
-      "updated_at": "2026-05-04T02:00:14.244796"
+      "is_active": true,
+      "updated_at": "2026-05-05T21:07:27.945488"
     }
   }
 }
