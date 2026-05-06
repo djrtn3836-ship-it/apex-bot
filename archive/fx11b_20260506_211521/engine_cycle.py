@@ -868,8 +868,7 @@ class EngineCycleMixin:
         # VolBreakout 전략 비활성화 — 백테스트 승률 29%, 기대값 -0.270%
         # from strategies.volatility.vol_breakout import VolBreakoutStrategy
         from strategies.volatility.atr_channel import ATRChannelStrategy
-        # [FX11b-A] OrderBlockStrategy2 완전 비활성화 — import 제거
-# from strategies.v2.order_block_v2 import OrderBlockStrategy2 as OrderBlockStrategy  # [REFACTOR] v2 활성
+        from strategies.v2.order_block_v2 import OrderBlockStrategy2 as OrderBlockStrategy  # [REFACTOR] v2 활성
 
         strategies = [
             MACDCrossStrategy(), RSIDivergenceStrategy(), SupertrendStrategy(),
