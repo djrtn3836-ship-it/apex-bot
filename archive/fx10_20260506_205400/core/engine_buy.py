@@ -354,12 +354,6 @@ class EngineBuyMixin:
                 )
 
             signals  = await self._run_strategies(market, df_processed)
-            # [FX10-2] OrderBlock_SMC 완전 차단 — weight=0.0 전략 신호 제거
-            _DISABLED_STRATS = {'OrderBlock_SMC', 'VolBreakout', 'VWAP_Reversion'}
-            signals = [
-                _s for _s in (signals or [])
-                if getattr(_s, 'strategy_name', '') not in _DISABLED_STRATS
-            ]
             # [VP2-PATCH] 전략 신호 상세 디버그
             if signals:
                 for _dbg_s in signals:

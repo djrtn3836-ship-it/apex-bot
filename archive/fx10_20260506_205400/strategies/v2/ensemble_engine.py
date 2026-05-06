@@ -323,10 +323,6 @@ class EnsembleEngine:
             best_score    = 0.0
 
             for name, sig in signals.items():
-                # [FX10-1] _weights에 없는 전략(OrderBlock 등) KeyError 방지
-                if name not in self._weights:
-                    logger.debug(f'[Ensemble] {name} _weights 미등록 → 스킵')
-                    continue
                 w     = self._weights[name].dynamic_weight
                 boost = regime_boosts.get(name, 1.0)  # [U1-PATCH] 0.0→1.0 기본배율
                 final_w = w * boost  # [U1-PATCH] 덧셈→곱셈: 레짐부스트를 배율로 적용

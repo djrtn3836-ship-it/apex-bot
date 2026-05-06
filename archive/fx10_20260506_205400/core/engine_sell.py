@@ -1432,7 +1432,7 @@ class EngineSellMixin:
             if not hasattr(self, '_profit_cooldown'):
                 self._profit_cooldown = {}
             self._profit_cooldown[market] = _dt.datetime.now() + _dt.timedelta(minutes=30)
-            logger.info(f'[SELL] 익절쿨다운 {market} 30min (_profit_cooldown)')
+            logger.info('[SELL] 익절쿨다운 %s 30min (_profit_cooldown)', market)
 
         # ── LiveGuard ─────────────────────────────────────────
 
