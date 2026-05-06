@@ -64,11 +64,7 @@ class MTFSignalMerger:
         self.weights = weights or TF_WEIGHTS
         logger.info(f" MTFSignalMerger  | TF: {list(self.weights.keys())}")
 
-    def analyze(
-        self,
-        tf_dataframes: Dict[str, pd.DataFrame],
-        global_regime: str = "",   # [FX17c-1] 엔진에서 GlobalRegime 주입
-    ) -> MTFResult:
+    def analyze(self, tf_dataframes: Dict[str, pd.DataFrame]) -> MTFResult:
         """tf_dataframes: {"1d": df_daily, "4h": df_4h, ...}
          df  close, ema20, ema50, ema200, rsi"""
         tf_signals = []
@@ -88,7 +84,7 @@ class MTFSignalMerger:
                 reason          = "데이터 없음",
             )
 
-        return self._merge(tf_signals, global_regime=global_regime)
+        return self._merge(tf_signals)
 
     def _analyze_single_tf(self, tf: str, df: pd.DataFrame) -> TFSignal:
         last   = df.iloc[-1]
@@ -134,11 +130,7 @@ class MTFSignalMerger:
             weight    = weight,
         )
 
-    def _merge(
-        self,
-        signals: List[TFSignal],
-        global_regime: str = "",  # [FX17c-1]
-    ) -> MTFResult:
+    def _merge(self, signals: List[TFSignal]) -> MTFResult:
         total_weight = sum(s.weight for s in signals)
         score        = sum(
             s.direction.value * s.strength * s.weight
@@ -180,8 +172,7 @@ class MTFSignalMerger:
 
         # [FX16-1] BULL 레짐 RSI 과매도 soft-fail 확장
         # global_regime 은 인스턴스 속성 또는 호출부에서 주입
-        # [FX17c-1] self 속성 대신 주입된 global_regime 파라미터 사용
-        _regime_str = str(global_regime or '').upper()
+        _regime_str = str(getattr(self, '_global_regime', '') or '').upper()
         _is_bull_regime = any(k in _regime_str for k in ('BULL', 'TRENDING_UP', 'RECOVERY'))
         _rsi_oversold   = avg_rsi <= 25
         if _is_bull_regime and _rsi_oversold and higher_down:
