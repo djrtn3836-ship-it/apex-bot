@@ -403,13 +403,6 @@ class PPOTradingAgent:
         if not self._is_trained or self._model is None:
             return None, 0.0
 
-        # [FX6-2] shape mismatch 방어
-        if self._model is not None:
-            _exp = self._model.observation_space.shape[0]
-            _act = int(state.reshape(-1).shape[0])
-            if _act != _exp:
-                logger.debug("PPO shape %d != %d skip", _act, _exp)
-                return None, 0.0
         try:
             action, _states = self._model.predict(
                 state.reshape(1, -1), deterministic=True

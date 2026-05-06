@@ -211,7 +211,7 @@ class EngineCycleMixin:
                     # scr 점수 비례 동적 TTL 적용 (대기열 추가 시점 기준)
             _REPLACE_SCORE = 0.50   # 교체매매 최소 surge score
             _REPLACE_PNL   = -0.8   # 교체매매 대상 최소 손실 (%)
-            _REPLACE_HOLD  = 20     # 교체매매 최소 보유시간 (분)
+            _REPLACE_HOLD  = 30     # 교체매매 최소 보유시간 (분)
             if hasattr(self, '_pending_surge_queue') and self._pending_surge_queue:
                 _now_t = _pq_t.time()
                 # TTL 만료 항목 제거

@@ -58,7 +58,7 @@ class OrderBlockStrategy2(BaseStrategy):
         self._context_engine = MarketContextEngine()
         self._ob_cache: dict  = {}  # market -> List[OrderBlock]
 
-    def generate_signal(self, df: pd.DataFrame, market: str = "", regime: str = "") -> Optional[Signal]:
+    def generate_signal(self, df: pd.DataFrame, market: str = "") -> Optional[Signal]:
         try:
             if not self._enabled:
                 return None

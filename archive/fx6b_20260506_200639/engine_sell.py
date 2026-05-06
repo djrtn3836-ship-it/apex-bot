@@ -553,7 +553,7 @@ class EngineSellMixin:
                 "fee":         result.fee,
 
 
-                "profit_rate": profit_rate / 100.0,  # [FX6-3],
+                "profit_rate": profit_rate,
 
 
                 "strategy":    _strat,
@@ -1195,7 +1195,7 @@ class EngineSellMixin:
                 "fee":         result.fee if hasattr(result, "fee") else 0.0,
 
 
-                "profit_rate": profit_rate / 100.0,  # [FX6-3],
+                "profit_rate": profit_rate,
 
 
                 "strategy":    _strat_name,
@@ -1425,14 +1425,6 @@ class EngineSellMixin:
 
 
 
-
-
-        # [FX6-5] 익절 후 30분 재진입 쿨다운
-        if profit_rate > 0 and not _is_sl:
-            if not hasattr(self, '_sl_cooldown'):
-                self._sl_cooldown = {}
-            self._sl_cooldown[market] = _dt.datetime.now() + _dt.timedelta(minutes=30)
-            logger.info('[SELL] 익절쿨다운 %s 30min', market)
 
         # ── LiveGuard ─────────────────────────────────────────
 
