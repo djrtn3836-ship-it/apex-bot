@@ -58,7 +58,7 @@ class EnsembleEngine:
         "RSI_Divergence":    1.7,
         "Bollinger_Squeeze": 1.6,
         "ATR_Channel":       1.5,
-        "OrderBlock_SMC":    0.0,  # [FX6c] 비활성화 (6건 전패)
+        "OrderBlock_SMC":    2.0,
         "Supertrend":        0.8,
         # [ST-1] VWAP_Reversion 비활성화: DB -₩3,158, 42% 승률 (2026-05-03)
         # "VWAP_Reversion":    0.5,
