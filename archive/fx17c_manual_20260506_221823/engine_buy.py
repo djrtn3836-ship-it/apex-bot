@@ -826,13 +826,7 @@ class EngineBuyMixin:
                                 logger.debug(f"[P10-PATCH][MTF-WARN] {market} {_tf_key} 조회 실패: {_e}")
 
                     if _tf_data:
-                        _gr17c = str(getattr(
-                            getattr(self, '_global_regime', None), 'value',
-                            getattr(self, '_global_regime', 'UNKNOWN') or 'UNKNOWN'
-                        )).upper()  # [FX17c-2] GlobalRegime 주입
-                        _mtf_result = self.mtf_merger.analyze(
-                            _tf_data, global_regime=_gr17c
-                        )  # [FX17c-2]
+                        _mtf_result = self.mtf_merger.analyze(_tf_data)
                         _mtf_score  = _mtf_result.combined_score
                         _mtf_dir    = _mtf_result.final_direction.value
 
