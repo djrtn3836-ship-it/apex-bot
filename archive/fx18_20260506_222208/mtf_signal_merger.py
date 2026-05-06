@@ -183,7 +183,7 @@ class MTFSignalMerger:
         # [FX17c-1] self 속성 대신 주입된 global_regime 파라미터 사용
         _regime_str = str(global_regime or '').upper()
         _is_bull_regime = any(k in _regime_str for k in ('BULL', 'TRENDING_UP', 'RECOVERY'))
-        _rsi_oversold   = (avg_rsi <= 40) or (score >= -0.35)  # [FX18-1] RSI 25→40 확장 + score 근접 soft-fail
+        _rsi_oversold   = avg_rsi <= 25
         if _is_bull_regime and _rsi_oversold and higher_down:
             # 1h DOWN 신호의 실제 가중치를 0.05로 낮춰 score 재계산
             _adj_score = 0.0

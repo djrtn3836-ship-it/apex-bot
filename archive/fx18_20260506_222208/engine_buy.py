@@ -838,30 +838,12 @@ class EngineBuyMixin:
 
                         if combined.signal_type == SignalType.BUY:
                             if _mtf_dir <= -1 and not _is_bear_rev:
-                                # [FX18-3] Surge ≥15% 시 MTF DOWN 차단 우회
-                                _fx18_scr = 0.0
-                                _scr_c = getattr(self, '_scr_cache', {})
-                                _fx18_scr = float(_scr_c.get(market, {}).get('scr', 0.0))
-                                if _fx18_scr == 0.0:
-                                    _mcr = getattr(self, '_market_change_rates', {})
-                                    _fx18_scr = float(_mcr.get(market, 0.0)) * 100
-                                _fx18_gr = str(getattr(
-                                    getattr(self, '_global_regime', None), 'value',
-                                    getattr(self, '_global_regime', 'UNKNOWN') or 'UNKNOWN'
-                                )).upper()
-                                _fx18_bull = _fx18_gr in ('BULL', 'TRENDING_UP', 'RECOVERY')
-                                if _fx18_bull and _fx18_scr >= 15.0:
-                                    logger.info(
-                                        f'[FX18-3] {market} MTF DOWN이나 '
-                                        f'BULL+SCR={_fx18_scr:.1f}% ≥ 15% → MTF 차단 우회'
-                                    )
-                                else:
-                                    logger.info(
-                                        f" MTF  ({market}): "
-                                        f"방향={_mtf_result.final_direction.name} | "
-                                        f"{_mtf_result.reason}"
-                                    )
-                                    return
+                                logger.info(
+                                    f" MTF  ({market}): "
+                                    f"방향={_mtf_result.final_direction.name} | "
+                                    f"{_mtf_result.reason}"
+                                )
+                                return
                             if _mtf_dir >= 1:
                                 _boost = min(0.3, abs(_mtf_score) * 0.2)
                                 combined.score = min(3.0, combined.score + _boost)
