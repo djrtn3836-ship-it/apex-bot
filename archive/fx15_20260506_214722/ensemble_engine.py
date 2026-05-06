@@ -373,19 +373,6 @@ class EnsembleEngine:
                 f"주도전략={best_name}"
             )
 
-            # [FX15-1-B] BULL/TRENDING_UP 레짐 경계값 보정
-            # normalized 0.47~0.55 구간에서 BULL 레짐이면 +0.08 보정
-            _fx15_bull_regime = str(_regime_str).upper() in ("BULL", "TRENDING_UP", "RECOVERY")
-            if _fx15_bull_regime and not should_enter and normalized >= 0.47:
-                _old_norm = normalized
-                normalized = min(normalized + 0.08, 0.85)
-                size_mult  = 1.0 if normalized >= 0.65 else 0.8
-                should_enter = normalized >= self.ENTRY_THRESHOLD
-                logger.debug(
-                    f"[FX15-1-B] {market} BULL레짐 score 보정 "
-                    f"{_old_norm:.3f} → {normalized:.3f} enter={should_enter}"
-                )
-
             if should_enter:
                 logger.info(
                     f"[Ensemble] ✅ {market} 진입결정 | {reasoning} | "

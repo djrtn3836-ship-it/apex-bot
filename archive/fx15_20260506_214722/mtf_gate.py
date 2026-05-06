@@ -51,44 +51,6 @@ class MTFGate:
             global_regime: GlobalRegime 문자열
             is_bear_reversal: BEAR_REVERSAL 플래그
         """
-        # [FX15-2] RSI 극과매도(≤22) 종목 → 1h DOWN이어도 softfail 허용
-        # HIVE RSI 20.x 같은 극단적 oversold 진입 포착
-        _fx15_rsi_oversold = False
-        _fx15_1h_df = tf_data.get("1h")
-        if _fx15_1h_df is not None and len(_fx15_1h_df) >= 14:
-            try:
-                _rsi_col = None
-                for _rc in ("rsi", "RSI", "rsi_14"):
-                    if _rc in _fx15_1h_df.columns:
-                        _rsi_col = _rc
-                        break
-                if _rsi_col:
-                    _fx15_rsi_val = float(_fx15_1h_df[_rsi_col].iloc[-1])
-                else:
-                    # 간이 RSI 계산
-                    _c15 = _fx15_1h_df["close"].values.astype(float)[-15:]
-                    _d15 = import_numpy_diff(_c15) if False else __import__("numpy").diff(_c15)
-                    _g15 = float(__import__("numpy").mean(_d15[_d15 > 0])) if __import__("numpy").any(_d15 > 0) else 0
-                    _l15 = float(__import__("numpy").mean(-_d15[_d15 < 0])) if __import__("numpy").any(_d15 < 0) else 1e-9
-                    _fx15_rsi_val = 100 - 100 / (1 + _g15 / (_l15 + 1e-9))
-                if _fx15_rsi_val <= 22.0 and signal_direction == 1:
-                    _fx15_rsi_oversold = True
-                    logger.info(
-                        f"[FX15-2] RSI 극과매도 {_fx15_rsi_val:.1f} ≤ 22 "
-                        f"→ MTFGate softfail 허용 (BUY 방향)"
-                    )
-            except Exception as _fx15_e:
-                logger.debug(f"[FX15-2] RSI 체크 오류: {_fx15_e}")
-
-        if _fx15_rsi_oversold:
-            return MTFGateResult(
-                allowed=True,
-                score=0.0,
-                reason=f"[FX15-2] RSI 극과매도 softfail → 진입 허용",
-                tf_directions={},
-                is_softfail=True,
-            )
-
         directions: Dict[str, int] = {}
         total_weight = 0.0
         weighted_dir = 0.0
