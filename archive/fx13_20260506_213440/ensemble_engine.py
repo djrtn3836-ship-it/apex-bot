@@ -79,10 +79,10 @@ class EnsembleEngine:
     #               BEAR_REVERSAL / RECOVERY / UNKNOWN
     REGIME_BOOSTS: Dict[str, Dict[str, float]] = {
         # [R4-PATCH] GlobalRegime 실제 enum 값과 완전 일치 — BULL/BEAR_WATCH/BEAR 추가
-        "BULL":          {"MACD_Cross": 1.5, "Supertrend": 1.6,  # [FX13-1-A] BUY boost 강화
-                          "ATR_Channel": 1.2, "Bollinger_Squeeze": 1.1},
+        "BULL":          {"MACD_Cross": 1.3, "Supertrend": 1.4,
+                          "OrderBlock_SMC": 1.2, "ATR_Channel": 1.1},
         "RANGING":       {"Bollinger_Squeeze": 1.2, "RSI_Divergence": 1.1},
-        "TRENDING_UP":   {"Supertrend": 1.6, "MACD_Cross": 1.5, "ATR_Channel": 1.3,  # [FX13-1-B]
+        "TRENDING_UP":   {"Supertrend": 1.4, "MACD_Cross": 1.3, "ATR_Channel": 1.2,
                           "OrderBlock_SMC": 1.1},
         "TRENDING_DOWN": {"RSI_Divergence": 1.2, "Supertrend": 0.7},
         "VOLATILE":      {"OrderBlock_SMC": 1.3, "ATR_Channel": 1.2},
@@ -303,20 +303,6 @@ class EnsembleEngine:
                         signals[name] = sig
                 except Exception as e:
                     logger.warning(f"[Ensemble] {name} 신호 오류: {e}")
-
-            # [FX13-1-C] BULL/TRENDING_UP 레짐에서 SELL-only 신호 억제
-            # RSI overbought SELL이 BUY 합산을 잠식하는 문제 해소
-            _bull_regimes = {"BULL", "TRENDING_UP", "RECOVERY"}
-            if _regime_str in _bull_regimes:
-                _buy_sigs  = {k: v for k, v in signals.items() if v.signal == SignalType.BUY}
-                _sell_sigs = {k: v for k, v in signals.items() if v.signal != SignalType.BUY}
-                if _buy_sigs:  # BUY 신호가 하나라도 있으면 SELL 제거
-                    if _sell_sigs:
-                        logger.debug(
-                            f"[FX13-1-C] {market} BULL레짐 SELL신호 "
-                            f"{list(_sell_sigs.keys())} 억제 → BUY {list(_buy_sigs.keys())} 유지"
-                        )
-                    signals = _buy_sigs
 
             if len(signals) < self.MIN_SIGNALS_NEEDED:
                 return EnsembleDecision(

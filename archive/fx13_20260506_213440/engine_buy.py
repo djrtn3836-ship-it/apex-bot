@@ -431,32 +431,6 @@ class EngineBuyMixin:
                 if combined.confidence < _ml_conf:
                     combined.confidence = _ml_conf
                     logger.info(f'[ANALYZE] {market} confidence 보정: 0.0→{_ml_conf:.3f}')
-            # [FX13-3] RSI_Divergence BUY 단독 신호 → combined=None 소멸 방지
-            # score 0.55 이상, EnsembleEngine 경로와 별개로 signal_combiner가 None 반환 시
-            if combined is None and signals:
-                _fx13_rsi_buy = [
-                    s for s in signals
-                    if getattr(s, "strategy_name", "") == "RSI_Divergence"
-                    and getattr(s, "signal", None) and s.signal.name == "BUY"
-                    and getattr(s, "score", 0) >= 0.55
-                ]
-                if _fx13_rsi_buy:
-                    _rs = _fx13_rsi_buy[0]
-                    from signals.signal_combiner import CombinedSignal as _CS13r, SignalType as _ST13r
-                    combined = _CS13r(
-                        market=market,
-                        signal_type=_ST13r.BUY,
-                        score=float(getattr(_rs, "score", 0.6)),
-                        confidence=float(getattr(_rs, "confidence", 0.65)),
-                        agreement_rate=0.7,
-                        contributing_strategies=["RSI_Divergence"],
-                        reasons=[f"[FX13-3] RSI_Divergence BUY 단독 구제 (score={getattr(_rs,'score',0):.2f})"],
-                    )
-                    logger.info(
-                        f"[FX13-3] {market} RSI_Divergence BUY 구제 "
-                        f"score={getattr(_rs,'score',0):.2f} conf={getattr(_rs,'confidence',0):.2f}"
-                    )
-
             # [FX3-2] SELL combined 또는 None + ML BUY 상충 처리 (VP-4 개선)
             from signals.signal_combiner import SignalType as _ST4fx
             _fx32_ml_buy  = ml_pred.get("signal", "HOLD") == "BUY" if ml_pred else False
@@ -508,42 +482,6 @@ class EngineBuyMixin:
                     contributing_strategies=["ML_Ensemble"],
                     reasons=[f"ML BUY override (전략SELL 상충, conf={_fx32_ml_conf:.2f})"],
                 )
-
-            # [FX13-2] BULL 레짐 + Surge ≥12% + RSI-SELL-only → ML BUY 우선 전환
-            # STORJ 23.7%, NEAR 14.3% 같은 급등 종목 진입 포착
-            if combined is None:
-                _fx13_gr = str(getattr(getattr(self, "_global_regime", None), "value",
-                               getattr(self, "_global_regime", "UNKNOWN") or "UNKNOWN")).upper()
-                _fx13_surge = 0.0
-                if hasattr(self, "_market_change_rates"):
-                    _fx13_surge = self._market_change_rates.get(market, 0.0) * 100
-                _fx13_sell_only = (
-                    bool(signals)
-                    and all(getattr(s, "signal", None) and s.signal.name == "SELL" for s in signals)
-                )
-                _fx13_ml_buy  = ml_pred.get("signal", "HOLD") == "BUY" if ml_pred else False
-                _fx13_ml_conf = ml_pred.get("confidence", 0.0) if ml_pred else 0.0
-                if (
-                    _fx13_gr in ("BULL", "TRENDING_UP")
-                    and _fx13_surge >= 12.0
-                    and _fx13_sell_only
-                    and _fx13_ml_buy
-                    and _fx13_ml_conf >= 0.52
-                ):
-                    from signals.signal_combiner import CombinedSignal as _CS13, SignalType as _ST13
-                    logger.info(
-                        f"[FX13-2] {market} BULL+Surge{_fx13_surge:.1f}% RSI_SELL억제 "
-                        f"→ ML BUY(conf={_fx13_ml_conf:.2f}) 전환"
-                    )
-                    combined = _CS13(
-                        market=market,
-                        signal_type=_ST13.BUY,
-                        score=_fx13_ml_conf * 1.4,
-                        confidence=_fx13_ml_conf,
-                        agreement_rate=0.6,
-                        contributing_strategies=["ML_Ensemble", "FX13_SurgeOverride"],
-                        reasons=[f"BULL+Surge{_fx13_surge:.1f}% ML BUY override RSI_SELL"],
-                    )
 
             if combined is None:
                 logger.info(f'[ANALYZE] {market} combined=None → BEAR_REVERSAL 체크')
