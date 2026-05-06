@@ -115,31 +115,24 @@ class ATRStopLoss:
                 sl_mult *= 0.75
                 tp_mult *= 0.80
                 logger.debug(f"[ATR-SL] BEAR_REVERSAL → SL/TP 축소 ({market})")
-        # [FX12-1] GlobalRegime 기반 동적 SL/TP 배수 — 완전 동적 테이블
-        # 레짐별 최적 RR 비율 적용
+        # GlobalRegime 기반 동적 SL/TP 배수 조정 (Phase 8)
         if global_regime is not None:
+            # [FIX-REGIME-CMP] Enum/문자열 모두 처리, 대소문자 무관
             _gr = str(getattr(global_regime, "value", global_regime)).upper()
-            # (sl_multiplier, tp_multiplier)
-            _REGIME_SL_TP = {
-                "BULL":         (1.10, 1.50),  # 강세: SL 여유 + TP 크게 확장
-                "TRENDING_UP":  (1.05, 1.35),  # 상승추세: TP 확장
-                "RECOVERY":     (1.00, 1.20),  # 회복: 소폭 TP 확장
-                "RANGING":      (0.90, 0.85),  # 횡보: TP 빠르게 실현
-                "VOLATILE":     (0.80, 0.90),  # 변동성: SL 타이트
-                "BEAR_WATCH":   (0.85, 0.80),  # 약세경계: 보수적
-                "BEAR":         (0.70, 0.75),  # 약세: 매우 타이트
-                "BEAR_REVERSAL":(0.75, 0.85),  # 역발상: 타이트 SL
-                "TRENDING_DOWN":(0.70, 0.75),  # 하락: 매우 타이트
-                "UNKNOWN":      (1.00, 1.00),  # 불명: 기본값
-            }
-            _sl_r, _tp_r = _REGIME_SL_TP.get(_gr, (1.00, 1.00))
-            sl_mult *= _sl_r
-            tp_mult *= _tp_r
-            logger.debug(
-                f"[ATR-SL][FX12-1] {market} GlobalRegime={_gr} "
-                f"SL×{_sl_r:.2f} TP×{_tp_r:.2f} "
-                f"→ sl_mult={sl_mult:.2f} tp_mult={tp_mult:.2f}"
-            )
+            if _gr == "BEAR":
+                sl_mult *= 0.70   # BEAR: SL 타이트 (손실 최소화)
+                tp_mult *= 0.80
+                logger.debug(f"[ATR-SL] BEAR 글로벌레짐 → SL 타이트 ({market})")
+            elif _gr == "BEAR_WATCH":
+                sl_mult *= 0.85   # BEAR_WATCH: SL 약간 타이트
+                logger.debug(f"[ATR-SL] BEAR_WATCH 글로벌레짐 → SL 축소 ({market})")
+            elif _gr == "RECOVERY":
+                sl_mult *= 0.95   # RECOVERY: 약간 보수적
+                logger.debug(f"[ATR-SL] RECOVERY 글로벌레짐 → SL 소폭 축소 ({market})")
+            elif _gr == "BULL":
+                sl_mult *= 1.10   # BULL: SL 여유있게 (추세 추종)
+                tp_mult *= 1.20
+                logger.debug(f"[ATR-SL] BULL 글로벌레짐 → SL/TP 확장 ({market})")
 
 
         raw_sl_dist = atr * sl_mult
@@ -219,24 +212,12 @@ class ATRStopLoss:
             local_regime=local_regime,
         )
 
-        # [FX12-3] 트레일링 SL 구간 세분화 + BULL 레짐 완화
-        _gr_trail = str(getattr(
-            global_regime, "value", global_regime or "UNKNOWN"
-        )).upper() if global_regime is not None else "UNKNOWN"
-        _is_bull_trail = _gr_trail in ("BULL", "TRENDING_UP", "RECOVERY")
-
-        if profit_pct >= 0.12:
-            # +12% 이상: +6% 보호 (BULL이면 +4.5%)
-            new_sl = entry_price * (1.045 if _is_bull_trail else 1.060)
-        elif profit_pct >= 0.07:
-            # +7% 이상: +3.5% 보호 (BULL이면 +2.5%)
-            new_sl = entry_price * (1.025 if _is_bull_trail else 1.035)
-        elif profit_pct >= 0.04:
-            # +4% 이상: +1.5% 보호 (BULL이면 BEP+0.5%)
-            new_sl = entry_price * (1.005 if _is_bull_trail else 1.015)
-        elif profit_pct >= 0.02:
-            # +2% 이상: BEP (손익분기) (BULL이면 아직 자유롭게)
-            new_sl = entry_price * (0.998 if _is_bull_trail else 1.001)
+        if profit_pct >= 0.10:
+            new_sl = entry_price * 1.05
+        elif profit_pct >= 0.05:
+            new_sl = entry_price * 1.02
+        elif profit_pct >= 0.03:
+            new_sl = entry_price * 1.001
         else:
             return levels
 

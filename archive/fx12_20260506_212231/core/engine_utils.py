@@ -97,29 +97,13 @@ def calc_position_size(
     }
 
 
-def calc_exit_plan(entry_price: float, atr: float, position_krw: float, global_regime=None) -> dict:  # [FX12-2]
+def calc_exit_plan(entry_price: float, atr: float, position_krw: float) -> dict:
     atr_mult = atr if atr else entry_price * 0.02
 
-    # [FX12-2] GlobalRegime 기반 동적 TP 배수 테이블
-    _gr_eu = str(getattr(global_regime, "value", global_regime or "UNKNOWN")).upper()         if global_regime is not None else "UNKNOWN"
-    _TP_TABLE = {
-        "BULL":         (1.5, 3.5, 8.0),   # 강세: TP3 크게 확장
-        "TRENDING_UP":  (1.5, 3.0, 6.5),   # 상승: TP3 확장
-        "RECOVERY":     (1.5, 2.8, 5.5),   # 회복: 소폭 확장
-        "RANGING":      (1.2, 2.0, 3.5),   # 횡보: TP 빠르게
-        "VOLATILE":     (1.3, 2.2, 4.0),   # 변동성: 중간
-        "BEAR_WATCH":   (1.2, 2.0, 3.5),   # 약세경계: 보수적
-        "BEAR":         (1.0, 1.8, 3.0),   # 약세: 매우 보수적
-        "BEAR_REVERSAL":(1.2, 2.2, 4.0),   # 역발상: 중간
-        "TRENDING_DOWN":(1.0, 1.8, 3.0),   # 하락: 보수적
-        "UNKNOWN":      (1.5, 3.0, 5.0),   # 기본값 유지
-    }
-    _tp1_m, _tp2_m, _tp3_m = _TP_TABLE.get(_gr_eu, (1.5, 3.0, 5.0))
-
-    sl    = entry_price - atr_mult * 1.5
-    tp1   = entry_price + atr_mult * _tp1_m
-    tp2   = entry_price + atr_mult * _tp2_m
-    tp3   = entry_price + atr_mult * _tp3_m
+    sl   = entry_price - atr_mult * 1.5
+    tp1  = entry_price + atr_mult * 1.5
+    tp2  = entry_price + atr_mult * 3.0
+    tp3  = entry_price + atr_mult * 5.0
     trail = 0.015
 
     if position_krw >= 100_000:
