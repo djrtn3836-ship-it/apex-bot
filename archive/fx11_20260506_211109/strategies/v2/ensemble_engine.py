@@ -54,7 +54,7 @@ class EnsembleEngine:
 
     # 기본 가중치 (config/optimized_params.json 우선, 없으면 아래 기본값)
     BASE_WEIGHTS: Dict[str, float] = {
-        "MACD_Cross":        1.4,  # [FX11-3] 1.2→1.4 신호 다양성 확보
+        "MACD_Cross":        1.2,
         "RSI_Divergence":    1.7,
         "Bollinger_Squeeze": 1.6,
         "ATR_Channel":       1.5,
@@ -129,7 +129,7 @@ class EnsembleEngine:
         # [FX9-2] BASE_WEIGHTS 초기화 버그 수정
         # config boost를 명시적으로 곱함 (실패 시 원래 기본값 유지)
         _fixed_base = {
-            'MACD_Cross':        1.4,  # [FX11-3] 1.2→1.4
+            'MACD_Cross':        1.2,
             'RSI_Divergence':    1.7,
             'Bollinger_Squeeze': 1.6,
             'ATR_Channel':       1.5,
@@ -223,9 +223,8 @@ class EnsembleEngine:
                     perf_mult = (wr / self.REFERENCE_WR) * _sharpe_mult
                     new_w     = self._weights[name].base_weight * perf_mult
                     # 클램핑: base × 0.4 ~ base × 2.5
-                    # [FX11-2] 상한 2.5→1.8, 하한 0.4→0.5 (가중치 집중 완화)
-                    new_w     = max(self._weights[name].base_weight * 0.5,
-                                   min(new_w, self._weights[name].base_weight * 1.8))
+                    new_w     = max(self._weights[name].base_weight * 0.4,
+                                   min(new_w, self._weights[name].base_weight * 2.5))
                     self._weights[name].recent_wr      = wr
                     self._weights[name].dynamic_weight = round(new_w, 3)
                     logger.info(
@@ -474,9 +473,8 @@ class EnsembleEngine:
             perf_mult  = (blended_wr / self.REFERENCE_WR) * _sm2
             new_w      = w.base_weight * perf_mult
             # 클램핑: base × 0.4 ~ base × 2.5
-            # [FX11-2] 상한 2.5→1.8, 하한 0.4→0.5
             clamped_w  = round(
-                max(w.base_weight * 0.5, min(new_w, w.base_weight * 1.8)), 3
+                max(w.base_weight * 0.4, min(new_w, w.base_weight * 2.5)), 3
             )
             w.recent_wr      = blended_wr
             w.dynamic_weight = clamped_w

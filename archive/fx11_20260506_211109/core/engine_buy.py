@@ -354,8 +354,7 @@ class EngineBuyMixin:
                 )
 
             signals  = await self._run_strategies(market, df_processed)
-            # [FX10-2][FX11-1] 이중 방어: 실행 후 남은 비활성화 전략 신호 재거
-            # (_run_strategies 루프에서 이미 skip됐으나 혹시 모를 잔존 신호 제거)
+            # [FX10-2] OrderBlock_SMC 완전 차단 — weight=0.0 전략 신호 제거
             _DISABLED_STRATS = {'OrderBlock_SMC', 'VolBreakout', 'VWAP_Reversion'}
             signals = [
                 _s for _s in (signals or [])
@@ -955,11 +954,6 @@ class EngineBuyMixin:
             available = list(self._strategies.keys())
         return available
 
-
-    # [FX11-1] DISABLED_STRATEGIES 기반 실행 전 완전 skip
-    _FX11_DISABLED: set = {
-        'OrderBlock_SMC', 'VolBreakout', 'VWAP_Reversion',
-    }
 
     async def _run_strategies(self, market: str, df) -> list:
         signals   = []
