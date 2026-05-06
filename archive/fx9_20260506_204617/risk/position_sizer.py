@@ -40,7 +40,7 @@ class KellyPositionSizer:
     HALF_KELLY    = 0.5
     TRUST_SCALE   = 50
     MAX_RISK_PCT  = 0.20
-    MIN_RISK_PCT  = 0.02  # [FX9-1] 최소 포지션 5%→2% (저신뢰도 과잉 투입 방지)
+    MIN_RISK_PCT  = 0.05
     FIXED_RATIO   = 0.10
     MIN_ORDER_KRW = 5_000
     ROLLING_DAYS  = 7

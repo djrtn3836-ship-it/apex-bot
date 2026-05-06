@@ -1427,12 +1427,12 @@ class EngineSellMixin:
 
 
 
-        # [FX9-3] 익절 쿨다운 — _profit_cooldown 별도 dict로 분리 (_sl_cooldown 충돌 방지)
+        # [FX6-5] 익절 후 30분 재진입 쿨다운
         if profit_rate > 0 and not _is_sl:
-            if not hasattr(self, '_profit_cooldown'):
-                self._profit_cooldown = {}
-            self._profit_cooldown[market] = _dt.datetime.now() + _dt.timedelta(minutes=30)
-            logger.info('[SELL] 익절쿨다운 %s 30min (_profit_cooldown)', market)
+            if not hasattr(self, '_sl_cooldown'):
+                self._sl_cooldown = {}
+            self._sl_cooldown[market] = _dt.datetime.now() + _dt.timedelta(minutes=30)
+            logger.info('[SELL] 익절쿨다운 %s 30min', market)
 
         # ── LiveGuard ─────────────────────────────────────────
 

@@ -126,19 +126,14 @@ class EnsembleEngine:
     def __init__(self, settings=None):
         # config boost 값 반영
         _cfg_boosts = self._load_base_weights()
-        # [FX9-2] BASE_WEIGHTS 초기화 버그 수정
-        # config boost를 명시적으로 곱함 (실패 시 원래 기본값 유지)
-        _fixed_base = {
-            'MACD_Cross':        1.2,
-            'RSI_Divergence':    1.7,
-            'Bollinger_Squeeze': 1.6,
-            'ATR_Channel':       1.5,
-            'OrderBlock_SMC':    0.0,
-            'Supertrend':        0.8,
-        }
+        # [FP3-PATCH] config boost를 절대값이 아닌 배율로 적용
+        # 예: MACD_Cross base=1.2, boost=1.3 → 1.2*1.3=1.56
         self.BASE_WEIGHTS = {
-            k: round(_fixed_base[k] * _cfg_boosts.get(k, 1.0), 3)
-            for k in _fixed_base
+            k: round(self.BASE_WEIGHTS.get(k, v) * v, 3)
+            for k, v in {**self.BASE_WEIGHTS, **{
+                k2: _cfg_boosts.get(k2, 1.0)
+                for k2 in self.BASE_WEIGHTS
+            }}.items()
         }
         # [FIX-C] 비활성화 전략 이중 필터링
         # → _MAP 주석처리(FIX-A)로 이미 차단, 여기서 최종 방어

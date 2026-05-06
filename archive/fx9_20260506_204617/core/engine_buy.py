@@ -514,20 +514,6 @@ class EngineBuyMixin:
                             return
                         else:
                             del self._sl_cooldown[market]
-                    # [FX9-3b] 익절 쿨다운 체크 (_profit_cooldown)
-                    import datetime as _dt_pc
-                    if hasattr(self, '_profit_cooldown') and market in self._profit_cooldown:
-                        if _dt_pc.datetime.now() < self._profit_cooldown[market]:
-                            _rem_pc = int(
-                                (self._profit_cooldown[market] - _dt_pc.datetime.now())
-                                .total_seconds() // 60
-                            )
-                            logger.info(
-                                f'[익절쿨다운] {market} 재진입 차단: {_rem_pc}분 후 가능'
-                            )
-                            return
-                        else:
-                            del self._profit_cooldown[market]
                     _fg_idx = getattr(self.fear_greed, "index", 50)
                     if _fg_idx > 25:  # [FIX] 21→25 완화
                         logger.info(
