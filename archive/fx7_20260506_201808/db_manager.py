@@ -83,10 +83,8 @@ class DatabaseManager:
                 trade_count INTEGER,
                 win_count INTEGER,
                 max_drawdown REAL,
-                sharpe_ratio REAL,
-                win_rate REAL DEFAULT 0,
-                open_positions INTEGER DEFAULT 0
-            )  -- [FX7-2]
+                sharpe_ratio REAL
+            )
             """,
             # 신호 이력
             """
@@ -218,8 +216,8 @@ class DatabaseManager:
                     """
                     INSERT OR REPLACE INTO daily_performance
                     (date, total_assets, daily_pnl, trade_count, win_count,
-                     max_drawdown, sharpe_ratio, win_rate, open_positions)
-                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)  -- [FX7-3]
+                     max_drawdown, sharpe_ratio)
+                    VALUES (?, ?, ?, ?, ?, ?, ?)
                     """,
                     (
                         perf.get("date", datetime.now().strftime("%Y-%m-%d")),
@@ -229,8 +227,6 @@ class DatabaseManager:
                         perf.get("win_count", 0),
                         perf.get("max_drawdown", 0),
                         perf.get("sharpe_ratio", 0),
-                        perf.get("win_rate", 0),
-                        perf.get("open_positions", 0),
                     )
                 )
                 await self._conn.commit()

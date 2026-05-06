@@ -162,8 +162,7 @@ class EnsembleEngine:
             "RSI_Divergence":    RSIDivergenceStrategy2(),
             "Bollinger_Squeeze": BollingerSqueezeStrategy2(),
             "ATR_Channel":       ATRChannelStrategy2(),
-            # [FX7-1] OrderBlock_SMC 완전 비활성화 (weight=0.0, 6건 전패)
-            # "OrderBlock_SMC":    OrderBlockStrategy2(),
+            "OrderBlock_SMC":    OrderBlockStrategy2(),
             "Supertrend":        SupertrendStrategy2(),
             # [ST-1] VWAP_Reversion 비활성화: 손실 전략 (-₩3,158, 42% 승률)
             # "VWAP_Reversion":    VWAPReversionStrategy2(),
