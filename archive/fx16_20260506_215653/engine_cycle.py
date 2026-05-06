@@ -315,29 +315,6 @@ class EngineCycleMixin:
                     if _tc not in _combined:
                         _combined.append(_tc)
                 _targets = _combined[:15]
-                # [FX16-2] SL-BAN 만료 종목 최우선 재스캔 트리거
-                _slban_expired = []
-                try:
-                    _slban_dict = getattr(self, '_sl_ban_markets', {})
-                    import time as _fx16_t
-                    _now16 = _fx16_t.time()
-                    for _bm, _bexp in list(_slban_dict.items()):
-                        # _bexp: 만료 Unix timestamp
-                        _remaining = _bexp - _now16
-                        if -60 <= _remaining <= 120:  # 만료 1분 전~2분 후
-                            if _bm not in _open_now and _bm not in _buying_now:
-                                _slban_expired.append(_bm)
-                                logger.info(
-                                    f'[FX16-2] SL-BAN 만료 감지: {_bm} '
-                                    f'(잔여={_remaining:.0f}s) → 재스캔 우선 삽입'
-                                )
-                except Exception as _fx16_e:
-                    logger.debug(f'[FX16-2] SL-BAN 만료 체크 오류: {_fx16_e}')
-                # SL-BAN 만료 코인을 최우선 삽입
-                for _se in _slban_expired:
-                    if _se not in _combined:
-                        _combined.insert(0, _se)
-                _targets = _combined[:15]
                 if _surge_priority:
                     logger.info(f"[SURGE-INJECT] SurgeCache→targets 삽입: {_surge_priority}")
                 if _targets:

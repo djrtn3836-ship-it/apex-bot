@@ -170,27 +170,6 @@ class MTFSignalMerger:
         tf_bonus  = min(0.15, tf_count * 0.025)
         score     = score + (tf_bonus if score > 0 else -tf_bonus)
 
-        # [FX16-1] BULL 레짐 RSI 과매도 soft-fail 확장
-        # global_regime 은 인스턴스 속성 또는 호출부에서 주입
-        _regime_str = str(getattr(self, '_global_regime', '') or '').upper()
-        _is_bull_regime = any(k in _regime_str for k in ('BULL', 'TRENDING_UP', 'RECOVERY'))
-        _rsi_oversold   = avg_rsi <= 25
-        if _is_bull_regime and _rsi_oversold and higher_down:
-            # 1h DOWN 신호의 실제 가중치를 0.05로 낮춰 score 재계산
-            _adj_score = 0.0
-            _adj_wt    = 0.0
-            for _s in signals:
-                _w = 0.05 if (_s.timeframe == '1h' and
-                              _s.direction.value < 0) else _s.weight
-                _adj_score += _s.direction.value * _s.strength * _w
-                _adj_wt    += _w
-            score = (_adj_score / (_adj_wt or 1)) + rsi_bonus
-            score = score + (tf_bonus if score > 0 else -tf_bonus)
-            higher_down = False  # soft-fail: 거부권 해제
-            logger.info(
-                f'[FX16-1] {"MTFMerger"} BULL+RSI과매도({avg_rsi:.0f}) '
-                f'1h DOWN soft-fail → score재계산={score:.3f}'
-            )
         allow_buy  = score > 0.2 and not higher_down and mid_agreement
         allow_sell = score < -0.2 and not higher_up
 
