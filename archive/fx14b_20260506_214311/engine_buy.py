@@ -675,23 +675,7 @@ class EngineBuyMixin:
                 return
 
             news_score, news_boost = self.news_analyzer.get_signal_boost(market)
-            # [FX14-3b] FX13-3 구제 신호는 news_boost 패널티 면제
-            if getattr(combined, "_fx14_rescued", False) and news_boost < 0:
-                logger.debug(
-                    f"[FX14-3b] {market} RSI BUY 구제 신호 — news_boost 패널티 면제 "
-                    f"({news_boost:.2f} → 0.0)"
-                )
-                news_boost = 0.0
             if abs(news_boost) > 0.3:
-                # [FX14-1b] BULL/TRENDING_UP/RECOVERY 레짐 news_boost 하한 클램핑 -0.20
-                _fx14b_gr = str(getattr(getattr(self, "_global_regime", None), "value",
-                                getattr(self, "_global_regime", "UNKNOWN") or "UNKNOWN")).upper()
-                if _fx14b_gr in ("BULL", "TRENDING_UP", "RECOVERY") and news_boost < -0.20:
-                    logger.debug(
-                        f"[FX14-1b] {market} BULL레짐 news_boost 클램핑 "
-                        f"{news_boost:.2f} → -0.20"
-                    )
-                    news_boost = -0.20
                 original_score = combined.score
                 combined.score = combined.score + news_boost  # EB-7: 부정=음수이므로 +가 맞음
                 logger.info(
