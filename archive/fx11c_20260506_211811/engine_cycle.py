@@ -874,8 +874,7 @@ class EngineCycleMixin:
         strategies = [
             MACDCrossStrategy(), RSIDivergenceStrategy(), SupertrendStrategy(),
             BollingerSqueezeStrategy(),
-            ATRChannelStrategy(),
-            # [FX11c] OrderBlockStrategy() 완전 제거 — 비활성화(6건 전패)
+            ATRChannelStrategy(), OrderBlockStrategy(),
             # [ST-1] VWAPReversionStrategy() 제거: -₩3,158, 승률 42% (2026-05-03)
             # [ST-2] VolBreakoutStrategy() 제거: -₩3,521, 승률 29% (이전 패치)
         ]
