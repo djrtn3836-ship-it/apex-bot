@@ -183,9 +183,7 @@ class MTFSignalMerger:
         # [FX17c-1] self 속성 대신 주입된 global_regime 파라미터 사용
         _regime_str = str(global_regime or '').upper()
         _is_bull_regime = any(k in _regime_str for k in ('BULL', 'TRENDING_UP', 'RECOVERY'))
-        # [FX18b] BULL 레짐 soft-fail: RSI ≤ 45 OR 합산score ≥ -0.40
-        # (1h DOWN 단독 차단 시 score ≈ -0.20~-0.28 → -0.40 이내 → 항상 통과)
-        _rsi_oversold   = (avg_rsi <= 45) or (score >= -0.40)
+        _rsi_oversold   = (avg_rsi <= 40) or (score >= -0.35)  # [FX18-1] RSI 25→40 확장 + score 근접 soft-fail
         if _is_bull_regime and _rsi_oversold and higher_down:
             # 1h DOWN 신호의 실제 가중치를 0.05로 낮춰 score 재계산
             _adj_score = 0.0
@@ -201,12 +199,6 @@ class MTFSignalMerger:
             logger.info(
                 f'[FX16-1] {"MTFMerger"} BULL+RSI과매도({avg_rsi:.0f}) '
                 f'1h DOWN soft-fail → score재계산={score:.3f}'
-            )
-        # [FX18b-2] soft-fail 후 score 음수 보정: BULL+soft-fail 시 score=0.25 강제
-        if _is_bull_regime and _rsi_oversold and not higher_down and score <= 0.2:
-            score = 0.25
-            logger.info(
-                f"[FX18b-2] BULL soft-fail score 음수 보정 → 0.25 (allow_buy 강제 활성화)"
             )
         allow_buy  = score > 0.2 and not higher_down and mid_agreement
         allow_sell = score < -0.2 and not higher_up
