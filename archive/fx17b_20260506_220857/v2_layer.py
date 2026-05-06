@@ -106,9 +106,7 @@ class V2EnsembleLayer:
                 # [FX15-1-A] BULL/TRENDING_UP/RECOVERY 레짐에서 임계값 0.65→0.60 완화
                 # GlobalRegime은 fallback_regime 인자로 주입됨
                 _fx15_bull_r = str(fallback_regime).upper() in ("BULL", "TRENDING_UP", "RECOVERY")
-                # [FX17b-2] BULL 레짐에서 거부 임계값을 0.70으로 상향
-                # conf 0.65 수준의 신호가 BULL에서 차단되는 문제 해소
-                _fx15_refuse_thr = 0.70 if _fx15_bull_r else 0.65
+                _fx15_refuse_thr = 0.60 if _fx15_bull_r else 0.65
                 if decision.confidence >= _fx15_refuse_thr:
                     _logger.info(
                         f"[V2Layer] {market} v2 거부 conf={decision.confidence:.2f} "
@@ -116,9 +114,9 @@ class V2EnsembleLayer:
                     )
                     return False, combined_conf, 1.0
                 else:
-                    # [FX17b-2] BULL 레짐 conf < 0.70 구간: 거부 취소 → v1 폴백
+                    # [FX15-1-A] BULL 레짐 conf 0.60~0.65 구간: 거부 취소 → v1 폴백
                     _logger.info(
-                        f"[FX17b-2] {market} BULL레짐 v2 거부 완화 "
+                        f"[V2Layer] {market} BULL레짐 v2 거부 완화 "
                         f"conf={decision.confidence:.2f} < thr={_fx15_refuse_thr:.2f} → v1 폴백"
                     )
                     return True, v1_confidence, 1.0

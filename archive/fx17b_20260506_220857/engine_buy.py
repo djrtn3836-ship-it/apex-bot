@@ -651,29 +651,8 @@ class EngineBuyMixin:
                     ob_signal  = ob_analyzer.analyze(market, ob_data)
                     can_buy_ob, ob_reason = ob_analyzer.can_buy(ob_signal)
                     if not can_buy_ob and combined.signal_type == SignalType.BUY:
-                        # [FX17b-1] BULL + RSI 극과매도 → OB 차단 soft-fail
-                        _ob17_regime = str(getattr(
-                            getattr(self, '_global_regime', None), 'value',
-                            getattr(self, '_global_regime', 'UNKNOWN') or 'UNKNOWN'
-                        )).upper()
-                        _ob17_bull = _ob17_regime in ('BULL', 'TRENDING_UP', 'RECOVERY')
-                        _ob17_imb  = getattr(ob_signal, 'imbalance', -1.0)
-                        _ob17_rsi  = float(
-                            df_processed.iloc[-1].get('rsi', 50)
-                            if hasattr(df_processed, 'iloc') else 50
-                        )
-                        # RSI 과매도 여부는 combined.rsi 또는 df 마지막 행 참조
-                        _ob17_oversold = _ob17_rsi <= 25
-                        _ob17_thr      = -0.70 if (_ob17_bull and _ob17_oversold) else -1.0
-                        if _ob17_imb >= _ob17_thr and _ob17_thr > -1.0:
-                            logger.info(
-                                f'[FX17b-1] {market} OB can_buy=False이나 '
-                                f'BULL+RSI과매도({_ob17_rsi:.0f}) imbalance={_ob17_imb:.2f}'
-                                f' ≥ {_ob17_thr:.2f} → soft-fail 통과'
-                            )
-                        else:
-                            logger.info(f"  ({market}): {ob_reason}")
-                            return
+                        logger.info(f"  ({market}): {ob_reason}")
+                        return
                     ob_adj = ob_analyzer.get_confidence_adjustment(
                         ob_signal, trade_side="BUY"
                     )
