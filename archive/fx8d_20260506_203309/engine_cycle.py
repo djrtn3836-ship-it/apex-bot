@@ -207,7 +207,7 @@ class EngineCycleMixin:
         # ── [PENDING-QUEUE] 대기열 처리 + 교체매매 ────────────────
         try:
             import time as _pq_t
-            _TTL_SEC   = 1800  # [FX8-2] 30분(1800초)
+            _TTL_SEC   = 3600  # 기본 30분
                     # scr 점수 비례 동적 TTL 적용 (대기열 추가 시점 기준)
             _REPLACE_SCORE = 0.50   # 교체매매 최소 surge score
             _REPLACE_PNL   = -0.8   # 교체매매 대상 최소 손실 (%)
@@ -1019,24 +1019,14 @@ class EngineCycleMixin:
             for _c in surge_candidates:
                 _m = _c.get("market")
                 if _m:
-                    # [FX8-1] 최초 등록 시각 보존
-                    _existing_ts = self._surge_cache.get(_m, {}).get("_ts", _now)
-                    self._surge_cache[_m] = {**_c, "_ts": _existing_ts}
+                    self._surge_cache[_m] = {**_c, "_ts": _now}
             logger.debug(f"[SurgeCache] {len(self._surge_cache)}개 코인 캐시")
             # SURGE 감지 즉시 _analyze_market 독립 트리거 (대기열 우회)
             import asyncio as _sg_aio
             _open_pos_now = set(self.portfolio.open_positions.keys())
             _buying_now_b = getattr(self, "_buying_markets", set())
-            # [FX8-3] SURGE-TRIGGER 3분 쿨다운
-            if not hasattr(self, "_surge_trigger_cd"):
-                self._surge_trigger_cd = {}
             for _sg_m in list(self._surge_cache.keys()):
                 if _sg_m not in _open_pos_now and _sg_m not in _buying_now_b:
-                    # [FX8-4] 3분 쿨다운 체크
-                    if _now - self._surge_trigger_cd.get(_sg_m, 0) < 180:
-                        logger.debug(f"[SURGE-CD] {_sg_m} 스킵")
-                        continue
-                    self._surge_trigger_cd[_sg_m] = _now
                     logger.info(f"[SURGE-TRIGGER] {_sg_m} 즉시 분석 트리거")
                     _sg_aio.ensure_future(self._analyze_market(_sg_m))
 
