@@ -452,8 +452,6 @@ class EngineBuyMixin:
                         contributing_strategies=["RSI_Divergence"],
                         reasons=[f"[FX13-3] RSI_Divergence BUY 단독 구제 (score={getattr(_rs,'score',0):.2f})"],
                     )
-                    # [FX14-3] 구제된 신호는 감성 패널티 면제
-                    combined._fx14_rescued = True
                     logger.info(
                         f"[FX13-3] {market} RSI_Divergence BUY 구제 "
                         f"score={getattr(_rs,'score',0):.2f} conf={getattr(_rs,'confidence',0):.2f}"
@@ -517,17 +515,8 @@ class EngineBuyMixin:
                 _fx13_gr = str(getattr(getattr(self, "_global_regime", None), "value",
                                getattr(self, "_global_regime", "UNKNOWN") or "UNKNOWN")).upper()
                 _fx13_surge = 0.0
-                # [FX14-2] _market_change_rates null-safe + WebSocket SCR fallback
-                if hasattr(self, "_market_change_rates") and self._market_change_rates:
+                if hasattr(self, "_market_change_rates"):
                     _fx13_surge = self._market_change_rates.get(market, 0.0) * 100
-                if _fx13_surge == 0.0:
-                    # WebSocket SCR 캐시에서 직접 조회 (분석 시점 최신값)
-                    _scr_cache = getattr(self, "_scr_cache", {})
-                    _fx13_surge = float(_scr_cache.get(market, {}).get("scr", 0.0))
-                    if _fx13_surge == 0.0:
-                        # surge_cache score × 100 fallback
-                        _s_cache = getattr(self, "_surge_cache", {})
-                        _fx13_surge = float(_s_cache.get(market, {}).get("change_rate", 0.0)) * 100
                 _fx13_sell_only = (
                     bool(signals)
                     and all(getattr(s, "signal", None) and s.signal.name == "SELL" for s in signals)
@@ -539,7 +528,7 @@ class EngineBuyMixin:
                     and _fx13_surge >= 12.0
                     and _fx13_sell_only
                     and _fx13_ml_buy
-                    and _fx13_ml_conf >= 0.48  # [FX14-2] 0.52→0.48 완화
+                    and _fx13_ml_conf >= 0.52
                 ):
                     from signals.signal_combiner import CombinedSignal as _CS13, SignalType as _ST13
                     logger.info(
