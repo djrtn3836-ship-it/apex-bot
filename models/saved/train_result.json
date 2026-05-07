@@ -1,44 +1,44 @@
 {
   "version": "v3.0",
-  "timestamp": "2026-05-05T03:26:36.123727",
+  "timestamp": "2026-05-07T03:57:07.765590",
   "forward_n": 8,
   "buy_thr": 0.008,
   "sell_thr": -0.01,
   "use_peak": true,
-  "best_val_acc": 0.8213,
+  "best_val_acc": 0.8255,
   "min_val_acc": 0.42,
-  "total_samples": 85304,
+  "total_samples": 85306,
   "label_dist": {
-    "buy": 7955,
-    "hold": 72036,
-    "sell": 5313
+    "buy": 8367,
+    "hold": 71632,
+    "sell": 5307
   },
-  "epochs_trained": 27,
+  "epochs_trained": 60,
   "history": [
     {
-      "epoch": 23,
-      "train_acc": 0.856,
-      "val_acc": 0.8092
+      "epoch": 56,
+      "train_acc": 0.9042,
+      "val_acc": 0.8238
     },
     {
-      "epoch": 24,
-      "train_acc": 0.8582,
-      "val_acc": 0.809
+      "epoch": 57,
+      "train_acc": 0.9015,
+      "val_acc": 0.8231
     },
     {
-      "epoch": 25,
-      "train_acc": 0.8552,
-      "val_acc": 0.8086
+      "epoch": 58,
+      "train_acc": 0.9018,
+      "val_acc": 0.8238
     },
     {
-      "epoch": 26,
-      "train_acc": 0.8605,
-      "val_acc": 0.8134
+      "epoch": 59,
+      "train_acc": 0.9032,
+      "val_acc": 0.8255
     },
     {
-      "epoch": 27,
-      "train_acc": 0.8591,
-      "val_acc": 0.813
+      "epoch": 60,
+      "train_acc": 0.8996,
+      "val_acc": 0.8241
     }
   ],
   "saved": true

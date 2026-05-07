@@ -1611,6 +1611,18 @@ class EngineBuyMixin:
                 _atr_ratio_ps = 1.0
             _is_bear_rev_ps = getattr(signal, "bear_reversal", False)
 
+            # [FX18c] _ml_conf=0 시 signal.confidence 폴백 (EB-4 방지)
+            if _ml_conf <= 0.0:
+                _sig_conf = float(getattr(signal, 'confidence', 0.0))
+                if _sig_conf > 0.0:
+                    logger.info(
+                        f'[FX18c] {market} _ml_conf=0 → signal.conf={_sig_conf:.3f} 폴백'
+                    )
+                    _ml_conf = _sig_conf
+                else:
+                    logger.warning(f'[FX18c] {market} _ml_conf=0 AND signal.conf=0 → 매수 스킵')
+                    self._buying_markets.discard(market)
+                    return
             position_size = self.position_sizer.calculate(
                 total_capital    = krw,
                 strategy         = _strategy_name,
