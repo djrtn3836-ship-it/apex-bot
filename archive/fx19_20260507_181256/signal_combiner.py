@@ -68,7 +68,6 @@ class SignalCombiner:
         StrategyKey.MACD_CROSS:        1.8,
         StrategyKey.SUPERTREND:        1.3,
         StrategyKey.BOLLINGER_SQUEEZE: 1.4,
-        StrategyKey.RSI_DIVERGENCE:    1.4,   # [FX19-1] 명시적 가중치
         StrategyKey.ATR_CHANNEL:       1.0,
         StrategyKey.ORDER_BLOCK_SMC:   1.0,   # [BSF-5] BULL 레짐 복원
         StrategyKey.ML_ENSEMBLE:       1.5,   # [P2-PATCH] 3.0→1.5: 기술전략 대비 균형 복원

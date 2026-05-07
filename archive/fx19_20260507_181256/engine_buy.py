@@ -1594,16 +1594,11 @@ class EngineBuyMixin:
                 hasattr(signal, "contributing_strategies") and
                 "SURGE_FASTENTRY" in (signal.contributing_strategies or [])
             )
-            # [FX19-2] ml_confidence=0 시 confidence 자동 폴백
             _ml_conf = (
                 getattr(signal, "confidence", 0.5)
                 if _is_surge_kelly
-                else (
-                    getattr(signal, "ml_confidence", 0.0)
-                    or getattr(signal, "confidence", 0.5)  # [FX19-2] 0-폴백
-                )
+                else getattr(signal, "ml_confidence", 0.5)
             )
-            _ml_conf = max(0.0, float(_ml_conf))
             # [v2.1] consec_loss + atr_ratio 전달 → position_sizer 내부 통합 처리
             _consec_loss_ps = getattr(self, "_consecutive_loss_count", 0)
             try:
@@ -1616,8 +1611,8 @@ class EngineBuyMixin:
                 _atr_ratio_ps = 1.0
             _is_bear_rev_ps = getattr(signal, "bear_reversal", False)
 
-            # [FX19-3] _ml_conf 저신뢰 시 signal.confidence 폴백 (EB-4 방지)
-            if _ml_conf < 0.40:  # [FX19-3] 0→0.40 확장
+            # [FX18c] _ml_conf=0 시 signal.confidence 폴백 (EB-4 방지)
+            if _ml_conf <= 0.0:
                 _sig_conf = float(getattr(signal, 'confidence', 0.0))
                 if _sig_conf > 0.0:
                     logger.info(
