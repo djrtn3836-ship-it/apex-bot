@@ -246,7 +246,7 @@ class EngineBuyMixin:
                                  getattr(self, "_global_regime", "UNKNOWN") or "UNKNOWN")).upper()
                     _rr_thr = {
                         "BULL":       -0.95,  # BULL: [BSF-2] 더욱 완화 (VAH 근처 허용)
-                        "RECOVERY":   -0.70,  # [FX19-B] 회복장 완화
+                        "RECOVERY":   -0.45,  # 회복: 중간
                         "BEAR_WATCH": -0.30,  # 약세경계: 기존값 유지
                         "BEAR":       -0.20,  # 약세: 엄격
                     }.get(_gr_vp, -0.30)
@@ -1187,7 +1187,7 @@ class EngineBuyMixin:
             _REGIME_MATRIX = {
                 'MACD_Cross':        {
                     'TRENDING_UP': True,  'RANGING': False,
-                    'VOLATILE':    False, 'TRENDING_DOWN': True,  # [FX19-A] RECOVERY반등
+                    'VOLATILE':    False, 'TRENDING_DOWN': False,
                     'BEAR_REVERSAL': False, 'UNKNOWN': True,
                 },
                 'Supertrend':        {
@@ -1207,7 +1207,7 @@ class EngineBuyMixin:
                 },
                 'Bollinger_Squeeze': {
                     'TRENDING_UP': True,  'RANGING': True,
-                    'VOLATILE':    True,  'TRENDING_DOWN': True,  # [FX19-A] RECOVERY반등
+                    'VOLATILE':    True,  'TRENDING_DOWN': False,
                     'BEAR_REVERSAL': True,  'UNKNOWN': True,
                 },
                 'ATR_Channel':       {
